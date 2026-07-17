@@ -1,26 +1,34 @@
-# Hard Counter
+# Hard Counter 문서
 
-NHN Game x AI Hackathon 2026
+Hard Counter는 1991년작 3D 권투 게임 **4D Sports Boxing**의 감성을 현대적인 iPhone 조작 방식으로 재해석하는 복싱 게임 프로젝트다.
 
-## Goal
+이 폴더의 문서는 현재 구현을 기준으로 작성한다. 아직 구현하지 않은 기능은 현재 기능과 섞지 않고 각 문서의 향후 계획에 별도로 표시한다.
 
-A simple 1v1 fighting game focused on counter attacks.
+## 문서 목록
 
-## Current Status
+- [게임 콘셉트](GAME_CONCEPT.md): 게임의 방향, 핵심 경험, 조작과 전투 원칙
+- [프로젝트 구조](PROJECT_STRUCTURE.md): 기술 구성, 폴더와 주요 타입의 책임
+- [개발 가이드](DEVELOPMENT_GUIDE.md): 구현 원칙, 작업 순서, 완료 조건
+- [테스트 가이드](TESTING_GUIDE.md): 빌드 및 실제 조작 검증 항목
+- [Git 및 버전 관리](GIT_WORKFLOW.md): Git Flow, 커밋, 병합, 릴리스 규칙
 
-- Prototype
+## 현재 구현 상태
 
-## Tech Stack
+현재 버전은 iPhone 가로 화면에서 플레이 가능한 싱글 플레이 프로토타입이다.
 
-- Swift
-- SwiftUI
-- SpriteKit
+- 원근감이 적용된 2.5D 복싱 링
+- 상대를 바라보며 움직이는 로우 폴리곤 선수
+- 연속 방향 이동 D-pad
+- 좌우 교대 펀치와 거리 기반 히트 판정
+- 방향 스웨이와 카운터 판정
+- 접근, 후퇴, 사이드 스텝을 섞는 CPU
+- 체력, KO, 햅틱, 히트 스톱, 카메라 흔들림
+- KO 후 명시적인 `다시 하기` 흐름
 
-## Roadmap
+## 기준 플랫폼
 
-- [ ] Player
-- [ ] Punch
-- [ ] Dodge
-- [ ] Hit
-- [ ] Counter
-- [ ] Health
+- UI: SwiftUI
+- 게임 화면: SpriteKit
+- 언어: Swift 5
+- 앱 배포 대상: iOS 17.6 이상
+- 화면 방향: iPhone 가로 모드
