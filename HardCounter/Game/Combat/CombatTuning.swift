@@ -3,8 +3,21 @@ import Foundation
 
 enum CombatTuning {
     static let maximumHealth = 100
+    static let maximumStamina: Double = 60
     static let normalDamage = 18
     static let counterDamage = 34
+
+    static let straightStaminaCost: Double = 7
+    static let smashStaminaCost: Double = 11
+    static let uppercutStaminaCost: Double = 14
+    static let swayStaminaCost: Double = 5
+    static let counterStaminaRefund: Double = 3
+    static let staminaRecoveryPerSecond: Double = 12
+    static let staminaRecoveryDelay: TimeInterval = 0.70
+    static let exhaustedStaminaRecoveryDelay: TimeInterval = 1.20
+    static let lowStaminaThreshold: Double = 15
+    static let minimumExhaustedPerformance: Double = 0.20
+    static let minimumExhaustedFootwork: CGFloat = 0.34
 
     static let punchStartup: TimeInterval = 0.16
     static let punchActive: TimeInterval = 0.07
@@ -64,6 +77,8 @@ enum CombatTuning {
     static let retreatingPunchReachScale: CGFloat = 0.92
     static let drivingPunchReachScale: CGFloat = 1.08
     static let counterPunchReachScale: CGFloat = 1.14
+    static let smashReachScale: CGFloat = 0.88
+    static let uppercutReachScale: CGFloat = 0.78
     static let minimumFighterScreenSeparation: CGFloat = 56
     static let farPerspectiveScale: CGFloat = 0.62
     static let nearPerspectiveScale: CGFloat = 0.82

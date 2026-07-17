@@ -32,6 +32,19 @@ xcodebuild -quiet \
 git diff --check
 ```
 
+## CPU 모션 쇼케이스
+
+멀티터치 조합 기술은 시뮬레이터의 순차 클릭으로 검증하지 않는다. Debug 앱을 설치한 뒤
+다음 실행 인자로 시작하면 CPU가 스트레이트, 스매시, 어퍼컷을 반복해서 시연한다.
+
+```bash
+xcrun simctl launch <SIMULATOR_UDID> com.soonispapa.HardCounter --motion-showcase
+```
+
+각 기술 이름이 화면에 표시되며 CPU 이동과 일반 랜덤 공격은 중지된다. 세 기술은 실제
+전투 엔진에서 `스웨이 → 펀치` 상태 전환을 거치므로 입력 조합 이후의 모션을 같은 조건으로
+비교할 수 있다. 손가락 동시 입력 자체의 인식은 아래 실제 기기 항목에서 별도로 확인한다.
+
 ## 조작 회귀 테스트
 
 ### 이동

@@ -28,11 +28,19 @@ enum PunchMotion: Equatable {
     case counter
 }
 
+enum PunchTechnique: Equatable {
+    case straight
+    case smash
+    case uppercut
+}
+
 struct PunchProfile {
+    var technique: PunchTechnique = .straight
     var motion: PunchMotion = .quick
     var powerScale: Double = 1
     var lateralDrive: Double = 0
     var startupScale: Double = 1
+    var activeScale: Double = 1
     var recoveryScale: Double = 1
 }
 
@@ -79,6 +87,9 @@ enum HitKind {
 
 struct FighterCombatState {
     var health = CombatTuning.maximumHealth
+    var stamina = CombatTuning.maximumStamina
+    var staminaRecoveryBlockedUntil: TimeInterval = 0
+    var lastStaminaUpdateAt: TimeInterval?
     var phase: FighterPhase = .idle
     var phaseEndsAt: TimeInterval = 0
     var counterWindowEndsAt: TimeInterval = 0
@@ -88,16 +99,19 @@ struct FighterCombatState {
     var lastPunchAt: TimeInterval?
     var activeSwayDirection: SwayDirection = .back
     var activeSwayCanEvade = true
+    var activeSwayPerformance: Double = 1
+    var swayWasSuccessful = false
     var swayStartedAt: TimeInterval = 0
 }
 
 enum CombatEvent {
     case phaseChanged(FighterID, FighterPhase)
     case punchStarted(FighterID, PunchHand, PunchProfile)
-    case swayStarted(FighterID, SwayDirection, CGVector)
+    case swayStarted(FighterID, SwayDirection, CGVector, Double)
     case hit(attacker: FighterID, defender: FighterID, kind: HitKind, damage: Int)
     case swayed(defender: FighterID)
     case healthChanged(FighterID, Int)
+    case staminaChanged(FighterID, Double)
     case roundEnded(winner: FighterID)
 }
 
@@ -119,11 +133,14 @@ struct CombatEngine {
         case let .punch(intent):
             let currentState = state(for: fighter)
             let canTransitionFromSway = currentState.phase == .swaying
-                && time >= currentState.swayStartedAt + CombatTuning.swayPunchCancelDelay
+                && (currentState.swayWasSuccessful
+                    || time >= currentState.swayStartedAt + CombatTuning.swayPunchCancelDelay)
             guard currentState.phase == .idle || canTransitionFromSway else { return [] }
+            let technique = punchTechnique(for: currentState)
             let hand = state(for: fighter).nextPunchHand
             let profile = makePunchProfile(
                 hand: hand,
+                technique: technique,
                 intent: intent,
                 state: state(for: fighter),
                 time: time
@@ -132,7 +149,12 @@ struct CombatEngine {
             states[fighter]?.activePunchProfile = profile
             states[fighter]?.nextPunchHand = hand.opposite
             states[fighter]?.lastPunchAt = time
-            return [.punchStarted(fighter, hand, profile)]
+            let staminaEvent = spendStamina(
+                staminaCost(for: technique),
+                for: fighter,
+                at: time
+            )
+            return [staminaEvent, .punchStarted(fighter, hand, profile)]
                 + setPhase(
                     .punchStartup,
                     for: fighter,
@@ -140,10 +162,21 @@ struct CombatEngine {
                 )
         case let .sway(intent):
             guard state(for: fighter).phase == .idle else { return [] }
+            let performance = staminaPerformance(for: state(for: fighter))
             states[fighter]?.activeSwayDirection = intent.direction
             states[fighter]?.activeSwayCanEvade = !intent.isTowardOpponent
+            states[fighter]?.activeSwayPerformance = performance
+            states[fighter]?.swayWasSuccessful = false
             states[fighter]?.swayStartedAt = time
-            return [.swayStarted(fighter, intent.direction, intent.screenDirection)]
+            let staminaEvent = spendStamina(
+                CombatTuning.swayStaminaCost,
+                for: fighter,
+                at: time
+            )
+            return [
+                staminaEvent,
+                .swayStarted(fighter, intent.direction, intent.screenDirection, performance)
+            ]
                 + setPhase(.swaying, for: fighter, until: time + CombatTuning.swayDuration)
         }
     }
@@ -156,6 +189,7 @@ struct CombatEngine {
         var events: [CombatEvent] = []
 
         for fighter in FighterID.allCases {
+            events += recoverStamina(for: fighter, at: time)
             var safetyCount = 0
             while state(for: fighter).phase != .idle,
                   state(for: fighter).phase != .knockedOut,
@@ -174,7 +208,11 @@ struct CombatEngine {
         winner = nil
         states = [.player: FighterCombatState(), .cpu: FighterCombatState()]
         return FighterID.allCases.flatMap { fighter in
-            [CombatEvent.healthChanged(fighter, CombatTuning.maximumHealth), .phaseChanged(fighter, .idle)]
+            [
+                CombatEvent.healthChanged(fighter, CombatTuning.maximumHealth),
+                .staminaChanged(fighter, CombatTuning.maximumStamina),
+                .phaseChanged(fighter, .idle)
+            ]
         }
     }
 
@@ -185,7 +223,12 @@ struct CombatEngine {
     ) -> [CombatEvent] {
         switch state(for: fighter).phase {
         case .punchStartup:
-            var events = setPhase(.punchActive, for: fighter, until: time + CombatTuning.punchActive)
+            let profile = state(for: fighter).activePunchProfile
+            var events = setPhase(
+                .punchActive,
+                for: fighter,
+                until: time + CombatTuning.punchActive * profile.activeScale
+            )
             if canHit(fighter) {
                 events += resolvePunch(from: fighter, at: time)
             }
@@ -210,10 +253,13 @@ struct CombatEngine {
 
         let swayElapsed = time - defenderState.swayStartedAt
         let isInsideSwayWindow = swayElapsed >= CombatTuning.swayEvadeStartup
-            && swayElapsed <= CombatTuning.swayEvadeStartup + CombatTuning.swayEvadeActiveDuration
+            && swayElapsed <= CombatTuning.swayEvadeStartup
+                + CombatTuning.swayEvadeActiveDuration
+                    * (0.55 + defenderState.activeSwayPerformance * 0.45)
         let isValidSwayDirection = defenderState.activeSwayCanEvade
         if defenderState.phase == .swaying, isInsideSwayWindow, isValidSwayDirection {
             states[defender]?.counterWindowEndsAt = time + CombatTuning.counterWindow
+            states[defender]?.swayWasSuccessful = true
             return [.swayed(defender: defender)]
         }
 
@@ -222,7 +268,13 @@ struct CombatEngine {
         let kind: HitKind = isCounter ? .counter : .normal
         let profile = state(for: attacker).activePunchProfile
         let damage = isCounter
-            ? CombatTuning.counterDamage
+            ? max(
+                1,
+                Int(
+                    (Double(CombatTuning.counterDamage)
+                        * min(profile.powerScale / 1.25, 1)).rounded()
+                )
+            )
             : max(1, Int((Double(CombatTuning.normalDamage) * profile.powerScale).rounded()))
         let remainingHealth = max(0, defenderState.health - damage)
         states[defender]?.health = remainingHealth
@@ -232,6 +284,15 @@ struct CombatEngine {
             .hit(attacker: attacker, defender: defender, kind: kind, damage: damage),
             .healthChanged(defender, remainingHealth)
         ]
+
+        if kind == .counter {
+            let refundedStamina = min(
+                state(for: attacker).stamina + CombatTuning.counterStaminaRefund,
+                CombatTuning.maximumStamina
+            )
+            states[attacker]?.stamina = refundedStamina
+            events.append(.staminaChanged(attacker, refundedStamina))
+        }
 
         if remainingHealth == 0 {
             winner = attacker
@@ -256,6 +317,7 @@ struct CombatEngine {
 
     private func makePunchProfile(
         hand: PunchHand,
+        technique: PunchTechnique,
         intent: PunchIntent,
         state: FighterCombatState,
         time: TimeInterval
@@ -287,46 +349,154 @@ struct CombatEngine {
         }
 
         let handScale = hand == .lead ? 0.86 : 1.06
+        let techniquePowerScale: Double
+        switch technique {
+        case .straight: techniquePowerScale = 1
+        case .smash: techniquePowerScale = 1.10
+        case .uppercut: techniquePowerScale = 1.12
+        }
         let forwardScale = 1 + max(intent.forwardDrive, 0) * 0.16
             + min(intent.forwardDrive, 0) * 0.12
         let movementControl = 1 - min(abs(intent.lateralDrive), 1) * 0.035
-        let powerScale = hasCounter
+        let basePowerScale = hasCounter
             ? 1.25
-            : min(max(handScale * rhythmScale * forwardScale * movementControl, 0.66), 1.22)
+            : min(
+                max(
+                    handScale * rhythmScale * forwardScale * movementControl
+                        * techniquePowerScale,
+                    0.66
+                ),
+                1.28
+            )
+        let performance = staminaPerformance(for: state)
+        let powerScale = basePowerScale * performance
+        let fatigueRecoveryScale = 1 + (1 - performance) * 1.65
+        let fatigueStartupScale = 1 + (1 - performance) * 0.65
+        let techniqueStartupScale: Double
+        let techniqueActiveScale: Double
+        let techniqueRecoveryScale: Double
+        switch technique {
+        case .straight:
+            techniqueStartupScale = 1
+            techniqueActiveScale = 1
+            techniqueRecoveryScale = 1
+        case .smash:
+            techniqueStartupScale = 0.94
+            techniqueActiveScale = 2.20
+            techniqueRecoveryScale = 1.08
+        case .uppercut:
+            techniqueStartupScale = 1.05
+            techniqueActiveScale = 2.00
+            techniqueRecoveryScale = 1.16
+        }
 
         switch motion {
         case .quick:
             return PunchProfile(
+                technique: technique,
                 motion: motion,
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
-                startupScale: hand == .lead ? 0.80 : 0.96,
-                recoveryScale: hand == .lead ? 0.82 : 1.02
+                startupScale: (hand == .lead ? 0.80 : 0.96)
+                    * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
+                recoveryScale: (hand == .lead ? 0.82 : 1.02)
+                    * fatigueRecoveryScale * techniqueRecoveryScale
             )
         case .retreating:
             return PunchProfile(
+                technique: technique,
                 motion: motion,
                 powerScale: powerScale * 0.92,
                 lateralDrive: intent.lateralDrive,
-                startupScale: 0.84,
-                recoveryScale: 0.86
+                startupScale: 0.84 * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
+                recoveryScale: 0.86 * fatigueRecoveryScale * techniqueRecoveryScale
             )
         case .driving:
             return PunchProfile(
+                technique: technique,
                 motion: motion,
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
-                startupScale: hand == .lead ? 0.88 : 1.05,
-                recoveryScale: hand == .lead ? 0.94 : 1.12
+                startupScale: (hand == .lead ? 0.88 : 1.05)
+                    * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
+                recoveryScale: (hand == .lead ? 0.94 : 1.12)
+                    * fatigueRecoveryScale * techniqueRecoveryScale
             )
         case .counter:
             return PunchProfile(
+                technique: technique,
                 motion: motion,
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
-                startupScale: 0.68,
-                recoveryScale: 1.08
+                startupScale: 0.68 * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
+                recoveryScale: 1.08 * fatigueRecoveryScale * techniqueRecoveryScale
             )
         }
+    }
+
+    private func punchTechnique(for state: FighterCombatState) -> PunchTechnique {
+        guard state.phase == .swaying else { return .straight }
+        switch state.activeSwayDirection {
+        case .left, .right: return .smash
+        case .forward: return .uppercut
+        case .back: return .straight
+        }
+    }
+
+    private func staminaCost(for technique: PunchTechnique) -> Double {
+        switch technique {
+        case .straight: return CombatTuning.straightStaminaCost
+        case .smash: return CombatTuning.smashStaminaCost
+        case .uppercut: return CombatTuning.uppercutStaminaCost
+        }
+    }
+
+    private func staminaPerformance(for state: FighterCombatState) -> Double {
+        guard state.stamina < CombatTuning.lowStaminaThreshold else { return 1 }
+        let fraction = max(state.stamina / CombatTuning.lowStaminaThreshold, 0)
+        let minimum = CombatTuning.minimumExhaustedPerformance
+        return minimum + fraction * (1 - minimum)
+    }
+
+    private mutating func spendStamina(
+        _ amount: Double,
+        for fighter: FighterID,
+        at time: TimeInterval
+    ) -> CombatEvent {
+        let remaining = max(state(for: fighter).stamina - amount, 0)
+        states[fighter]?.stamina = remaining
+        let recoveryDelay = remaining == 0
+            ? CombatTuning.exhaustedStaminaRecoveryDelay
+            : CombatTuning.staminaRecoveryDelay
+        states[fighter]?.staminaRecoveryBlockedUntil = time + recoveryDelay
+        states[fighter]?.lastStaminaUpdateAt = time
+        return .staminaChanged(fighter, remaining)
+    }
+
+    private mutating func recoverStamina(
+        for fighter: FighterID,
+        at time: TimeInterval
+    ) -> [CombatEvent] {
+        let currentState = state(for: fighter)
+        guard currentState.phase != .knockedOut else { return [] }
+        guard let lastUpdate = currentState.lastStaminaUpdateAt else {
+            states[fighter]?.lastStaminaUpdateAt = time
+            return []
+        }
+        states[fighter]?.lastStaminaUpdateAt = time
+        let recoveryStart = max(lastUpdate, currentState.staminaRecoveryBlockedUntil)
+        guard time > recoveryStart,
+              currentState.stamina < CombatTuning.maximumStamina else { return [] }
+        let recovered = min(
+            currentState.stamina
+                + (time - recoveryStart) * CombatTuning.staminaRecoveryPerSecond,
+            CombatTuning.maximumStamina
+        )
+        states[fighter]?.stamina = recovered
+        return [.staminaChanged(fighter, recovered)]
     }
 }

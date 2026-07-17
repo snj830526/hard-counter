@@ -8,11 +8,13 @@ final class FighterNode: SKNode {
     private var activePunchAimDirection = CGVector(dx: 1, dy: 0)
     private var activeSwayDirection: SwayDirection = .back
     private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
+    private var activeSwayPerformance: CGFloat = 1
     private var locomotion = FighterLocomotionController()
     private var orientation: FighterOrientationController
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
+    private var currentPhase: FighterPhase = .idle
 
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
@@ -53,6 +55,7 @@ final class FighterNode: SKNode {
     required init?(coder aDecoder: NSCoder) { nil }
 
     func show(phase: FighterPhase) {
+        currentPhase = phase
         isInNeutralPose = phase == .idle
         switch phase {
         case .idle:
@@ -64,10 +67,18 @@ final class FighterNode: SKNode {
                 style: .anticipation
             )
         case .punchActive:
-            let snapScale: Double = activePunchProfile.motion == .counter ? 0.50 : 0.64
+            let snapScale: Double
+            switch activePunchProfile.technique {
+            case .straight:
+                snapScale = activePunchProfile.motion == .counter ? 0.50 : 0.64
+            case .smash:
+                snapScale = activePunchProfile.motion == .counter ? 0.46 : 0.52
+            case .uppercut:
+                snapScale = activePunchProfile.motion == .counter ? 0.48 : 0.56
+            }
             transition(
                 to: projectedPunchPose(isActive: true),
-                duration: CombatTuning.punchActive * snapScale,
+                duration: CombatTuning.punchActive * activePunchProfile.activeScale * snapScale,
                 style: .strike
             )
         case .punchRecovery:
@@ -81,7 +92,8 @@ final class FighterNode: SKNode {
                 to: FighterPoseResolver.sway(
                     activeSwayDirection,
                     screenDirection: activeSwayScreenDirection,
-                    facing: facing
+                    facing: facing,
+                    performance: activeSwayPerformance
                 ),
                 duration: CombatTuning.swayDuration * 0.34,
                 style: .evasive
@@ -102,9 +114,14 @@ final class FighterNode: SKNode {
         activePunchAimDirection = opponentDirection
     }
 
-    func prepareSway(_ direction: SwayDirection, screenDirection: CGVector) {
+    func prepareSway(
+        _ direction: SwayDirection,
+        screenDirection: CGVector,
+        performance: Double
+    ) {
         activeSwayDirection = direction
         activeSwayScreenDirection = screenDirection
+        activeSwayPerformance = CGFloat(performance)
     }
 
     private func applyOrientation(_ frame: FighterOrientationFrame) {
@@ -141,6 +158,20 @@ final class FighterNode: SKNode {
             backUpperArm.zPosition = -3
             frontLegAnchor.zPosition = 0
             backLegAnchor.zPosition = -2
+        }
+
+        // Rear-hand attacks can otherwise remain behind the torso in several
+        // quarter-view orientations. Keep the committed striking arm in front
+        // until recovery finishes so the punch silhouette never disappears.
+        switch currentPhase {
+        case .punchStartup, .punchActive, .punchRecovery:
+            if activePunchHand == .lead {
+                frontUpperArm.zPosition = 6
+            } else {
+                backUpperArm.zPosition = 6
+            }
+        case .idle, .swaying, .hit, .knockedOut:
+            break
         }
 
         torso.fillColor = rig.lineColor.withAlphaComponent(
@@ -274,6 +305,7 @@ final class FighterNode: SKNode {
         backLegAnchor.position.y = 36
         locomotion.reset()
         isInNeutralPose = true
+        currentPhase = .idle
         zRotation = 0
         transition(to: .guardPose, duration: CombatTuning.poseResetDuration, style: .settle)
     }
@@ -419,14 +451,28 @@ final class FighterNode: SKNode {
         // Limb geometry points down at angle zero. Convert the opponent's
         // projected screen direction into that local angular convention.
         let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
-        let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
-        let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
-        let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
-        let projectedAngle = baseArmAngle + aimDelta * armProjectionBlend
-        if activePunchHand == .lead {
-            pose.frontUpper += projectedAngle - baseArmAngle
-        } else {
-            pose.backUpper += projectedAngle - baseArmAngle
+        if activePunchProfile.technique == .straight {
+            let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
+            let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
+            let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
+            let projectedAngle = baseArmAngle + aimDelta * armProjectionBlend
+            if activePunchHand == .lead {
+                pose.frontUpper += projectedAngle - baseArmAngle
+            } else {
+                pose.backUpper += projectedAngle - baseArmAngle
+            }
+        } else if activePunchProfile.technique == .smash, isActive {
+            // Keep the elbow below the target line, then drive the forearm up
+            // through it. This gives the smash a long, rising silhouette while
+            // still following opponents around the quarter-view ring.
+            let upperArmAngle = projectedArmAngle - 0.30
+            if activePunchHand == .lead {
+                pose.frontUpper = upperArmAngle
+                pose.frontLower = 0.52
+            } else {
+                pose.backUpper = upperArmAngle - 0.04
+                pose.backLower = 0.58
+            }
         }
 
         let bodyTravel = pose.bodyX
