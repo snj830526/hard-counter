@@ -54,6 +54,41 @@ enum FighterProfile: String, CaseIterable, Identifiable {
 
     var swiftUIColor: Color { Color(uiColor: color) }
 
+    var appearance: FighterAppearance {
+        switch self {
+        case .allRounder:
+            FighterAppearance(
+                skinColor: UIColor(red: 0.82, green: 0.60, blue: 0.42, alpha: 1),
+                skinShadowColor: UIColor(red: 0.52, green: 0.32, blue: 0.22, alpha: 1),
+                kitColor: color,
+                accentColor: UIColor(red: 0.02, green: 0.20, blue: 0.26, alpha: 1),
+                hairColor: UIColor(red: 0.08, green: 0.07, blue: 0.07, alpha: 1),
+                bodyBuild: .balanced,
+                hairStyle: .cropped
+            )
+        case .pressure:
+            FighterAppearance(
+                skinColor: UIColor(red: 0.43, green: 0.25, blue: 0.16, alpha: 1),
+                skinShadowColor: UIColor(red: 0.22, green: 0.12, blue: 0.08, alpha: 1),
+                kitColor: color,
+                accentColor: UIColor(red: 0.30, green: 0.02, blue: 0.04, alpha: 1),
+                hairColor: UIColor(red: 0.08, green: 0.055, blue: 0.04, alpha: 1),
+                bodyBuild: .heavyweight,
+                hairStyle: .shaved
+            )
+        case .outBoxer:
+            FighterAppearance(
+                skinColor: UIColor(red: 0.72, green: 0.47, blue: 0.30, alpha: 1),
+                skinShadowColor: UIColor(red: 0.42, green: 0.24, blue: 0.16, alpha: 1),
+                kitColor: color,
+                accentColor: UIColor(red: 0.12, green: 0.05, blue: 0.32, alpha: 1),
+                hairColor: UIColor(red: 0.16, green: 0.09, blue: 0.055, alpha: 1),
+                bodyBuild: .lean,
+                hairStyle: .swept
+            )
+        }
+    }
+
     var stats: FighterStats {
         switch self {
         case .allRounder:

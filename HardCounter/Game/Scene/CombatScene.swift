@@ -6,8 +6,11 @@ final class CombatScene: SKScene {
     private let cameraRig = SKNode()
     private let arenaNode = SKNode()
     private let ringNode = BoxingRingNode()
-    private lazy var player = FighterNode(facingRight: true, color: fighterProfile.color)
-    private let cpu = FighterNode(facingRight: false, color: .systemOrange)
+    private lazy var player = FighterNode(
+        facingRight: true,
+        appearance: fighterProfile.appearance
+    )
+    private let cpu = FighterNode(facingRight: false, appearance: .cpuRival)
     private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))

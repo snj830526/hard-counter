@@ -54,14 +54,7 @@ struct FighterSelectionView: View {
             selected = fighter
         } label: {
             VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(fighter.swiftUIColor.opacity(0.15))
-                        .frame(width: 74, height: 74)
-                    Image(systemName: "figure.boxing")
-                        .font(.system(size: 45, weight: .bold))
-                        .foregroundStyle(fighter.swiftUIColor)
-                }
+                FighterPortraitView(fighter: fighter)
 
                 VStack(spacing: 1) {
                     Text(fighter.name)
