@@ -8,7 +8,6 @@ enum CombatControlInput {
 }
 
 final class CombatControlsNode: SKNode {
-    private let movementCaptureRadius: CGFloat = 92
     private let movementDeadZone: CGFloat = 9
     private let movementFullSpeedRadius: CGFloat = 58
     private let dpad = SKShapeNode(circleOfRadius: 58)
@@ -20,6 +19,9 @@ final class CombatControlsNode: SKNode {
     private var dpadCenter = CGPoint.zero
     private var punchCenter = CGPoint.zero
     private var swayCenter = CGPoint.zero
+    private var movementCaptureFrame = CGRect.zero
+    private var homeDpadCenter = CGPoint.zero
+    private var isMovementActive = false
 
     override init() {
         super.init()
@@ -31,9 +33,16 @@ final class CombatControlsNode: SKNode {
     required init?(coder aDecoder: NSCoder) { nil }
 
     func layout(in size: CGSize, safeInsets: EdgeInsetsSnapshot) {
-        dpadCenter = CGPoint(x: safeInsets.leading + 82, y: safeInsets.bottom + 72)
+        homeDpadCenter = CGPoint(x: safeInsets.leading + 82, y: safeInsets.bottom + 72)
+        if !isMovementActive { dpadCenter = homeDpadCenter }
         punchCenter = CGPoint(x: size.width - safeInsets.trailing - 69, y: safeInsets.bottom + 77)
         swayCenter = CGPoint(x: size.width - safeInsets.trailing - 158, y: safeInsets.bottom + 58)
+        movementCaptureFrame = CGRect(
+            x: 0,
+            y: 0,
+            width: min(size.width * 0.42, homeDpadCenter.x + 140),
+            height: min(size.height * 0.62, homeDpadCenter.y + 140)
+        )
 
         dpad.position = dpadCenter
         dpadCenterDot.position = dpadCenter
@@ -47,13 +56,27 @@ final class CombatControlsNode: SKNode {
         if distance(from: point, to: punchCenter) <= 48 { return .punch }
         if distance(from: point, to: swayCenter) <= 43 { return .sway }
 
-        let delta = CGVector(dx: point.x - dpadCenter.x, dy: point.y - dpadCenter.y)
-        guard hypot(delta.dx, delta.dy) <= movementCaptureRadius else { return .none }
-        return .movement(directionVector(for: delta))
+        guard movementCaptureFrame.contains(point) else { return .none }
+        return .movement(.zero)
+    }
+
+    func beginMovement(at point: CGPoint) -> CGVector {
+        isMovementActive = true
+        dpadCenter = point
+        dpad.position = dpadCenter
+        dpadCenterDot.position = dpadCenter
+        return .zero
     }
 
     func continuedMovement(at point: CGPoint) -> CGVector {
         directionVector(for: CGVector(dx: point.x - dpadCenter.x, dy: point.y - dpadCenter.y))
+    }
+
+    func endMovement() {
+        isMovementActive = false
+        dpadCenter = homeDpadCenter
+        dpad.position = dpadCenter
+        dpadCenterDot.position = dpadCenter
     }
 
     private func directionVector(for delta: CGVector) -> CGVector {
@@ -74,7 +97,7 @@ final class CombatControlsNode: SKNode {
     func showMovement(_ vector: CGVector?) {
         dpadCenterDot.removeAllActions()
         let offset = vector.map { CGVector(dx: $0.dx * 22, dy: $0.dy * 22) } ?? .zero
-        dpadCenterDot.run(.move(to: CGPoint(x: dpadCenter.x + offset.dx, y: dpadCenter.y + offset.dy), duration: 0.06))
+        dpadCenterDot.position = CGPoint(x: dpadCenter.x + offset.dx, y: dpadCenter.y + offset.dy)
     }
 
     func flash(_ input: CombatControlInput) {
@@ -85,7 +108,10 @@ final class CombatControlsNode: SKNode {
         default: return
         }
         node.removeAction(forKey: "press")
-        node.run(.sequence([.scale(to: 0.88, duration: 0.045), .scale(to: 1, duration: 0.10)]), withKey: "press")
+        node.setScale(0.90)
+        let release = SKAction.scale(to: 1, duration: 0.08)
+        release.timingMode = .easeOut
+        node.run(release, withKey: "press")
     }
 
     private func buildControls() {

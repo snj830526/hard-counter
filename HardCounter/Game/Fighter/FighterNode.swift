@@ -68,18 +68,11 @@ final class FighterNode: SKNode {
             frontLeg: -0.12, backLeg: 0.32
         )
 
-        static let swayUp = Pose(
-            bodyX: -3, bodyY: 10, bodyRotation: -0.07,
-            frontUpper: 0.84, frontLower: 2.50,
-            backUpper: 0.40, backLower: 2.64,
-            frontLeg: -0.10, backLeg: 0.27
-        )
-
-        static let swayDown = Pose(
-            bodyX: -2, bodyY: -12, bodyRotation: 0.06,
-            frontUpper: 0.76, frontLower: 2.56,
-            backUpper: 0.34, backLower: 2.70,
-            frontLeg: -0.36, backLeg: 0.49
+        static let swayForward = Pose(
+            bodyX: 8, bodyRotation: 0.08,
+            frontUpper: 0.80, frontLower: 2.52,
+            backUpper: 0.38, backLower: 2.66,
+            frontLeg: -0.12, backLeg: 0.38
         )
     }
 
@@ -108,6 +101,7 @@ final class FighterNode: SKNode {
     private var gaitPhase: CGFloat = 0
     private var displayedMoveIntensity: CGFloat = 0
     private var lastMoveDirection = CGVector(dx: 1, dy: 0)
+    private var opponentIsTowardCamera = false
 
     init(facingRight: Bool, color: SKColor) {
         facing = facingRight ? 1 : -1
@@ -148,9 +142,8 @@ final class FighterNode: SKNode {
             switch activeSwayDirection {
             case .left: pose = .swayLeft
             case .right: pose = .swayRight
-            case .up: pose = .swayUp
-            case .down: pose = .swayDown
             case .back: pose = .swayBack
+            case .forward: pose = .swayForward
             }
             transition(to: pose, duration: CombatTuning.swayDuration * 0.46)
         case .hit:
@@ -173,9 +166,8 @@ final class FighterNode: SKNode {
         switch direction {
         case .left: activeSwayDirection = .right
         case .right: activeSwayDirection = .left
-        case .up: activeSwayDirection = .up
-        case .down: activeSwayDirection = .down
         case .back: activeSwayDirection = .back
+        case .forward: activeSwayDirection = .forward
         }
     }
 
@@ -187,14 +179,14 @@ final class FighterNode: SKNode {
         let normalizedY = direction.dy / length
         // Keep the last side while nearly head-on. This prevents rapid mirror
         // popping when the fighters cross the same horizontal line.
-        if abs(normalizedX) > 0.18 {
-            facing = normalizedX > 0 ? 1 : -1
-        }
-        let sideAmount = abs(normalizedX)
+        if normalizedX > 0.30 { facing = 1 }
+        if normalizedX < -0.30 { facing = -1 }
         let depthAmount = abs(normalizedY)
         let facingCameraAmount = max(-normalizedY, 0)
         let facingAwayAmount = max(normalizedY, 0)
-        let widthScale = 0.72 + sideAmount * 0.28
+        // The torso should open up as the opponent moves into depth. Compressing
+        // the whole rig in this pose made diagonal and head-on boxers look thin.
+        let widthScale = 0.90 + depthAmount * 0.10
 
         animationRoot.xScale = facing * widthScale
         animationRoot.yScale = 1 + depthAmount * 0.04
@@ -207,7 +199,10 @@ final class FighterNode: SKNode {
         frontLegAnchor.position.x = 5 + depthAmount * 5
         backLegAnchor.position.x = -5 - depthAmount * 5
 
-        if normalizedY < 0 {
+        if normalizedY < -0.18 { opponentIsTowardCamera = true }
+        if normalizedY > 0.18 { opponentIsTowardCamera = false }
+
+        if opponentIsTowardCamera {
             frontUpperArm.zPosition = 4
             backUpperArm.zPosition = 1
             frontLegAnchor.zPosition = 2

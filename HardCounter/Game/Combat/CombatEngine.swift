@@ -45,9 +45,8 @@ enum PunchHand {
 enum SwayDirection: Equatable {
     case left
     case right
-    case up
-    case down
     case back
+    case forward
 }
 
 struct SwayIntent {

@@ -15,22 +15,18 @@ final class BoxingRingNode: SKNode {
     @available(*, unavailable)
     required init?(coder aDecoder: NSCoder) { nil }
 
-    func rebuild(in size: CGSize, safeInsets: EdgeInsetsSnapshot) {
+    func rebuild(in size: CGSize, projection: QuarterViewProjection) {
         backgroundLayer.removeAllChildren()
         foregroundLayer.removeAllChildren()
 
-        let left = safeInsets.leading + 24
-        let right = size.width - safeInsets.trailing - 24
-        let nearY = max(safeInsets.bottom + 66, size.height * 0.22)
-        let farY = size.height * 0.65
-        let nearLeft = CGPoint(x: left, y: nearY)
-        let nearRight = CGPoint(x: right, y: nearY)
-        let farLeft = CGPoint(x: left + size.width * 0.12, y: farY)
-        let farRight = CGPoint(x: right - size.width * 0.12, y: farY)
+        let near = projection.project(CGPoint(x: -QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth))
+        let right = projection.project(CGPoint(x: QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth))
+        let far = projection.project(CGPoint(x: QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth))
+        let left = projection.project(CGPoint(x: -QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth))
 
-        addArenaBackdrop(size: size, farY: farY)
-        addMat(nearLeft: nearLeft, nearRight: nearRight, farLeft: farLeft, farRight: farRight)
-        addPostsAndRopes(nearLeft: nearLeft, nearRight: nearRight, farLeft: farLeft, farRight: farRight)
+        addArenaBackdrop(size: size, farY: max(far.y, left.y))
+        addMat(near: near, right: right, far: far, left: left)
+        addPostsAndRopes(near: near, right: right, far: far, left: left)
     }
 
     private func addArenaBackdrop(size: CGSize, farY: CGFloat) {
@@ -64,31 +60,60 @@ final class BoxingRingNode: SKNode {
         }
     }
 
-    private func addMat(nearLeft: CGPoint, nearRight: CGPoint, farLeft: CGPoint, farRight: CGPoint) {
-        let mat = polygon([nearLeft, nearRight, farRight, farLeft])
+    private func addMat(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
+        let mat = polygon([near, right, far, left])
         mat.fillColor = SKColor(red: 0.20, green: 0.25, blue: 0.29, alpha: 1)
         mat.strokeColor = SKColor(red: 0.48, green: 0.54, blue: 0.56, alpha: 1)
         mat.lineWidth = 3
         mat.zPosition = -2
         backgroundLayer.addChild(mat)
 
-        let centerMark = polygon([
-            CGPoint(x: (nearLeft.x + nearRight.x) / 2 - 45, y: nearLeft.y + 35),
-            CGPoint(x: (nearLeft.x + nearRight.x) / 2 + 45, y: nearLeft.y + 35),
-            CGPoint(x: (farLeft.x + farRight.x) / 2 + 27, y: farLeft.y - 35),
-            CGPoint(x: (farLeft.x + farRight.x) / 2 - 27, y: farLeft.y - 35)
-        ])
+        let center = CGPoint(
+            x: (near.x + right.x + far.x + left.x) / 4,
+            y: (near.y + right.y + far.y + left.y) / 4
+        )
+        let centerMark = polygon([near, right, far, left].map {
+            CGPoint(x: center.x + ($0.x - center.x) * 0.28, y: center.y + ($0.y - center.y) * 0.28)
+        })
         centerMark.fillColor = SKColor.white.withAlphaComponent(0.045)
         centerMark.strokeColor = .clear
         centerMark.zPosition = -1
         backgroundLayer.addChild(centerMark)
 
-        let apronDepth: CGFloat = 20
+        addApron(from: left, to: near, outward: CGVector(dx: -5, dy: -15))
+        addApron(from: near, to: right, outward: CGVector(dx: 8, dy: -14))
+    }
+
+    private func addPostsAndRopes(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
+        let ropeColors: [SKColor] = [
+            SKColor(red: 0.82, green: 0.12, blue: 0.10, alpha: 1),
+            SKColor.white.withAlphaComponent(0.92),
+            SKColor(red: 0.15, green: 0.31, blue: 0.72, alpha: 1)
+        ]
+
+        for level in 0..<3 {
+            let rise = CGFloat(20 + level * 19)
+            let nearRope = CGPoint(x: near.x, y: near.y + rise)
+            let rightRope = CGPoint(x: right.x, y: right.y + rise)
+            let farRope = CGPoint(x: far.x, y: far.y + rise)
+            let leftRope = CGPoint(x: left.x, y: left.y + rise)
+            addLine(from: leftRope, to: farRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
+            addLine(from: farRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
+            addLine(from: leftRope, to: nearRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 31)
+            addLine(from: nearRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 32)
+        }
+
+        addPost(at: far, color: .systemRed, to: backgroundLayer, z: 3)
+        addPost(at: left, color: .systemBlue, to: foregroundLayer, z: 33)
+        addPost(at: right, color: .systemBlue, to: foregroundLayer, z: 33)
+        addPost(at: near, color: .systemRed, to: foregroundLayer, z: 34)
+    }
+
+    private func addApron(from start: CGPoint, to end: CGPoint, outward: CGVector) {
         let apron = polygon([
-            CGPoint(x: nearLeft.x, y: nearLeft.y),
-            CGPoint(x: nearRight.x, y: nearRight.y),
-            CGPoint(x: nearRight.x - 8, y: nearRight.y - apronDepth),
-            CGPoint(x: nearLeft.x + 8, y: nearLeft.y - apronDepth)
+            start, end,
+            CGPoint(x: end.x + outward.dx, y: end.y + outward.dy),
+            CGPoint(x: start.x + outward.dx, y: start.y + outward.dy)
         ])
         apron.fillColor = SKColor(red: 0.08, green: 0.11, blue: 0.14, alpha: 1)
         apron.strokeColor = .black.withAlphaComponent(0.6)
@@ -97,35 +122,9 @@ final class BoxingRingNode: SKNode {
         foregroundLayer.addChild(apron)
     }
 
-    private func addPostsAndRopes(nearLeft: CGPoint, nearRight: CGPoint, farLeft: CGPoint, farRight: CGPoint) {
-        let ropeColors: [SKColor] = [
-            SKColor(red: 0.82, green: 0.12, blue: 0.10, alpha: 1),
-            SKColor.white.withAlphaComponent(0.92),
-            SKColor(red: 0.15, green: 0.31, blue: 0.72, alpha: 1)
-        ]
-
-        for level in 0..<3 {
-            let rise = CGFloat(38 + level * 28)
-            let backLeft = CGPoint(x: farLeft.x, y: farLeft.y + rise)
-            let backRight = CGPoint(x: farRight.x, y: farRight.y + rise)
-            addLine(from: backLeft, to: backRight, color: ropeColors[level], width: 4, to: backgroundLayer, z: 2)
-
-            let frontLeft = CGPoint(x: nearLeft.x, y: nearLeft.y + rise)
-            let frontRight = CGPoint(x: nearRight.x, y: nearRight.y + rise)
-            addLine(from: frontLeft, to: frontRight, color: ropeColors[level], width: 5, to: foregroundLayer, z: 32)
-            addLine(from: frontLeft, to: backLeft, color: ropeColors[level].withAlphaComponent(0.80), width: 4, to: foregroundLayer, z: 31)
-            addLine(from: frontRight, to: backRight, color: ropeColors[level].withAlphaComponent(0.80), width: 4, to: foregroundLayer, z: 31)
-        }
-
-        addPost(at: farLeft, color: .systemRed, to: backgroundLayer, z: 3)
-        addPost(at: farRight, color: .systemBlue, to: backgroundLayer, z: 3)
-        addPost(at: nearLeft, color: .systemBlue, to: foregroundLayer, z: 34)
-        addPost(at: nearRight, color: .systemRed, to: foregroundLayer, z: 34)
-    }
-
     private func addPost(at point: CGPoint, color: SKColor, to layer: SKNode, z: CGFloat) {
-        let post = SKShapeNode(rectOf: CGSize(width: 12, height: 112), cornerRadius: 2)
-        post.position = CGPoint(x: point.x, y: point.y + 55)
+        let post = SKShapeNode(rectOf: CGSize(width: 10, height: 78), cornerRadius: 2)
+        post.position = CGPoint(x: point.x, y: point.y + 38)
         post.fillColor = color
         post.strokeColor = .black.withAlphaComponent(0.65)
         post.lineWidth = 2
