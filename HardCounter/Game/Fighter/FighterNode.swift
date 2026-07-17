@@ -47,24 +47,31 @@ final class FighterNode: SKNode {
         )
 
         static let swayBack = Pose(
-            bodyX: -28, bodyRotation: -0.28,
-            frontUpper: 0.78, frontLower: 2.52,
-            backUpper: 0.35, backLower: 2.72,
-            frontLeg: -0.34, backLeg: 0.48
+            bodyX: -20, bodyRotation: -0.20,
+            frontUpper: 0.82, frontLower: 2.50,
+            backUpper: 0.39, backLower: 2.66,
+            frontLeg: -0.26, backLeg: 0.39
         )
 
         static let swayLeft = Pose(
-            bodyX: -18, bodyRotation: 0.34,
-            frontUpper: 0.82, frontLower: 2.52,
-            backUpper: 0.38, backLower: 2.68,
-            frontLeg: -0.30, backLeg: 0.42
+            bodyX: -12, bodyRotation: 0.24,
+            frontUpper: 0.84, frontLower: 2.50,
+            backUpper: 0.40, backLower: 2.64,
+            frontLeg: -0.23, backLeg: 0.37
         )
 
         static let swayRight = Pose(
-            bodyX: 18, bodyRotation: -0.38,
-            frontUpper: 0.78, frontLower: 2.62,
-            backUpper: 0.42, backLower: 2.55,
-            frontLeg: -0.08, backLeg: 0.30
+            bodyX: 12, bodyRotation: -0.26,
+            frontUpper: 0.82, frontLower: 2.56,
+            backUpper: 0.43, backLower: 2.57,
+            frontLeg: -0.12, backLeg: 0.32
+        )
+
+        static let swayTowardOpponent = Pose(
+            bodyX: 10, bodyRotation: 0.10,
+            frontUpper: 0.85, frontLower: 2.48,
+            backUpper: 0.42, backLower: 2.62,
+            frontLeg: -0.08, backLeg: 0.40
         )
     }
 
@@ -134,8 +141,9 @@ final class FighterNode: SKNode {
             case .left: pose = .swayLeft
             case .right: pose = .swayRight
             case .back: pose = .swayBack
+            case .towardOpponent: pose = .swayTowardOpponent
             }
-            transition(to: pose, duration: CombatTuning.swayDuration * 0.32)
+            transition(to: pose, duration: CombatTuning.swayDuration * 0.46)
         case .hit:
             break
         case .knockedOut:
@@ -157,6 +165,7 @@ final class FighterNode: SKNode {
         case .left: activeSwayDirection = .right
         case .right: activeSwayDirection = .left
         case .back: activeSwayDirection = .back
+        case .towardOpponent: activeSwayDirection = .towardOpponent
         }
     }
 
@@ -212,7 +221,7 @@ final class FighterNode: SKNode {
 
         locomotionClock += deltaTime
         let targetIntensity = min(hypot(movement.dx, movement.dy), 1)
-        let visualResponse: CGFloat = targetIntensity > displayedMoveIntensity ? 10 : 14
+        let visualResponse: CGFloat = targetIntensity > displayedMoveIntensity ? 7.5 : 9.5
         let blend = 1 - CGFloat(exp(-Double(visualResponse) * deltaTime))
         displayedMoveIntensity += (targetIntensity - displayedMoveIntensity) * blend
 
@@ -224,13 +233,13 @@ final class FighterNode: SKNode {
         }
 
         if displayedMoveIntensity > 0.015 {
-            gaitPhase += CGFloat(deltaTime) * (5.2 + displayedMoveIntensity * 3.4)
+            gaitPhase += CGFloat(deltaTime) * (4.4 + displayedMoveIntensity * 2.6)
         }
 
         let localDirectionX = lastMoveDirection.dx * facing
         let step = sin(gaitPhase)
         let stepLift = abs(sin(gaitPhase * 2))
-        let stride = displayedMoveIntensity * (0.13 + abs(lastMoveDirection.dy) * 0.055)
+        let stride = displayedMoveIntensity * (0.11 + abs(lastMoveDirection.dy) * 0.04)
 
         frontLegAnchor.zRotation = step * stride
         backLegAnchor.zRotation = -step * stride
@@ -239,12 +248,12 @@ final class FighterNode: SKNode {
 
         let idleAmount = 1 - displayedMoveIntensity
         let idleBob = sin(CGFloat(locomotionClock) * 5.1) * 1.4 * idleAmount
-        let movingBob = stepLift * 1.55 * displayedMoveIntensity
+        let movingBob = stepLift * 1.20 * displayedMoveIntensity
         locomotionRoot.position = CGPoint(
             x: localDirectionX * displayedMoveIntensity * 1.8,
             y: idleBob + movingBob
         )
-        locomotionRoot.zRotation = -localDirectionX * displayedMoveIntensity * 0.035
+        locomotionRoot.zRotation = -localDirectionX * displayedMoveIntensity * 0.028
         // The chin stays more stable than the rotating shoulders, which keeps
         // the guard readable during punches and changes of direction.
         headAnchor.zRotation = -body.zRotation * 0.38

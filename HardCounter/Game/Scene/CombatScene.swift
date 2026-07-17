@@ -470,8 +470,24 @@ final class CombatScene: SKScene {
 
     private func selectedSwayDirection() -> SwayDirection {
         let movement = combinedMovementVector()
-        if movement.dx < -0.25 { return .left }
-        if movement.dx > 0.25 { return .right }
+        let movementLength = hypot(movement.dx, movement.dy)
+        guard movementLength > 0.18 else { return .back }
+
+        let towardOpponent = CGVector(
+            dx: cpuArenaPosition.x - playerArenaPosition.x,
+            dy: cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let opponentDistance = hypot(towardOpponent.dx, towardOpponent.dy)
+        guard opponentDistance > 0.001 else { return .back }
+
+        let forwardDot = (
+            movement.dx / movementLength * towardOpponent.dx / opponentDistance
+            + movement.dy / movementLength * towardOpponent.dy / opponentDistance
+        )
+        if forwardDot > 0.24 { return .towardOpponent }
+        if forwardDot < -0.18 { return .back }
+        if movement.dx < -0.08 { return .left }
+        if movement.dx > 0.08 { return .right }
         return .back
     }
 

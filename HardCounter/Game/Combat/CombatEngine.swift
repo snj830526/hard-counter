@@ -46,6 +46,7 @@ enum SwayDirection {
     case left
     case right
     case back
+    case towardOpponent
 }
 
 enum FighterPhase: Equatable {
@@ -72,6 +73,8 @@ struct FighterCombatState {
     var activePunchHand: PunchHand = .lead
     var activePunchProfile = PunchProfile()
     var lastPunchAt: TimeInterval?
+    var activeSwayDirection: SwayDirection = .back
+    var swayStartedAt: TimeInterval = 0
 }
 
 enum CombatEvent {
@@ -118,6 +121,8 @@ struct CombatEngine {
                     until: time + CombatTuning.punchStartup * profile.startupScale
                 )
         case let .sway(direction):
+            states[fighter]?.activeSwayDirection = direction
+            states[fighter]?.swayStartedAt = time
             return [.swayStarted(fighter, direction)]
                 + setPhase(.swaying, for: fighter, until: time + CombatTuning.swayDuration)
         }
@@ -183,7 +188,11 @@ struct CombatEngine {
         let defender = attacker.opponent
         let defenderState = state(for: defender)
 
-        if defenderState.phase == .swaying {
+        let swayElapsed = time - defenderState.swayStartedAt
+        let isInsideSwayWindow = swayElapsed >= CombatTuning.swayEvadeStartup
+            && swayElapsed <= CombatTuning.swayEvadeStartup + CombatTuning.swayEvadeActiveDuration
+        let isValidSwayDirection = defenderState.activeSwayDirection != .towardOpponent
+        if defenderState.phase == .swaying, isInsideSwayWindow, isValidSwayDirection {
             states[defender]?.counterWindowEndsAt = time + CombatTuning.counterWindow
             return [.swayed(defender: defender)]
         }
