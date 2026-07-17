@@ -81,7 +81,9 @@ final class CombatScene: SKScene {
     private let arenaZoom: CGFloat = 2.20
 #if DEBUG
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
+    private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private var motionShowcaseController = MotionShowcaseController()
+    private var swayShowcaseController = SwayShowcaseController()
 #endif
 
     init(size: CGSize, fighter: FighterProfile) {
@@ -132,6 +134,7 @@ final class CombatScene: SKScene {
         cpuInputSource.reset(at: gameTime)
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
+        swayShowcaseController.reset(at: gameTime)
 #endif
         haptics.prepare()
         layoutScene()
@@ -152,6 +155,7 @@ final class CombatScene: SKScene {
             cpuInputSource.reset(at: currentTime)
 #if DEBUG
             motionShowcaseController.reset(at: currentTime)
+            swayShowcaseController.reset(at: currentTime)
 #endif
         }
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
@@ -185,6 +189,8 @@ final class CombatScene: SKScene {
 #if DEBUG
         if networkConfiguration != nil {
             updateNetworkCombat(at: currentTime)
+        } else if swayShowcaseEnabled {
+            updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
         } else {
@@ -871,7 +877,7 @@ final class CombatScene: SKScene {
 
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
-        motionShowcaseEnabled
+        motionShowcaseEnabled || swayShowcaseEnabled
 #else
         false
 #endif
@@ -1054,6 +1060,27 @@ final class CombatScene: SKScene {
     }
 
 #if DEBUG
+    private func updateSwayShowcase(at time: TimeInterval) {
+        let towardPlayer = CGVector(
+            dx: -playerToCPUScreenDirection.dx,
+            dy: -playerToCPUScreenDirection.dy
+        )
+        guard let (demo, intent) = swayShowcaseController.command(
+            at: time,
+            state: engine.state(for: .cpu),
+            towardOpponent: towardPlayer
+        ) else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = demo.direction == .forward ? .systemRed : .systemYellow
+        statusLabel.text = demo.label
+        execute(FighterCommand(
+            fighter: .cpu,
+            payload: .action(.sway(intent)),
+            issuedAt: time
+        ))
+    }
+
     private func updateMotionShowcase(at time: TimeInterval) {
         let towardPlayer = CGVector(
             dx: -playerToCPUScreenDirection.dx,
@@ -1315,6 +1342,7 @@ final class CombatScene: SKScene {
         cpuInputSource.reset(at: gameTime)
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
+        swayShowcaseController.reset(at: gameTime)
 #endif
         statusLabel.removeAllActions()
         statusLabel.text = nil

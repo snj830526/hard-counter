@@ -125,35 +125,35 @@ struct FighterPose {
     )
 
     static let swayBack = FighterPose(
-        bodyX: -20, bodyRotation: -0.20, pelvisRotation: 0.055,
-        frontUpper: 0.82, frontLower: 2.50,
-        backUpper: 0.39, backLower: 2.66,
-        frontLeg: 0.23, backLeg: -0.34,
-        frontKnee: -0.20, backKnee: 0.21
+        bodyX: -30, bodyY: 3, bodyRotation: -0.30, pelvisRotation: 0.12,
+        frontUpper: 0.76, frontLower: 2.56,
+        backUpper: 0.34, backLower: 2.72,
+        frontLeg: 0.27, backLeg: -0.38,
+        frontKnee: -0.27, backKnee: 0.29
     )
 
     static let swayLeft = FighterPose(
-        bodyX: -12, bodyRotation: 0.24, pelvisRotation: -0.075,
-        frontUpper: 0.84, frontLower: 2.50,
-        backUpper: 0.40, backLower: 2.64,
-        frontLeg: 0.20, backLeg: -0.31,
-        frontKnee: -0.22, backKnee: 0.18
+        bodyX: -22, bodyY: -3, bodyRotation: 0.32, pelvisRotation: -0.14,
+        frontUpper: 0.78, frontLower: 2.57,
+        backUpper: 0.35, backLower: 2.70,
+        frontLeg: 0.27, backLeg: -0.35,
+        frontKnee: -0.31, backKnee: 0.24
     )
 
     static let swayRight = FighterPose(
-        bodyX: 12, bodyRotation: -0.26, pelvisRotation: 0.08,
-        frontUpper: 0.82, frontLower: 2.56,
-        backUpper: 0.43, backLower: 2.57,
-        frontLeg: 0.12, backLeg: -0.28,
-        frontKnee: -0.14, backKnee: 0.22
+        bodyX: 22, bodyY: -3, bodyRotation: -0.34, pelvisRotation: 0.15,
+        frontUpper: 0.77, frontLower: 2.62,
+        backUpper: 0.38, backLower: 2.64,
+        frontLeg: 0.07, backLeg: -0.37,
+        frontKnee: -0.11, backKnee: 0.32
     )
 
     static let swayForward = FighterPose(
-        bodyX: 8, bodyRotation: 0.08, pelvisRotation: 0.045,
-        frontUpper: 0.80, frontLower: 2.52,
-        backUpper: 0.38, backLower: 2.66,
-        frontLeg: 0.12, backLeg: -0.33,
-        frontKnee: -0.16, backKnee: 0.20
+        bodyX: 16, bodyY: -7, bodyRotation: 0.13, pelvisRotation: -0.06,
+        frontUpper: 0.74, frontLower: 2.62,
+        backUpper: 0.32, backLower: 2.74,
+        frontLeg: 0.07, backLeg: -0.42,
+        frontKnee: -0.25, backKnee: 0.31
     )
 }
 
@@ -169,32 +169,40 @@ enum FighterPoseResolver {
         switch direction {
         case .left:
             pose = .swayLeft
-            distance = 14
+            distance = 25
         case .right:
             pose = .swayRight
-            distance = 14
+            distance = 25
         case .back:
             pose = .swayBack
-            distance = 20
+            distance = 34
         case .forward:
             pose = .swayForward
-            distance = 11
+            distance = 18
         }
 
         let localX = screenDirection.dx * facing
         let localY = screenDirection.dy
         let motionScale = 0.56 + min(max(performance, 0), 1) * 0.44
         pose.bodyX = localX * distance * motionScale
-        pose.bodyY = localY * distance * 0.78 * motionScale
+        pose.bodyY = localY * distance * 0.86 * motionScale
 
-        let tilt: CGFloat = direction == .back ? 0.20 : 0.15
+        let tilt: CGFloat
+        switch direction {
+        case .left, .right: tilt = 0.27
+        case .back: tilt = 0.31
+        case .forward: tilt = 0.18
+        }
         // Depth-direction sways are sold mostly by projected translation. A
         // large 2D rotation here made up/down input look like a sideways fall.
         // animationRoot mirrors rotation as well as position. Use the opposite
         // local sign so the final on-screen lean follows the stick instead of
         // appearing to sway against it after facing is applied.
-        pose.bodyRotation = (-localX * tilt - localY * 0.038) * motionScale
-        pose.pelvisRotation = (localX * tilt * 0.34 + localY * 0.014) * motionScale
+        pose.bodyRotation = (-localX * tilt - localY * 0.065) * motionScale
+        // Keep only a subtle counter-turn in the hips. A large opposite pelvis
+        // rotation makes the independently rendered torso and shorts tear apart
+        // at the waist when the slip reaches its widest point.
+        pose.pelvisRotation = (localX * tilt * 0.18 + localY * 0.012) * motionScale
         return pose
     }
 

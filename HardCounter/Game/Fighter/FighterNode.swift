@@ -95,7 +95,7 @@ final class FighterNode: SKNode {
                     facing: facing,
                     performance: activeSwayPerformance
                 ),
-                duration: CombatTuning.swayDuration * 0.34,
+                duration: CombatTuning.swayDuration * 0.30,
                 style: .evasive
             )
         case .hit:
@@ -354,9 +354,11 @@ final class FighterNode: SKNode {
             node.run(delayed(rotation, by: delay), withKey: "poseRotation")
         }
         let upperDurationScale: Double = style == .strike ? 0.72 : 1
+        let upperTranslationX: CGFloat = style == .evasive ? 0.90 : 0.68
+        let upperTranslationY: CGFloat = style == .evasive ? 0.92 : 0.78
         let upperBodyMove = SKAction.group([
             .move(
-                to: CGPoint(x: pose.bodyX * 0.68, y: pose.bodyY * 0.78),
+                to: CGPoint(x: pose.bodyX * upperTranslationX, y: pose.bodyY * upperTranslationY),
                 duration: duration * upperDurationScale
             ),
             .rotate(
@@ -370,7 +372,7 @@ final class FighterNode: SKNode {
         switch style {
         case .anticipation: upperBodyDelay = duration * 0.09
         case .strike: upperBodyDelay = duration * 0.08
-        case .evasive: upperBodyDelay = duration * 0.14
+        case .evasive: upperBodyDelay = 0
         case .settle: upperBodyDelay = 0
         }
         upperBodyPoseRoot.run(delayed(upperBodyMove, by: upperBodyDelay), withKey: "pose")
@@ -379,12 +381,21 @@ final class FighterNode: SKNode {
         switch style {
         case .strike: pelvisDurationScale = 0.56
         case .anticipation: pelvisDurationScale = 0.76
-        case .evasive: pelvisDurationScale = 0.82
+        case .evasive: pelvisDurationScale = 1
         case .settle: pelvisDurationScale = 0.72
         }
+        // During a sway the pelvis must travel with the rib cage. Letting the
+        // shoulders cover almost the full distance while the hips moved only a
+        // third of it opened a visible gap at the waist. Punches still keep the
+        // smaller hip translation so their torso twist remains distinct.
+        let pelvisTranslationX: CGFloat = style == .evasive ? 0.72 : 0.34
+        let pelvisTranslationY: CGFloat = style == .evasive ? 0.76 : 0.36
         let pelvisMove = SKAction.group([
             .move(
-                to: CGPoint(x: pose.bodyX * 0.34, y: pose.bodyY * 0.36),
+                to: CGPoint(
+                    x: pose.bodyX * pelvisTranslationX,
+                    y: pose.bodyY * pelvisTranslationY
+                ),
                 duration: duration * pelvisDurationScale
             ),
             .rotate(
