@@ -14,6 +14,8 @@ enum CombatTuning {
     static let swayEvadeActiveDuration: TimeInterval = 0.24
     static let counterWindow: TimeInterval = 0.72
     static let punchInputBuffer: TimeInterval = 0.20
+    static let swayPunchBufferGrace: TimeInterval = 0.10
+    static let swayPunchCancelDelay: TimeInterval = 0.12
     static let hitReaction: TimeInterval = 0.24
     static let counterHitReaction: TimeInterval = 0.48
 

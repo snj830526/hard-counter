@@ -107,10 +107,14 @@ struct CombatEngine {
     }
 
     mutating func request(_ action: CombatAction, by fighter: FighterID, at time: TimeInterval) -> [CombatEvent] {
-        guard winner == nil, state(for: fighter).phase == .idle else { return [] }
+        guard winner == nil else { return [] }
 
         switch action {
         case let .punch(intent):
+            let currentState = state(for: fighter)
+            let canTransitionFromSway = currentState.phase == .swaying
+                && time >= currentState.swayStartedAt + CombatTuning.swayPunchCancelDelay
+            guard currentState.phase == .idle || canTransitionFromSway else { return [] }
             let hand = state(for: fighter).nextPunchHand
             let profile = makePunchProfile(
                 hand: hand,
@@ -129,6 +133,7 @@ struct CombatEngine {
                     until: time + CombatTuning.punchStartup * profile.startupScale
                 )
         case let .sway(intent):
+            guard state(for: fighter).phase == .idle else { return [] }
             states[fighter]?.activeSwayDirection = intent.direction
             states[fighter]?.activeSwayCanEvade = !intent.isTowardOpponent
             states[fighter]?.swayStartedAt = time

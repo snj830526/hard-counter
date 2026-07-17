@@ -103,7 +103,14 @@ final class CombatScene: SKScene {
             return
         }
 
-        for touch in touches {
+        // UIKit delivers simultaneous touches as a Set. Resolve SWAY before
+        // PUNCH so a near-simultaneous two-button chain is deterministic and
+        // the punch enters the sway buffer instead of randomly starting first.
+        let orderedTouches = touches.sorted {
+            inputPriority(controls.input(at: $0.location(in: self)))
+                < inputPriority(controls.input(at: $1.location(in: self)))
+        }
+        for touch in orderedTouches {
             let location = touch.location(in: self)
             let input = controls.input(at: location)
             switch input {
@@ -115,10 +122,24 @@ final class CombatScene: SKScene {
             case .punch:
                 controls.flash(input)
                 let intent = playerPunchIntent()
+                let playerState = engine.state(for: .player)
                 let events = engine.request(.punch(intent), by: .player, at: gameTime)
                 if events.isEmpty {
                     bufferedPlayerPunch = intent
-                    bufferedPunchExpiresAt = gameTime + CombatTuning.punchInputBuffer
+                    let normalExpiry = gameTime + CombatTuning.punchInputBuffer
+                    if playerState.phase == .swaying {
+                        // A punch pressed during a sway is an intentional chain.
+                        // Preserve it through the full sway instead of letting the
+                        // generic short input buffer expire before neutral returns.
+                        bufferedPunchExpiresAt = max(
+                            normalExpiry,
+                            playerState.swayStartedAt
+                                + CombatTuning.swayPunchCancelDelay
+                                + CombatTuning.swayPunchBufferGrace
+                        )
+                    } else {
+                        bufferedPunchExpiresAt = normalExpiry
+                    }
                 } else {
                     bufferedPlayerPunch = nil
                 }
@@ -129,6 +150,15 @@ final class CombatScene: SKScene {
             case .none:
                 break
             }
+        }
+    }
+
+    private func inputPriority(_ input: CombatControlInput) -> Int {
+        switch input {
+        case .movement: return 0
+        case .sway: return 1
+        case .punch: return 2
+        case .none: return 3
         }
     }
 
@@ -624,7 +654,10 @@ final class CombatScene: SKScene {
             bufferedPlayerPunch = nil
             return
         }
-        guard engine.state(for: .player).phase == .idle else { return }
+        let playerState = engine.state(for: .player)
+        let canTransitionFromSway = playerState.phase == .swaying
+            && time >= playerState.swayStartedAt + CombatTuning.swayPunchCancelDelay
+        guard playerState.phase == .idle || canTransitionFromSway else { return }
 
         bufferedPlayerPunch = nil
         handle(engine.request(.punch(intent), by: .player, at: time))
@@ -653,6 +686,10 @@ final class CombatScene: SKScene {
             case let .swayStarted(fighter, direction):
                 node(for: fighter).prepareSway(direction)
             case let .hit(_, defender, kind, _):
+                if defender == .player {
+                    bufferedPlayerPunch = nil
+                    bufferedPunchExpiresAt = 0
+                }
                 node(for: defender).playHit(kind)
                 showImpact(kind)
                 haptics.playHit(kind)
