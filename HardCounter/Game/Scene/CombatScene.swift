@@ -79,8 +79,11 @@ final class CombatScene: SKScene {
         gameTime = currentTime
         updateMovement(deltaTime: deltaTime)
 
-        let fightersAreInRange = isWithinPunchRange()
-        handle(engine.update(at: currentTime, canHit: { _ in fightersAreInRange }))
+        let playerCanHit = isWithinPunchRange(for: .player)
+        let cpuCanHit = isWithinPunchRange(for: .cpu)
+        handle(engine.update(at: currentTime, canHit: { fighter in
+            fighter == .player ? playerCanHit : cpuCanHit
+        }))
         processBufferedPunch(at: currentTime)
 
         if cpuController.shouldPunch(at: currentTime, state: engine.state(for: .cpu)) {
@@ -298,7 +301,9 @@ final class CombatScene: SKScene {
             cpuMovement = cpuController.movement(
                 at: gameTime,
                 playerPosition: playerArenaPosition,
-                cpuPosition: cpuArenaPosition
+                cpuPosition: cpuArenaPosition,
+                visibleDistance: visibleFighterDistance(),
+                preferredPunchRange: baseVisiblePunchReach(for: .cpu)
             )
             cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed * deltaTime
             cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed * deltaTime
@@ -387,7 +392,9 @@ final class CombatScene: SKScene {
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
         let distance = hypot(delta.dx, delta.dy)
-        guard distance < CombatTuning.minimumFighterSeparation else { return }
+        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
+        let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
+        guard screenDistance < CombatTuning.minimumFighterScreenSeparation else { return }
 
         let direction: CGVector
         if distance > 0.001 {
@@ -395,7 +402,11 @@ final class CombatScene: SKScene {
         } else {
             direction = CGVector(dx: 1, dy: 0)
         }
-        let correction = CombatTuning.minimumFighterSeparation - distance
+        let projectedUnit = ringProjection.screenVector(forWorldVector: direction)
+        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        guard screenPointsPerWorldPoint > 0.001 else { return }
+        let targetWorldDistance = CombatTuning.minimumFighterScreenSeparation / screenPointsPerWorldPoint
+        let correction = max(targetWorldDistance - distance, 0)
         playerArenaPosition = clampedToRing(CGPoint(
             x: playerArenaPosition.x - direction.dx * correction * 0.5,
             y: playerArenaPosition.y - direction.dy * correction * 0.5
@@ -409,8 +420,12 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let correctedDistance = hypot(correctedDelta.dx, correctedDelta.dy)
-        let remaining = CombatTuning.minimumFighterSeparation - correctedDistance
+        let correctedScreenDelta = ringProjection.screenVector(forWorldVector: correctedDelta)
+        let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy) * arenaZoom
+        let remaining = max(
+            (CombatTuning.minimumFighterScreenSeparation - correctedScreenDistance) / screenPointsPerWorldPoint,
+            0
+        )
         guard remaining > 0.001 else { return }
 
         playerArenaPosition = clampedToRing(CGPoint(
@@ -421,7 +436,12 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let finalRemaining = CombatTuning.minimumFighterSeparation - hypot(finalDelta.dx, finalDelta.dy)
+        let finalScreenDelta = ringProjection.screenVector(forWorldVector: finalDelta)
+        let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy) * arenaZoom
+        let finalRemaining = max(
+            (CombatTuning.minimumFighterScreenSeparation - finalScreenDistance) / screenPointsPerWorldPoint,
+            0
+        )
         if finalRemaining > 0.001 {
             cpuArenaPosition = clampedToRing(CGPoint(
                 x: cpuArenaPosition.x + direction.dx * finalRemaining,
@@ -523,10 +543,38 @@ final class CombatScene: SKScene {
         shadow.zPosition = fighter.zPosition - 1
     }
 
-    private func isWithinPunchRange() -> Bool {
-        let deltaX = playerArenaPosition.x - cpuArenaPosition.x
-        let deltaY = playerArenaPosition.y - cpuArenaPosition.y
-        return hypot(deltaX, deltaY) <= CombatTuning.punchReachAtUnitScale
+    private func isWithinPunchRange(for attacker: FighterID) -> Bool {
+        let profile = engine.state(for: attacker).activePunchProfile
+        let motionReachScale: CGFloat
+        switch profile.motion {
+        case .quick:
+            motionReachScale = 1
+        case .retreating:
+            motionReachScale = CombatTuning.retreatingPunchReachScale
+        case .driving:
+            motionReachScale = CombatTuning.drivingPunchReachScale
+        case .counter:
+            motionReachScale = CombatTuning.counterPunchReachScale
+        }
+        return visibleFighterDistance() <= baseVisiblePunchReach(for: attacker) * motionReachScale
+    }
+
+    private func visibleFighterDistance() -> CGFloat {
+        let delta = CGVector(
+            dx: cpuArenaPosition.x - playerArenaPosition.x,
+            dy: cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
+        return hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
+    }
+
+    private func baseVisiblePunchReach(for attacker: FighterID) -> CGFloat {
+        let attackerPosition = attacker == .player ? playerArenaPosition : cpuArenaPosition
+        let defenderPosition = attacker == .player ? cpuArenaPosition : playerArenaPosition
+        let attackerScale = perspectiveScale(at: attackerPosition)
+        let defenderScale = perspectiveScale(at: defenderPosition)
+        let averageScale = attackerScale * 0.72 + defenderScale * 0.28
+        return CombatTuning.punchReachAtUnitScale * averageScale
     }
 
     private func perspectiveScale(at position: CGPoint) -> CGFloat {

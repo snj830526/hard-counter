@@ -54,8 +54,11 @@ enum CombatTuning {
     static let lateralSpeedMultiplier: CGFloat = 0.90
     static let cpuMoveSpeed: CGFloat = 78
     static let cpuMovementDecisionInterval: ClosedRange<TimeInterval> = 0.55...1.05
-    static let punchReachAtUnitScale: CGFloat = 112
-    static let minimumFighterSeparation: CGFloat = 72
+    static let punchReachAtUnitScale: CGFloat = 108
+    static let retreatingPunchReachScale: CGFloat = 0.92
+    static let drivingPunchReachScale: CGFloat = 1.08
+    static let counterPunchReachScale: CGFloat = 1.14
+    static let minimumFighterScreenSeparation: CGFloat = 56
     static let farPerspectiveScale: CGFloat = 0.62
     static let nearPerspectiveScale: CGFloat = 0.82
 }
