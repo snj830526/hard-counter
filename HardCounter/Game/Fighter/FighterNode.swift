@@ -283,7 +283,7 @@ final class FighterNode: SKNode {
         }
 
         if displayedMoveIntensity > 0.015 {
-            gaitPhase += CGFloat(deltaTime) * (4.6 + displayedMoveIntensity * 2.8)
+            gaitPhase += CGFloat(deltaTime) * (5.2 + displayedMoveIntensity * 3.2)
         }
 
         let localDirectionX = lastMoveDirection.dx * facing
@@ -299,25 +299,31 @@ final class FighterNode: SKNode {
             : lateralDrive * facing >= 0
         let frontSlide = frontFootInitiates ? firstSlide : followSlide
         let backSlide = frontFootInitiates ? followSlide : firstSlide
-        let stride = displayedMoveIntensity * 0.12
+        let stride = displayedMoveIntensity * 0.20
+        let horizontalTravel = abs(localDirectionX) > 0.18
+            ? (localDirectionX >= 0 ? CGFloat(1) : CGFloat(-1))
+            : (forwardDrive >= 0 ? CGFloat(1) : CGFloat(-1))
+        let rootTravel = horizontalTravel * displayedMoveIntensity * 5.5
 
         // Boxing footwork is a shuffle: the foot nearest the travel direction
         // slides first and the other foot restores the stance. Neither leg
         // swings through like a walking gait.
         frontLegAnchor.zRotation = (frontSlide - backSlide * 0.28) * stride
         backLegAnchor.zRotation = -(backSlide - frontSlide * 0.28) * stride
+        frontLegAnchor.position.x += rootTravel * (frontSlide - backSlide * 0.22)
+        backLegAnchor.position.x += rootTravel * (backSlide - frontSlide * 0.22)
         let stanceFlex = 0.025 + displayedMoveIntensity * 0.035
         frontKneeMotionRoot.zRotation = -(stanceFlex
-            + frontSlide * displayedMoveIntensity * 0.22
+            + frontSlide * displayedMoveIntensity * 0.30
             + backSlide * displayedMoveIntensity * 0.035)
         backKneeMotionRoot.zRotation = stanceFlex
-            + backSlide * displayedMoveIntensity * 0.22
+            + backSlide * displayedMoveIntensity * 0.30
             + frontSlide * displayedMoveIntensity * 0.035
         let shufflePulse = min(firstSlide + followSlide, 1)
         let pelvisCompression = -shufflePulse * displayedMoveIntensity * 0.85
         let plantedLegY = 36 - pelvisPoseRoot.position.y - pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + frontSlide * displayedMoveIntensity * 2.8
-        backLegAnchor.position.y = plantedLegY + backSlide * displayedMoveIntensity * 2.8
+        frontLegAnchor.position.y = plantedLegY + frontSlide * displayedMoveIntensity * 4.0
+        backLegAnchor.position.y = plantedLegY + backSlide * displayedMoveIntensity * 4.0
 
         let idleAmount = isInNeutralPose ? 1 - displayedMoveIntensity : 0
         let breath = sin(CGFloat(locomotionClock) * 2.7)
