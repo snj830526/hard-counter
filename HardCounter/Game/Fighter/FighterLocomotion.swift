@@ -270,6 +270,7 @@ enum FighterLegIK {
     static func solve(
         upperAngle: CGFloat,
         kneeAngle: CGFloat,
+        bendDirection: CGFloat,
         footOffset: CGPoint,
         upperLength: CGFloat,
         lowerLength: CGFloat
@@ -300,8 +301,11 @@ enum FighterLegIK {
                 - lowerLength * lowerLength) / (2 * upperLength * lowerLength),
             -1
         ), 1)
-        let bendMagnitude = acos(cosine)
-        let bendSign: CGFloat = kneeAngle < 0 ? -1 : 1
+        // A two-bone chain has two valid solutions for the same foot target.
+        // Choose the anatomical forward bend explicitly instead of deriving it
+        // from a pose angle that may describe the rear leg on the other side.
+        let bendMagnitude = min(acos(cosine), 0.72)
+        let bendSign: CGFloat = bendDirection < 0 ? -1 : 1
         let solvedKnee = bendMagnitude * bendSign
         let targetDirection = atan2(target.x, -target.y)
         let solvedUpper = targetDirection - atan2(

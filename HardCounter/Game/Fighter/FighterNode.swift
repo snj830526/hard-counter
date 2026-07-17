@@ -164,6 +164,7 @@ final class FighterNode: SKNode {
         let frontLegSolution = FighterLegIK.solve(
             upperAngle: frontLeg.zRotation,
             kneeAngle: frontLowerLeg.zRotation,
+            bendDirection: -1,
             footOffset: frame.frontFootOffset,
             upperLength: FighterGeometry.upperLegLength,
             lowerLength: FighterGeometry.lowerLegLength
@@ -171,6 +172,7 @@ final class FighterNode: SKNode {
         let backLegSolution = FighterLegIK.solve(
             upperAngle: backLeg.zRotation,
             kneeAngle: backLowerLeg.zRotation,
+            bendDirection: -1,
             footOffset: frame.backFootOffset,
             upperLength: FighterGeometry.upperLegLength,
             lowerLength: FighterGeometry.lowerLegLength
