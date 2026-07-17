@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 final class LocalInputSource: FighterInputSource {
-    let fighter: FighterID = .player
+    let fighter: FighterID
 
     private var movementTouchID: ObjectIdentifier?
     private var movementVector = CGVector.zero
@@ -10,6 +10,10 @@ final class LocalInputSource: FighterInputSource {
     private var rememberedSwayMovementAt: TimeInterval = -.infinity
     private var bufferedPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
+
+    init(fighter: FighterID = .player) {
+        self.fighter = fighter
+    }
 
     func reset(at time: TimeInterval) {
         movementTouchID = nil

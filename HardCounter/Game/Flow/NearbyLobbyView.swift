@@ -2,7 +2,8 @@ import SwiftUI
 
 struct NearbyLobbyView: View {
     let onBack: () -> Void
-    @StateObject private var service = NearbyLobbyService()
+    let onStart: (NearbyMatchConfiguration) -> Void
+    @ObservedObject var service: NearbyLobbyService
 
     var body: some View {
         ZStack {
@@ -15,12 +16,17 @@ struct NearbyLobbyView: View {
             .padding(.horizontal, 38)
             .padding(.vertical, 20)
         }
-        .onDisappear { service.stop() }
+        .onChange(of: service.matchConfiguration) { _, configuration in
+            if let configuration { onStart(configuration) }
+        }
     }
 
     private var header: some View {
         HStack {
-            Button(action: onBack) {
+            Button {
+                service.stop()
+                onBack()
+            } label: {
                 Label("모드 선택", systemImage: "chevron.left")
                     .font(.system(size: 12, weight: .bold))
             }
@@ -191,7 +197,7 @@ struct NearbyLobbyView: View {
             }
 
             HStack {
-                Text(service.bothPlayersReady ? "양쪽 선수 준비 완료 · 실시간 대전 연결은 다음 단계에서 활성화됩니다" : "선수를 선택한 뒤 준비 버튼을 누르세요")
+                Text(service.bothPlayersReady ? "양쪽 선수 준비 완료 · 경기를 시작합니다" : "선수를 선택한 뒤 준비 버튼을 누르세요")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(service.bothPlayersReady ? .green : .white.opacity(0.48))
                 Spacer()
