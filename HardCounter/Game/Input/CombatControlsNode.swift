@@ -20,6 +20,8 @@ final class CombatControlsNode: SKNode {
     private var punchCenter = CGPoint.zero
     private var swayCenter = CGPoint.zero
     private var movementCaptureFrame = CGRect.zero
+    private var homeDpadCenter = CGPoint.zero
+    private var isMovementActive = false
 
     override init() {
         super.init()
@@ -31,14 +33,15 @@ final class CombatControlsNode: SKNode {
     required init?(coder aDecoder: NSCoder) { nil }
 
     func layout(in size: CGSize, safeInsets: EdgeInsetsSnapshot) {
-        dpadCenter = CGPoint(x: safeInsets.leading + 82, y: safeInsets.bottom + 72)
+        homeDpadCenter = CGPoint(x: safeInsets.leading + 82, y: safeInsets.bottom + 72)
+        if !isMovementActive { dpadCenter = homeDpadCenter }
         punchCenter = CGPoint(x: size.width - safeInsets.trailing - 69, y: safeInsets.bottom + 77)
         swayCenter = CGPoint(x: size.width - safeInsets.trailing - 158, y: safeInsets.bottom + 58)
         movementCaptureFrame = CGRect(
             x: 0,
             y: 0,
-            width: min(size.width * 0.42, dpadCenter.x + 140),
-            height: min(size.height * 0.62, dpadCenter.y + 140)
+            width: min(size.width * 0.42, homeDpadCenter.x + 140),
+            height: min(size.height * 0.62, homeDpadCenter.y + 140)
         )
 
         dpad.position = dpadCenter
@@ -53,13 +56,27 @@ final class CombatControlsNode: SKNode {
         if distance(from: point, to: punchCenter) <= 48 { return .punch }
         if distance(from: point, to: swayCenter) <= 43 { return .sway }
 
-        let delta = CGVector(dx: point.x - dpadCenter.x, dy: point.y - dpadCenter.y)
         guard movementCaptureFrame.contains(point) else { return .none }
-        return .movement(directionVector(for: delta))
+        return .movement(.zero)
+    }
+
+    func beginMovement(at point: CGPoint) -> CGVector {
+        isMovementActive = true
+        dpadCenter = point
+        dpad.position = dpadCenter
+        dpadCenterDot.position = dpadCenter
+        return .zero
     }
 
     func continuedMovement(at point: CGPoint) -> CGVector {
         directionVector(for: CGVector(dx: point.x - dpadCenter.x, dy: point.y - dpadCenter.y))
+    }
+
+    func endMovement() {
+        isMovementActive = false
+        dpadCenter = homeDpadCenter
+        dpad.position = dpadCenter
+        dpadCenterDot.position = dpadCenter
     }
 
     private func directionVector(for delta: CGVector) -> CGVector {

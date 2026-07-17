@@ -101,12 +101,13 @@ final class CombatScene: SKScene {
         }
 
         for touch in touches {
-            let input = controls.input(at: touch.location(in: self))
+            let location = touch.location(in: self)
+            let input = controls.input(at: location)
             switch input {
-            case let .movement(vector):
+            case .movement:
                 guard movementTouchID == nil else { continue }
                 movementTouchID = ObjectIdentifier(touch)
-                movementVector = vector
+                movementVector = controls.beginMovement(at: location)
                 refreshMovementIndicator()
             case .punch:
                 controls.flash(input)
@@ -590,6 +591,7 @@ final class CombatScene: SKScene {
         guard touches.contains(where: { ObjectIdentifier($0) == movementTouchID }) else { return }
         movementTouchID = nil
         movementVector = .zero
+        controls.endMovement()
         refreshMovementIndicator()
     }
 
@@ -631,6 +633,7 @@ final class CombatScene: SKScene {
                 controls.alpha = 0.35
                 movementTouchID = nil
                 movementVector = .zero
+                controls.endMovement()
                 smoothedPlayerMovement = .zero
                 controls.showMovement(nil)
                 layoutScene()
@@ -710,6 +713,7 @@ final class CombatScene: SKScene {
         cpuArenaPosition = .zero
         movementTouchID = nil
         movementVector = .zero
+        controls.endMovement()
         smoothedPlayerMovement = .zero
         bufferedPlayerPunch = nil
         bufferedPunchExpiresAt = 0
