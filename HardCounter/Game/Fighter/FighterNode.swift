@@ -194,7 +194,10 @@ final class FighterNode: SKNode {
         backLegAnchor.zRotation = backLegSolution.hipCorrection
         frontKneeMotionRoot.zRotation = frontLegSolution.kneeCorrection
         backKneeMotionRoot.zRotation = backLegSolution.kneeCorrection
-        let plantedLegY = 36 - pelvisPoseRoot.position.y - frame.pelvisCompression
+        // Negative compression lowers the hips and flexes both knees. The old
+        // subtraction raised the hip on each load/landing beat, producing the
+        // rigid straight-leg pop visible during movement.
+        let plantedLegY = 36 - pelvisPoseRoot.position.y + frame.pelvisCompression
         frontLegAnchor.position.y = plantedLegY
         backLegAnchor.position.y = plantedLegY
         pelvisMotionRoot.position = frame.pelvisPosition

@@ -36,6 +36,8 @@ final class CombatScene: SKScene {
     private var movementTouchID: ObjectIdentifier?
     private var movementVector = CGVector.zero
     private var smoothedPlayerMovement = CGVector.zero
+    private var rememberedSwayMovement = CGVector.zero
+    private var rememberedSwayMovementAt: TimeInterval = -.infinity
     private var bufferedPlayerPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
     private let arenaZoom: CGFloat = 2.20
@@ -168,6 +170,10 @@ final class CombatScene: SKScene {
             guard movementTouchID == identifier else { continue }
             let latestTouch = event?.coalescedTouches(for: touch)?.last ?? touch
             movementVector = controls.continuedMovement(at: latestTouch.location(in: self))
+            if hypot(movementVector.dx, movementVector.dy) > 0.18 {
+                rememberedSwayMovement = movementVector
+                rememberedSwayMovementAt = gameTime
+            }
         }
         refreshMovementIndicator()
     }
@@ -636,8 +642,11 @@ final class CombatScene: SKScene {
     }
 
     private func selectedSwayIntent() -> SwayIntent {
-        SwayInputResolver.resolve(
-            movement: combinedMovementVector(),
+        let liveMovement = combinedMovementVector()
+        let useRememberedDirection = hypot(liveMovement.dx, liveMovement.dy) <= 0.18
+            && gameTime - rememberedSwayMovementAt <= CombatTuning.swayDirectionInputGrace
+        return SwayInputResolver.resolve(
+            movement: useRememberedDirection ? rememberedSwayMovement : liveMovement,
             towardOpponent: ringProjection.screenVector(forWorldVector: CGVector(
                 dx: cpuArenaPosition.x - playerArenaPosition.x,
                 dy: cpuArenaPosition.y - playerArenaPosition.y
@@ -825,6 +834,8 @@ final class CombatScene: SKScene {
         movementVector = .zero
         controls.endMovement()
         smoothedPlayerMovement = .zero
+        rememberedSwayMovement = .zero
+        rememberedSwayMovementAt = -.infinity
         bufferedPlayerPunch = nil
         bufferedPunchExpiresAt = 0
         controls.showMovement(nil)

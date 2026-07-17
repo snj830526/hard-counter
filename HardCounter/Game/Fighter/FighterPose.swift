@@ -124,8 +124,11 @@ enum FighterPoseResolver {
         let tilt: CGFloat = direction == .back ? 0.20 : 0.15
         // Depth-direction sways are sold mostly by projected translation. A
         // large 2D rotation here made up/down input look like a sideways fall.
-        pose.bodyRotation = localX * tilt - localY * 0.038
-        pose.pelvisRotation = -localX * tilt * 0.34 + localY * 0.014
+        // animationRoot mirrors rotation as well as position. Use the opposite
+        // local sign so the final on-screen lean follows the stick instead of
+        // appearing to sway against it after facing is applied.
+        pose.bodyRotation = -localX * tilt - localY * 0.038
+        pose.pelvisRotation = localX * tilt * 0.34 + localY * 0.014
         return pose
     }
 

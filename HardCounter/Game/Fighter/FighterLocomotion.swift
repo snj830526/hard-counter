@@ -62,6 +62,23 @@ struct FighterLocomotionController {
             + inputDirection.dy * stepDirection.dy
         let directionChanged = targetIntensity > 0.05 && directionDot < 0.35
 
+        if targetIntensity > 0.05, stepProgress < 1 {
+            // The root can turn continuously under an analog stick. Let the
+            // current step arc follow that turn instead of holding a rigid
+            // direction until the next footfall.
+            let turnResponse: CGFloat = directionDot < 0 ? 10.5 : 7.5
+            let blend = 1 - CGFloat(exp(-Double(turnResponse) * deltaTime))
+            let blendedDirection = CGVector(
+                dx: stepDirection.dx + (inputDirection.dx - stepDirection.dx) * blend,
+                dy: stepDirection.dy + (inputDirection.dy - stepDirection.dy) * blend
+            )
+            let blendedLength = max(hypot(blendedDirection.dx, blendedDirection.dy), 0.001)
+            stepDirection = CGVector(
+                dx: blendedDirection.dx / blendedLength,
+                dy: blendedDirection.dy / blendedLength
+            )
+        }
+
         // Finish a sharp turn quickly without jumping the animation clock.
         // Skipping directly to the landing phase produced a one-frame foot pop.
         if directionChanged, stepProgress < 1 {
@@ -78,7 +95,7 @@ struct FighterLocomotionController {
         }
 
         if stepProgress < 1 {
-            let stepDuration = 0.50 - Double(stepIntensity) * 0.10
+            let stepDuration = 0.46 - Double(stepIntensity) * 0.08
             stepProgress = min(
                 stepProgress + CGFloat(deltaTime / stepDuration) * stepPlaybackRate,
                 1
@@ -149,7 +166,13 @@ struct FighterLocomotionController {
             )
         }
 
-        let compression = -(preload * 1.70 + landing * 1.05) * motionAmplitude
+        // Stay in a guarded crouch while travelling, then load a little more
+        // before push-off and on landing. This is the low, weighty shuffle that
+        // keeps the torso from looking bolted onto sliding legs.
+        let guardedCrouch = displayedIntensity * 0.72
+        let compression = -(
+            guardedCrouch + preload * 1.45 + landing * 0.90
+        ) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
         let weightLoad = supportSign * preload * motionAmplitude * 3.45
         let weightCatch = -supportSign * landing * motionAmplitude * 2.05
