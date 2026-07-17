@@ -123,6 +123,8 @@ final class FighterNode: SKNode {
     private let backLegAnchor = SKNode()
     private let frontKneeMotionRoot = SKNode()
     private let backKneeMotionRoot = SKNode()
+    private let frontAnkleMotionRoot = SKNode()
+    private let backAnkleMotionRoot = SKNode()
     private let headAnchor = SKNode()
     private let head: SKShapeNode
     private var activePunchHand: PunchHand = .lead
@@ -290,9 +292,12 @@ final class FighterNode: SKNode {
 
         frontLegAnchor.zRotation = step * stride
         backLegAnchor.zRotation = -step * stride
-        frontKneeMotionRoot.zRotation = max(-step, 0) * displayedMoveIntensity * 0.20
-        backKneeMotionRoot.zRotation = max(step, 0) * displayedMoveIntensity * 0.20
-        let pelvisCompression = -footLift * displayedMoveIntensity * 1.8
+        let stanceFlex = displayedMoveIntensity * 0.055
+        frontKneeMotionRoot.zRotation = stanceFlex
+            + max(-step, 0) * displayedMoveIntensity * 0.30
+        backKneeMotionRoot.zRotation = stanceFlex
+            + max(step, 0) * displayedMoveIntensity * 0.30
+        let pelvisCompression = -footLift * displayedMoveIntensity * 2.6
         let plantedLegY = 36 - pelvisPoseRoot.position.y - pelvisCompression
         frontLegAnchor.position.y = plantedLegY + max(-step, 0) * displayedMoveIntensity * 3.2
         backLegAnchor.position.y = plantedLegY + max(step, 0) * displayedMoveIntensity * 3.2
@@ -314,6 +319,15 @@ final class FighterNode: SKNode {
         upperBodyMotionRoot.zRotation = -step * displayedMoveIntensity * 0.026
             - directionalLean * 0.034
             + breath * idleAmount * 0.008
+
+        frontAnkleMotionRoot.zRotation = -(
+            frontLegAnchor.zRotation + frontLeg.zRotation
+                + frontKneeMotionRoot.zRotation + frontLowerLeg.zRotation
+        ) * 0.82
+        backAnkleMotionRoot.zRotation = -(
+            backLegAnchor.zRotation + backLeg.zRotation
+                + backKneeMotionRoot.zRotation + backLowerLeg.zRotation
+        ) * 0.82
 
         locomotionRoot.position = .zero
         locomotionRoot.zRotation = 0
@@ -369,6 +383,8 @@ final class FighterNode: SKNode {
         backLegAnchor.zRotation = 0
         frontKneeMotionRoot.zRotation = 0
         backKneeMotionRoot.zRotation = 0
+        frontAnkleMotionRoot.zRotation = 0
+        backAnkleMotionRoot.zRotation = 0
         frontLegAnchor.position.y = 36
         backLegAnchor.position.y = 36
         displayedMoveIntensity = 0
@@ -398,6 +414,16 @@ final class FighterNode: SKNode {
         torso.strokeColor = .black.withAlphaComponent(0.72)
         torso.lineWidth = 2
         upperBodyPoseRoot.addChild(torso)
+
+        let abdomen = Self.makePolygon([
+            CGPoint(x: -12, y: 18), CGPoint(x: 12, y: 18),
+            CGPoint(x: 11, y: 36), CGPoint(x: -11, y: 36)
+        ])
+        abdomen.fillColor = lineColor.withAlphaComponent(0.84)
+        abdomen.strokeColor = .black.withAlphaComponent(0.58)
+        abdomen.lineWidth = 1.5
+        abdomen.zPosition = -0.2
+        upperBodyPoseRoot.addChild(abdomen)
 
         chestFacet = Self.makePolygon([
             CGPoint(x: -10, y: 36), CGPoint(x: 11, y: 35),
@@ -463,6 +489,7 @@ final class FighterNode: SKNode {
             backLeg,
             lower: backLowerLeg,
             kneeRoot: backKneeMotionRoot,
+            ankleRoot: backAnkleMotionRoot,
             to: backLegAnchor,
             x: -6,
             z: -2
@@ -471,12 +498,13 @@ final class FighterNode: SKNode {
             frontLeg,
             lower: frontLowerLeg,
             kneeRoot: frontKneeMotionRoot,
+            ankleRoot: frontAnkleMotionRoot,
             to: frontLegAnchor,
             x: 6,
             z: 1
         )
-        addShoe(to: backLowerLeg, alpha: 0.78)
-        addShoe(to: frontLowerLeg, alpha: 1)
+        addShoe(to: backAnkleMotionRoot, alpha: 0.78)
+        addShoe(to: frontAnkleMotionRoot, alpha: 1)
         apply(.guardPose)
     }
 
@@ -493,6 +521,7 @@ final class FighterNode: SKNode {
         _ leg: SKNode,
         lower: SKNode,
         kneeRoot: SKNode,
+        ankleRoot: SKNode,
         to anchor: SKNode,
         x: CGFloat,
         z: CGFloat
@@ -502,6 +531,8 @@ final class FighterNode: SKNode {
         leg.position = .zero
         kneeRoot.position = CGPoint(x: 0, y: -Self.upperLegLength)
         lower.position = .zero
+        ankleRoot.position = CGPoint(x: 0, y: -Self.lowerLegLength)
+        lower.addChild(ankleRoot)
         kneeRoot.addChild(lower)
         leg.addChild(kneeRoot)
         addJoint(to: kneeRoot, at: .zero, radius: 6, alpha: z < 0 ? 0.82 : 1)
@@ -519,16 +550,15 @@ final class FighterNode: SKNode {
         lowerArm.addChild(glove)
     }
 
-    private func addShoe(to leg: SKNode, alpha: CGFloat) {
-        let soleY = -Self.lowerLegLength
+    private func addShoe(to ankle: SKNode, alpha: CGFloat) {
         let shoe = Self.makePolygon([
-            CGPoint(x: -5, y: soleY + 2), CGPoint(x: 17, y: soleY - 2),
-            CGPoint(x: 20, y: soleY + 7), CGPoint(x: -5, y: soleY + 10)
+            CGPoint(x: -5, y: 2), CGPoint(x: 17, y: -2),
+            CGPoint(x: 20, y: 7), CGPoint(x: -5, y: 10)
         ])
         shoe.fillColor = lineColor.withAlphaComponent(alpha)
         shoe.strokeColor = .black.withAlphaComponent(0.75)
         shoe.lineWidth = 2
-        leg.addChild(shoe)
+        ankle.addChild(shoe)
     }
 
     private func addJoint(
@@ -581,7 +611,7 @@ final class FighterNode: SKNode {
         let upperDurationScale: Double = style == .strike ? 0.72 : 1
         let upperBodyMove = SKAction.group([
             .move(
-                to: CGPoint(x: pose.bodyX, y: pose.bodyY),
+                to: CGPoint(x: pose.bodyX * 0.68, y: pose.bodyY * 0.78),
                 duration: duration * upperDurationScale
             ),
             .rotate(
@@ -602,7 +632,7 @@ final class FighterNode: SKNode {
         }
         let pelvisMove = SKAction.group([
             .move(
-                to: CGPoint(x: pose.bodyX * 0.20, y: pose.bodyY * 0.25),
+                to: CGPoint(x: pose.bodyX * 0.34, y: pose.bodyY * 0.36),
                 duration: duration * pelvisDurationScale
             ),
             .rotate(
@@ -687,11 +717,11 @@ final class FighterNode: SKNode {
     }
 
     private func apply(_ pose: Pose) {
-        upperBodyPoseRoot.position.x = pose.bodyX
-        upperBodyPoseRoot.position.y = pose.bodyY
+        upperBodyPoseRoot.position.x = pose.bodyX * 0.68
+        upperBodyPoseRoot.position.y = pose.bodyY * 0.78
         upperBodyPoseRoot.zRotation = pose.bodyRotation
-        pelvisPoseRoot.position.x = pose.bodyX * 0.20
-        pelvisPoseRoot.position.y = pose.bodyY * 0.25
+        pelvisPoseRoot.position.x = pose.bodyX * 0.34
+        pelvisPoseRoot.position.y = pose.bodyY * 0.36
         pelvisPoseRoot.zRotation = pose.pelvisRotation
         frontUpperArm.zRotation = pose.frontUpper
         frontLowerArm.zRotation = pose.frontLower
