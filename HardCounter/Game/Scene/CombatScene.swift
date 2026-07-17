@@ -52,6 +52,8 @@ final class CombatScene: SKScene {
     private var lastNetworkStateSentAt: TimeInterval = -.infinity
     private var countdownEndsAt: TimeInterval?
     private var hasCompletedCountdown = false
+    private var localRematchAccepted = false
+    private var remoteRematchAccepted = false
     private var safeInsets = UIEdgeInsets.zero
     private var ringProjection = QuarterViewProjection(
         size: CGSize(width: 844, height: 390),
@@ -200,14 +202,16 @@ final class CombatScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if engine.winner != nil {
             guard touches.contains(where: { restartButton.frame.contains($0.location(in: self)) }) else { return }
-            if let networkConfiguration, networkConfiguration.role != .host { return }
+            if networkConfiguration != nil {
+                nearbyService?.setRematchAccepted(!localRematchAccepted)
+                return
+            }
             restartButton.removeAction(forKey: "press")
             restartButton.run(.sequence([
                 .scale(to: 0.94, duration: 0.045),
                 .scale(to: 1, duration: 0.08),
                 .run { [weak self] in
                     guard let self else { return }
-                    if self.networkConfiguration != nil { self.nearbyService?.sendRestartRound() }
                     self.resetRound()
                 }
             ]), withKey: "press")
@@ -903,6 +907,9 @@ final class CombatScene: SKScene {
         nearbyService.onCombatInput = { [weak self] input in self?.receive(input) }
         nearbyService.onCombatState = { [weak self] state in self?.apply(state) }
         nearbyService.onRestartRound = { [weak self] in self?.resetRound() }
+        nearbyService.onRematchStateChanged = { [weak self] local, remote in
+            self?.updateRematchUI(local: local, remote: remote)
+        }
     }
 
     private func showCountdown(remaining: TimeInterval) {
@@ -1175,7 +1182,7 @@ final class CombatScene: SKScene {
                 statusLabel.zPosition = 161
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
-                restartLabel.text = networkConfiguration?.role == .guest ? "호스트 재시작 대기" : "다시 하기"
+                restartLabel.text = networkConfiguration == nil ? "다시 하기" : "재대결 요청"
                 controls.alpha = 0.35
                 localInputSource.reset(at: gameTime)
                 controls.endMovement()
@@ -1183,6 +1190,9 @@ final class CombatScene: SKScene {
                 cpuMovementSmoother.reset()
                 controls.showMovement(nil)
                 layoutScene()
+                if networkConfiguration != nil, remoteRematchAccepted {
+                    updateRematchUI(local: localRematchAccepted, remote: true)
+                }
             }
         }
     }
@@ -1264,6 +1274,28 @@ final class CombatScene: SKScene {
         ]), withKey: "shake")
     }
 
+    private func updateRematchUI(local: Bool, remote: Bool) {
+        localRematchAccepted = local
+        remoteRematchAccepted = remote
+        guard networkConfiguration != nil, engine.winner != nil else { return }
+
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        if local {
+            restartLabel.text = "요청 취소"
+            statusLabel.text = "상대의 재대결 수락을 기다리는 중"
+            statusLabel.fontColor = .systemYellow
+        } else if remote {
+            restartLabel.text = "재대결 수락"
+            statusLabel.text = "상대가 재대결을 요청했습니다"
+            statusLabel.fontColor = .systemGreen
+        } else {
+            restartLabel.text = "재대결 요청"
+            statusLabel.text = "재대결을 요청하거나 대전을 종료하세요"
+            statusLabel.fontColor = .white
+        }
+    }
+
     private func resetRound() {
         removeAction(forKey: "hitStop")
         arenaNode.speed = 1
@@ -1277,6 +1309,8 @@ final class CombatScene: SKScene {
         playerMovementSmoother.reset()
         cpuMovementSmoother.reset()
         controls.showMovement(nil)
+        localRematchAccepted = false
+        remoteRematchAccepted = false
         handle(engine.reset())
         cpuInputSource.reset(at: gameTime)
 #if DEBUG
