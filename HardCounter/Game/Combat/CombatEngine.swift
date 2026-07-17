@@ -115,7 +115,14 @@ enum CombatEvent {
     case phaseChanged(FighterID, FighterPhase)
     case punchStarted(FighterID, PunchHand, PunchProfile)
     case swayStarted(FighterID, SwayDirection, CGVector, Double)
-    case hit(attacker: FighterID, defender: FighterID, kind: HitKind, damage: Int)
+    case punchMissed(FighterID, PunchProfile)
+    case hit(
+        attacker: FighterID,
+        defender: FighterID,
+        kind: HitKind,
+        damage: Int,
+        profile: PunchProfile
+    )
     case swayed(defender: FighterID)
     case healthChanged(FighterID, Int)
     case staminaChanged(FighterID, Double)
@@ -281,6 +288,8 @@ struct CombatEngine {
             )
             if canHit(fighter) {
                 events += resolvePunch(from: fighter, at: time)
+            } else {
+                events.append(.punchMissed(fighter, profile))
             }
             return events
         case .punchActive:
@@ -300,6 +309,7 @@ struct CombatEngine {
     private mutating func resolvePunch(from attacker: FighterID, at time: TimeInterval) -> [CombatEvent] {
         let defender = attacker.opponent
         let defenderState = state(for: defender)
+        let profile = state(for: attacker).activePunchProfile
 
         let swayElapsed = time - defenderState.swayStartedAt
         let isInsideSwayWindow = swayElapsed >= CombatTuning.swayEvadeStartup
@@ -310,13 +320,15 @@ struct CombatEngine {
         if defenderState.phase == .swaying, isInsideSwayWindow, isValidSwayDirection {
             states[defender]?.counterWindowEndsAt = time + CombatTuning.counterWindow
             states[defender]?.swayWasSuccessful = true
-            return [.swayed(defender: defender)]
+            return [
+                .swayed(defender: defender),
+                .punchMissed(attacker, profile)
+            ]
         }
 
         let counterWindowEndsAt = state(for: attacker).counterWindowEndsAt
         let isCounter = attacker == .player && counterWindowEndsAt > 0 && time <= counterWindowEndsAt
         let kind: HitKind = isCounter ? .counter : .normal
-        let profile = state(for: attacker).activePunchProfile
         let damage = isCounter
             ? max(
                 1,
@@ -331,7 +343,13 @@ struct CombatEngine {
         states[attacker]?.counterWindowEndsAt = 0
 
         var events: [CombatEvent] = [
-            .hit(attacker: attacker, defender: defender, kind: kind, damage: damage),
+            .hit(
+                attacker: attacker,
+                defender: defender,
+                kind: kind,
+                damage: damage,
+                profile: profile
+            ),
             .healthChanged(defender, remainingHealth)
         ]
 

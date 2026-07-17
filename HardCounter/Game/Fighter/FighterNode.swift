@@ -254,21 +254,121 @@ final class FighterNode: SKNode {
         ) * 0.46
     }
 
-    func playHit(_ kind: HitKind) {
-        let distance = kind == .counter ? CombatTuning.counterKnockback : CombatTuning.normalKnockback
-        let duration = kind == .counter ? CombatTuning.counterHitReaction : CombatTuning.hitReaction
-        body.removeAction(forKey: "pose")
+    func playHit(_ kind: HitKind, profile: PunchProfile = PunchProfile()) {
+        let baseDistance = kind == .counter
+            ? CombatTuning.counterKnockback
+            : CombatTuning.normalKnockback
+        let duration = kind == .counter
+            ? CombatTuning.counterHitReaction
+            : CombatTuning.hitReaction
+        let techniqueTravel: CGFloat
+        let lift: CGFloat
+        let recoilRotation: CGFloat
+        switch profile.technique {
+        case .straight:
+            techniqueTravel = 1
+            lift = 1
+            recoilRotation = -0.18
+        case .smash:
+            techniqueTravel = 0.82
+            lift = 4
+            recoilRotation = -0.30
+        case .uppercut:
+            techniqueTravel = 0.52
+            lift = 13
+            recoilRotation = -0.12
+        }
+        let power = CGFloat(min(max(profile.powerScale, 0.65), 1.30))
+        let distance = baseDistance * techniqueTravel * (0.78 + power * 0.22)
+        body.removeAction(forKey: "impact")
+        headAnchor.removeAction(forKey: "impact")
         let recoil = SKAction.group([
-            .moveTo(x: -distance, duration: duration * 0.22),
-            .rotate(toAngle: -0.22, duration: duration * 0.22, shortestUnitArc: true)
+            .move(to: CGPoint(x: -distance, y: lift), duration: duration * 0.20),
+            .rotate(
+                toAngle: recoilRotation,
+                duration: duration * 0.20,
+                shortestUnitArc: true
+            )
         ])
         recoil.timingMode = .easeOut
+        let rebound = SKAction.group([
+            .move(
+                to: CGPoint(x: distance * 0.08, y: -lift * 0.12),
+                duration: duration * 0.26
+            ),
+            .rotate(
+                toAngle: -recoilRotation * 0.12,
+                duration: duration * 0.26,
+                shortestUnitArc: true
+            )
+        ])
+        rebound.timingMode = .easeInEaseOut
         let recover = SKAction.group([
-            .move(to: .zero, duration: duration * 0.70),
-            .rotate(toAngle: 0, duration: duration * 0.70, shortestUnitArc: true)
+            .move(to: .zero, duration: duration * 0.54),
+            .rotate(toAngle: 0, duration: duration * 0.54, shortestUnitArc: true)
         ])
         recover.timingMode = .easeInEaseOut
-        body.run(.sequence([recoil, recover]), withKey: "pose")
+        body.run(.sequence([recoil, rebound, recover]), withKey: "impact")
+
+        let headRecoil = SKAction.move(
+            to: CGPoint(x: -distance * 0.18, y: 108 + lift * 0.58),
+            duration: duration * 0.16
+        )
+        headRecoil.timingMode = .easeOut
+        let headRecover = SKAction.move(
+            to: CGPoint(x: 0, y: 108),
+            duration: duration * 0.60
+        )
+        headRecover.timingMode = .easeInEaseOut
+        headAnchor.run(.sequence([
+            .wait(forDuration: duration * 0.04),
+            headRecoil,
+            headRecover
+        ]), withKey: "impact")
+    }
+
+    func playHitConfirm(_ profile: PunchProfile) {
+        body.removeAction(forKey: "impact")
+        let travel: CGFloat
+        switch profile.technique {
+        case .straight: travel = 2.5
+        case .smash: travel = 4.5
+        case .uppercut: travel = 3.5
+        }
+        let drive = travel * CGFloat(min(max(profile.powerScale, 0.65), 1.30))
+        let followThrough = SKAction.moveTo(x: drive, duration: 0.045)
+        followThrough.timingMode = .easeOut
+        let settle = SKAction.move(to: .zero, duration: 0.11)
+        settle.timingMode = .easeInEaseOut
+        body.run(.sequence([followThrough, settle]), withKey: "impact")
+    }
+
+    func playWhiff(_ profile: PunchProfile) {
+        body.removeAction(forKey: "impact")
+        let travel: CGFloat
+        let drop: CGFloat
+        switch profile.technique {
+        case .straight:
+            travel = 4.5
+            drop = -1
+        case .smash:
+            travel = 7
+            drop = -3
+        case .uppercut:
+            travel = 5.5
+            drop = 3
+        }
+        let overreach = SKAction.group([
+            .move(to: CGPoint(x: travel, y: drop), duration: 0.075),
+            .rotate(toAngle: 0.045, duration: 0.075, shortestUnitArc: true)
+        ])
+        overreach.timingMode = .easeOut
+        let recover = SKAction.group([
+            .move(to: .zero, duration: 0.18),
+            .rotate(toAngle: 0, duration: 0.18, shortestUnitArc: true)
+        ])
+        recover.timingMode = .easeInEaseOut
+        body.run(.sequence([overreach, recover]), withKey: "impact")
     }
 
     func resetPose() {
@@ -291,6 +391,7 @@ final class FighterNode: SKNode {
         upperBodyPoseRoot.position = .zero
         upperBodyPoseRoot.zRotation = 0
         headAnchor.zRotation = 0
+        headAnchor.position = CGPoint(x: 0, y: 108)
         body.position = .zero
         body.zRotation = 0
         body.alpha = 1
