@@ -6,6 +6,7 @@ final class FighterNode: SKNode {
     private var activePunchHand: PunchHand = .lead
     private var activePunchProfile = PunchProfile()
     private var activeSwayDirection: SwayDirection = .back
+    private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
     private var locomotion = FighterLocomotionController()
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
@@ -55,22 +56,14 @@ final class FighterNode: SKNode {
             transition(to: .guardPose, duration: CombatTuning.idleReturnDuration, style: .settle)
         case .punchStartup:
             transition(
-                to: FighterPoseResolver.punch(
-                    hand: activePunchHand,
-                    profile: activePunchProfile,
-                    isActive: false
-                ),
+                to: projectedPunchPose(isActive: false),
                 duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.72,
                 style: .anticipation
             )
         case .punchActive:
             let snapScale: Double = activePunchProfile.motion == .counter ? 0.50 : 0.64
             transition(
-                to: FighterPoseResolver.punch(
-                    hand: activePunchHand,
-                    profile: activePunchProfile,
-                    isActive: true
-                ),
+                to: projectedPunchPose(isActive: true),
                 duration: CombatTuning.punchActive * snapScale,
                 style: .strike
             )
@@ -82,7 +75,11 @@ final class FighterNode: SKNode {
             )
         case .swaying:
             transition(
-                to: FighterPoseResolver.sway(activeSwayDirection),
+                to: FighterPoseResolver.sway(
+                    activeSwayDirection,
+                    screenDirection: activeSwayScreenDirection,
+                    facing: facing
+                ),
                 duration: CombatTuning.swayDuration * 0.34,
                 style: .evasive
             )
@@ -98,17 +95,9 @@ final class FighterNode: SKNode {
         activePunchProfile = profile
     }
 
-    func prepareSway(_ direction: SwayDirection) {
-        guard facing < 0 else {
-            activeSwayDirection = direction
-            return
-        }
-        switch direction {
-        case .left: activeSwayDirection = .right
-        case .right: activeSwayDirection = .left
-        case .back: activeSwayDirection = .back
-        case .forward: activeSwayDirection = .forward
-        }
+    func prepareSway(_ direction: SwayDirection, screenDirection: CGVector) {
+        activeSwayDirection = direction
+        activeSwayScreenDirection = screenDirection
     }
 
     func orient(toward direction: CGVector) {
@@ -391,6 +380,41 @@ final class FighterNode: SKNode {
     private func delayed(_ action: SKAction, by delay: TimeInterval) -> SKAction {
         guard delay > 0 else { return action }
         return .sequence([.wait(forDuration: delay), action])
+    }
+
+    private func projectedPunchPose(isActive: Bool) -> FighterPose {
+        var pose = FighterPoseResolver.punch(
+            hand: activePunchHand,
+            profile: activePunchProfile,
+            isActive: isActive
+        )
+        let localDirection = CGVector(
+            dx: max(opponentDirection.dx * facing, 0.08),
+            dy: opponentDirection.dy
+        )
+        let directionLength = max(hypot(localDirection.dx, localDirection.dy), 0.001)
+        let normalized = CGVector(
+            dx: localDirection.dx / directionLength,
+            dy: localDirection.dy / directionLength
+        )
+
+        // Limb geometry points down at angle zero. Convert the opponent's
+        // projected screen direction into that local angular convention.
+        let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
+        let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
+        let armProjectionBlend: CGFloat = isActive ? 0.92 : 0.28
+        let projectedAngle = baseArmAngle
+            + (projectedArmAngle - baseArmAngle) * armProjectionBlend
+        if activePunchHand == .lead {
+            pose.frontUpper += projectedAngle - baseArmAngle
+        } else {
+            pose.backUpper += projectedAngle - baseArmAngle
+        }
+
+        let bodyTravel = pose.bodyX
+        pose.bodyX = bodyTravel * normalized.dx
+        pose.bodyY += bodyTravel * normalized.dy * 0.72
+        return pose
     }
 
     private func apply(_ pose: FighterPose) {

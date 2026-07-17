@@ -82,12 +82,17 @@ struct FighterLocomotionController {
         }
 
         let phase = stepProgress
-        let launch = pulse(phase, start: 0.03, end: 0.53)
-        let follow = pulse(phase, start: 0.44, end: 0.96)
-        let launchLift = pow(launch, 1.30)
-        let followLift = pow(follow, 1.38)
-        let landing = pulse(phase, start: 0.32, end: 0.82)
-        let preload = pulse(phase, start: 0, end: 0.34)
+        // A boxing shuffle is not two walking arcs. Weight loads onto the
+        // support leg first, the initiating foot travels and lands, then the
+        // support foot catches up while the body settles over the new stance.
+        let launchAdvance = smoothstep(0.11, 0.31, phase)
+        let launchSettle = 1 - smoothstep(0.44, 0.70, phase)
+        let launch = launchAdvance * launchSettle
+        let follow = pulse(phase, start: 0.50, end: 0.96)
+        let launchLift = pow(pulse(phase, start: 0.11, end: 0.43), 1.28)
+        let followLift = pow(pulse(phase, start: 0.51, end: 0.86), 1.34)
+        let landing = pulse(phase, start: 0.30, end: 0.88)
+        let preload = pulse(phase, start: 0, end: 0.30)
 
         let frontSlide = frontFootInitiates ? launch : follow
         let backSlide = frontFootInitiates ? follow : launch

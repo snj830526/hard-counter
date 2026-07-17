@@ -683,8 +683,11 @@ final class CombatScene: SKScene {
                 node(for: fighter).show(phase: phase)
             case let .punchStarted(fighter, hand, profile):
                 node(for: fighter).preparePunch(hand, profile: profile)
-            case let .swayStarted(fighter, direction):
-                node(for: fighter).prepareSway(direction)
+            case let .swayStarted(fighter, direction, screenDirection):
+                node(for: fighter).prepareSway(
+                    direction,
+                    screenDirection: screenDirection
+                )
             case let .hit(_, defender, kind, _):
                 if defender == .player {
                     bufferedPlayerPunch = nil
