@@ -64,7 +64,7 @@ final class FighterNode: SKNode {
                 style: .anticipation
             )
         case .punchActive:
-            let snapScale: Double = activePunchProfile.motion == .counter ? 0.32 : 0.44
+            let snapScale: Double = activePunchProfile.motion == .counter ? 0.50 : 0.64
             transition(
                 to: FighterPoseResolver.punch(
                     hand: activePunchHand,
@@ -172,15 +172,27 @@ final class FighterNode: SKNode {
             deltaTime: deltaTime
         )
 
-        frontLegAnchor.zRotation = frame.frontHipRotation
-        backLegAnchor.zRotation = frame.backHipRotation
-        frontLegAnchor.position.x += frame.frontHipX
-        backLegAnchor.position.x += frame.backHipX
-        frontKneeMotionRoot.zRotation = frame.frontKneeRotation
-        backKneeMotionRoot.zRotation = frame.backKneeRotation
+        let frontLegSolution = FighterLegIK.solve(
+            upperAngle: frontLeg.zRotation,
+            kneeAngle: frontLowerLeg.zRotation,
+            footOffset: frame.frontFootOffset,
+            upperLength: FighterGeometry.upperLegLength,
+            lowerLength: FighterGeometry.lowerLegLength
+        )
+        let backLegSolution = FighterLegIK.solve(
+            upperAngle: backLeg.zRotation,
+            kneeAngle: backLowerLeg.zRotation,
+            footOffset: frame.backFootOffset,
+            upperLength: FighterGeometry.upperLegLength,
+            lowerLength: FighterGeometry.lowerLegLength
+        )
+        frontLegAnchor.zRotation = frontLegSolution.hipCorrection
+        backLegAnchor.zRotation = backLegSolution.hipCorrection
+        frontKneeMotionRoot.zRotation = frontLegSolution.kneeCorrection
+        backKneeMotionRoot.zRotation = backLegSolution.kneeCorrection
         let plantedLegY = 36 - pelvisPoseRoot.position.y - frame.pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + frame.frontHipLift
-        backLegAnchor.position.y = plantedLegY + frame.backHipLift
+        frontLegAnchor.position.y = plantedLegY
+        backLegAnchor.position.y = plantedLegY
         pelvisMotionRoot.position = frame.pelvisPosition
         pelvisMotionRoot.zRotation = frame.pelvisRotation
         upperBodyMotionRoot.position = frame.upperBodyPosition
@@ -293,7 +305,14 @@ final class FighterNode: SKNode {
                 shortestUnitArc: true
             )
             rotation.timingMode = style == .strike ? .easeOut : .easeInEaseOut
-            node.run(rotation, withKey: "poseRotation")
+            let delay = transitionDelay(
+                for: node,
+                style: style,
+                duration: duration,
+                isActiveArm: isActiveArm,
+                isLeg: isLeg
+            )
+            node.run(delayed(rotation, by: delay), withKey: "poseRotation")
         }
         let upperDurationScale: Double = style == .strike ? 0.72 : 1
         let upperBodyMove = SKAction.group([
@@ -308,7 +327,14 @@ final class FighterNode: SKNode {
             )
         ])
         upperBodyMove.timingMode = style == .strike || style == .evasive ? .easeOut : .easeInEaseOut
-        upperBodyPoseRoot.run(upperBodyMove, withKey: "pose")
+        let upperBodyDelay: TimeInterval
+        switch style {
+        case .anticipation: upperBodyDelay = duration * 0.09
+        case .strike: upperBodyDelay = duration * 0.08
+        case .evasive: upperBodyDelay = duration * 0.14
+        case .settle: upperBodyDelay = 0
+        }
+        upperBodyPoseRoot.run(delayed(upperBodyMove, by: upperBodyDelay), withKey: "pose")
 
         let pelvisDurationScale: Double
         switch style {
@@ -330,6 +356,41 @@ final class FighterNode: SKNode {
         ])
         pelvisMove.timingMode = style == .strike || style == .evasive ? .easeOut : .easeInEaseOut
         pelvisPoseRoot.run(pelvisMove, withKey: "pose")
+    }
+
+    private func transitionDelay(
+        for node: SKNode,
+        style: FighterTransitionStyle,
+        duration: TimeInterval,
+        isActiveArm: Bool,
+        isLeg: Bool
+    ) -> TimeInterval {
+        switch style {
+        case .anticipation:
+            if isLeg { return 0 }
+            if isActiveArm {
+                return node === frontLowerArm || node === backLowerArm
+                    ? duration * 0.20 : duration * 0.13
+            }
+            return duration * 0.08
+        case .strike:
+            if isLeg { return 0 }
+            if isActiveArm {
+                return node === frontLowerArm || node === backLowerArm
+                    ? duration * 0.14 : duration * 0.09
+            }
+            return duration * 0.06
+        case .evasive:
+            if isLeg { return 0 }
+            return duration * 0.20
+        case .settle:
+            return 0
+        }
+    }
+
+    private func delayed(_ action: SKAction, by delay: TimeInterval) -> SKAction {
+        guard delay > 0 else { return action }
+        return .sequence([.wait(forDuration: delay), action])
     }
 
     private func apply(_ pose: FighterPose) {

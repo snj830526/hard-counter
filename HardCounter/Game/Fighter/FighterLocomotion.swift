@@ -2,14 +2,8 @@ import CoreGraphics
 import Foundation
 
 struct FighterLocomotionFrame {
-    var frontHipRotation: CGFloat
-    var backHipRotation: CGFloat
-    var frontHipX: CGFloat
-    var backHipX: CGFloat
-    var frontHipLift: CGFloat
-    var backHipLift: CGFloat
-    var frontKneeRotation: CGFloat
-    var backKneeRotation: CGFloat
+    var frontFootOffset: CGPoint
+    var backFootOffset: CGPoint
     var pelvisCompression: CGFloat
     var pelvisPosition: CGPoint
     var pelvisRotation: CGFloat
@@ -121,7 +115,6 @@ struct FighterLocomotionController {
         let frontTravel = travel * (frontSlide - frontSupport * 0.42)
         let backTravel = travel * (backSlide - backSupport * 0.42)
 
-        let stanceFlex = 0.045 + displayedIntensity * 0.055
         let compression = -(preload * 1.70 + landing * 1.05) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
         let weightLoad = supportSign * preload * motionAmplitude * 3.45
@@ -173,18 +166,14 @@ struct FighterLocomotionController {
         )
 
         return FighterLocomotionFrame(
-            frontHipRotation: (frontSlide - backSlide * 0.20) * motionAmplitude * 0.22,
-            backHipRotation: -(backSlide - frontSlide * 0.20) * motionAmplitude * 0.22,
-            frontHipX: frontTravel,
-            backHipX: backTravel,
-            frontHipLift: frontLift * motionAmplitude * 5.4,
-            backHipLift: backLift * motionAmplitude * 5.4,
-            frontKneeRotation: -(stanceFlex
-                + frontLift * motionAmplitude * 0.36
-                + backLift * motionAmplitude * 0.035),
-            backKneeRotation: stanceFlex
-                + backLift * motionAmplitude * 0.36
-                + frontLift * motionAmplitude * 0.035,
+            frontFootOffset: CGPoint(
+                x: frontTravel,
+                y: frontLift * motionAmplitude * 5.4
+            ),
+            backFootOffset: CGPoint(
+                x: backTravel,
+                y: backLift * motionAmplitude * 5.4
+            ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
             pelvisRotation: displayedPelvisRotation,
@@ -264,5 +253,74 @@ struct FighterLocomotionController {
 
     private func sign(_ value: CGFloat) -> CGFloat {
         value >= 0 ? 1 : -1
+    }
+}
+
+struct FighterLegSolution {
+    let hipCorrection: CGFloat
+    let kneeCorrection: CGFloat
+}
+
+enum FighterLegIK {
+    static func solve(
+        upperAngle: CGFloat,
+        kneeAngle: CGFloat,
+        footOffset: CGPoint,
+        upperLength: CGFloat,
+        lowerLength: CGFloat
+    ) -> FighterLegSolution {
+        let baseFoot = endpoint(
+            upperAngle: upperAngle,
+            kneeAngle: kneeAngle,
+            upperLength: upperLength,
+            lowerLength: lowerLength
+        )
+        var target = CGPoint(
+            x: baseFoot.x + footOffset.x,
+            y: baseFoot.y + footOffset.y
+        )
+
+        let minimumReach = abs(upperLength - lowerLength) + 0.01
+        let maximumReach = upperLength + lowerLength - 0.05
+        let targetDistance = max(hypot(target.x, target.y), 0.001)
+        let clampedDistance = min(max(targetDistance, minimumReach), maximumReach)
+        if abs(clampedDistance - targetDistance) > 0.001 {
+            let scale = clampedDistance / targetDistance
+            target.x *= scale
+            target.y *= scale
+        }
+
+        let cosine = min(max(
+            (clampedDistance * clampedDistance - upperLength * upperLength
+                - lowerLength * lowerLength) / (2 * upperLength * lowerLength),
+            -1
+        ), 1)
+        let bendMagnitude = acos(cosine)
+        let bendSign: CGFloat = kneeAngle < 0 ? -1 : 1
+        let solvedKnee = bendMagnitude * bendSign
+        let targetDirection = atan2(target.x, -target.y)
+        let solvedUpper = targetDirection - atan2(
+            lowerLength * sin(solvedKnee),
+            upperLength + lowerLength * cos(solvedKnee)
+        )
+
+        return FighterLegSolution(
+            hipCorrection: solvedUpper - upperAngle,
+            kneeCorrection: solvedKnee - kneeAngle
+        )
+    }
+
+    private static func endpoint(
+        upperAngle: CGFloat,
+        kneeAngle: CGFloat,
+        upperLength: CGFloat,
+        lowerLength: CGFloat
+    ) -> CGPoint {
+        CGPoint(
+            x: upperLength * sin(upperAngle)
+                + lowerLength * sin(upperAngle + kneeAngle),
+            y: -upperLength * cos(upperAngle)
+                - lowerLength * cos(upperAngle + kneeAngle)
+        )
     }
 }
