@@ -286,48 +286,56 @@ final class FighterNode: SKNode {
 
         let localDirectionX = lastMoveDirection.dx * facing
         let step = sin(gaitPhase)
-        let footLift = abs(sin(gaitPhase))
+        let delayedStep = sin(gaitPhase - 0.30)
+        let frontSwing = CGFloat(pow(Double(max(step, 0)), 1.35))
+        let backSwing = CGFloat(pow(Double(max(-step, 0)), 1.35))
+        let supportCompression = min(frontSwing + backSwing, 1)
         let forwardAmount = abs(lastMoveDirection.dy)
-        let stride = displayedMoveIntensity * (0.095 + forwardAmount * 0.045)
+        let stride = displayedMoveIntensity * (0.105 + forwardAmount * 0.055)
 
         frontLegAnchor.zRotation = step * stride
         backLegAnchor.zRotation = -step * stride
-        let stanceFlex = displayedMoveIntensity * 0.055
+        let stanceFlex = displayedMoveIntensity * 0.045
         frontKneeMotionRoot.zRotation = stanceFlex
-            + max(-step, 0) * displayedMoveIntensity * 0.30
+            + frontSwing * displayedMoveIntensity * 0.42
+            + backSwing * displayedMoveIntensity * 0.035
         backKneeMotionRoot.zRotation = stanceFlex
-            + max(step, 0) * displayedMoveIntensity * 0.30
-        let pelvisCompression = -footLift * displayedMoveIntensity * 2.6
+            + backSwing * displayedMoveIntensity * 0.42
+            + frontSwing * displayedMoveIntensity * 0.035
+        let pelvisCompression = -supportCompression * displayedMoveIntensity * 2.1
         let plantedLegY = 36 - pelvisPoseRoot.position.y - pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + max(-step, 0) * displayedMoveIntensity * 3.2
-        backLegAnchor.position.y = plantedLegY + max(step, 0) * displayedMoveIntensity * 3.2
+        frontLegAnchor.position.y = plantedLegY + frontSwing * displayedMoveIntensity * 4.6
+        backLegAnchor.position.y = plantedLegY + backSwing * displayedMoveIntensity * 4.6
 
         let idleAmount = isInNeutralPose ? 1 - displayedMoveIntensity : 0
         let breath = sin(CGFloat(locomotionClock) * 2.7)
         let guardPulse = sin(CGFloat(locomotionClock) * 5.4)
-        let weightTransfer = -step * displayedMoveIntensity * 2.4
+        // The pelvis commits over the supporting foot before the shoulders catch
+        // up. The phase offset removes the clockwork, upper/lower-body lockstep.
+        let weightTransfer = -delayedStep * displayedMoveIntensity * 2.8
         let directionalLean = localDirectionX * displayedMoveIntensity
 
         pelvisMotionRoot.position = CGPoint(x: weightTransfer, y: pelvisCompression)
-        pelvisMotionRoot.zRotation = step * displayedMoveIntensity * 0.018
+        pelvisMotionRoot.zRotation = delayedStep * displayedMoveIntensity * 0.026
             - directionalLean * 0.022
 
         upperBodyMotionRoot.position = CGPoint(
-            x: weightTransfer * 1.18 + directionalLean * 1.8,
-            y: pelvisCompression + breath * idleAmount * 0.85 + guardPulse * idleAmount * 0.25
+            x: weightTransfer * 0.82 + directionalLean * 1.8,
+            y: pelvisCompression * 0.82
+                + breath * idleAmount * 0.85 + guardPulse * idleAmount * 0.25
         )
-        upperBodyMotionRoot.zRotation = -step * displayedMoveIntensity * 0.026
+        upperBodyMotionRoot.zRotation = -step * displayedMoveIntensity * 0.032
             - directionalLean * 0.034
             + breath * idleAmount * 0.008
 
         frontAnkleMotionRoot.zRotation = -(
             frontLegAnchor.zRotation + frontLeg.zRotation
                 + frontKneeMotionRoot.zRotation + frontLowerLeg.zRotation
-        ) * 0.82
+        ) * 0.88 + frontSwing * displayedMoveIntensity * 0.08
         backAnkleMotionRoot.zRotation = -(
             backLegAnchor.zRotation + backLeg.zRotation
                 + backKneeMotionRoot.zRotation + backLowerLeg.zRotation
-        ) * 0.82
+        ) * 0.88 + backSwing * displayedMoveIntensity * 0.08
 
         locomotionRoot.position = .zero
         locomotionRoot.zRotation = 0
