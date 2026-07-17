@@ -181,11 +181,12 @@ final class FighterNode: SKNode {
         // popping when the fighters cross the same horizontal line.
         if normalizedX > 0.30 { facing = 1 }
         if normalizedX < -0.30 { facing = -1 }
-        let sideAmount = abs(normalizedX)
         let depthAmount = abs(normalizedY)
         let facingCameraAmount = max(-normalizedY, 0)
         let facingAwayAmount = max(normalizedY, 0)
-        let widthScale = 0.72 + sideAmount * 0.28
+        // The torso should open up as the opponent moves into depth. Compressing
+        // the whole rig in this pose made diagonal and head-on boxers look thin.
+        let widthScale = 0.90 + depthAmount * 0.10
 
         animationRoot.xScale = facing * widthScale
         animationRoot.yScale = 1 + depthAmount * 0.04
