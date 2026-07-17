@@ -57,6 +57,10 @@ final class CombatScene: SKScene {
     private var bufferedPlayerPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
     private let arenaZoom: CGFloat = 2.20
+#if DEBUG
+    private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
+    private var motionShowcaseController = MotionShowcaseController()
+#endif
 
     override init(size: CGSize) {
         super.init(size: size)
@@ -77,6 +81,9 @@ final class CombatScene: SKScene {
         view.isMultipleTouchEnabled = true
         buildScene()
         cpuController.reset(at: gameTime)
+#if DEBUG
+        motionShowcaseController.reset(at: gameTime)
+#endif
         haptics.prepare()
         layoutScene()
     }
@@ -104,9 +111,17 @@ final class CombatScene: SKScene {
         }))
         processBufferedPunch(at: currentTime)
 
+#if DEBUG
+        if motionShowcaseEnabled {
+            updateMotionShowcase(at: currentTime)
+        } else if cpuController.shouldPunch(at: currentTime, state: engine.state(for: .cpu)) {
+            handle(engine.request(.punch(.neutral), by: .cpu, at: currentTime))
+        }
+#else
         if cpuController.shouldPunch(at: currentTime, state: engine.state(for: .cpu)) {
             handle(engine.request(.punch(.neutral), by: .cpu, at: currentTime))
         }
+#endif
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -391,7 +406,7 @@ final class CombatScene: SKScene {
             playerArenaPosition.y += worldMovement.dy * CombatTuning.playerDepthMoveSpeed * movementMultiplier * deltaTime
         }
 
-        let cpuCanMove = engine.state(for: .cpu).phase == .idle
+        let cpuCanMove = engine.state(for: .cpu).phase == .idle && !isMotionShowcaseEnabled
         var cpuTargetMovement = CGVector.zero
         if cpuCanMove {
             cpuTargetMovement = cpuController.movement(
@@ -755,6 +770,39 @@ final class CombatScene: SKScene {
         )
     }
 
+    private var isMotionShowcaseEnabled: Bool {
+#if DEBUG
+        motionShowcaseEnabled
+#else
+        false
+#endif
+    }
+
+#if DEBUG
+    private func updateMotionShowcase(at time: TimeInterval) {
+        let towardPlayer = CGVector(
+            dx: -playerToCPUScreenDirection.dx,
+            dy: -playerToCPUScreenDirection.dy
+        )
+        guard let command = motionShowcaseController.command(
+            at: time,
+            state: engine.state(for: .cpu),
+            towardOpponent: towardPlayer
+        ) else { return }
+
+        switch command {
+        case let .start(label, intent):
+            statusLabel.removeAllActions()
+            statusLabel.alpha = 1
+            statusLabel.fontColor = .systemYellow
+            statusLabel.text = label
+            handle(engine.request(.sway(intent), by: .cpu, at: time))
+        case .punch:
+            handle(engine.request(.punch(.neutral), by: .cpu, at: time))
+        }
+    }
+#endif
+
     private func processBufferedPunch(at time: TimeInterval) {
         guard let intent = bufferedPlayerPunch else { return }
         guard time <= bufferedPunchExpiresAt else {
@@ -944,6 +992,9 @@ final class CombatScene: SKScene {
         controls.showMovement(nil)
         handle(engine.reset())
         cpuController.reset(at: gameTime)
+#if DEBUG
+        motionShowcaseController.reset(at: gameTime)
+#endif
         statusLabel.removeAllActions()
         statusLabel.text = nil
         statusLabel.alpha = 1
