@@ -8,7 +8,6 @@ enum CombatControlInput {
 }
 
 final class CombatControlsNode: SKNode {
-    private let movementCaptureRadius: CGFloat = 92
     private let movementDeadZone: CGFloat = 9
     private let movementFullSpeedRadius: CGFloat = 58
     private let dpad = SKShapeNode(circleOfRadius: 58)
@@ -20,6 +19,7 @@ final class CombatControlsNode: SKNode {
     private var dpadCenter = CGPoint.zero
     private var punchCenter = CGPoint.zero
     private var swayCenter = CGPoint.zero
+    private var movementCaptureFrame = CGRect.zero
 
     override init() {
         super.init()
@@ -34,6 +34,12 @@ final class CombatControlsNode: SKNode {
         dpadCenter = CGPoint(x: safeInsets.leading + 82, y: safeInsets.bottom + 72)
         punchCenter = CGPoint(x: size.width - safeInsets.trailing - 69, y: safeInsets.bottom + 77)
         swayCenter = CGPoint(x: size.width - safeInsets.trailing - 158, y: safeInsets.bottom + 58)
+        movementCaptureFrame = CGRect(
+            x: 0,
+            y: 0,
+            width: min(size.width * 0.42, dpadCenter.x + 140),
+            height: min(size.height * 0.62, dpadCenter.y + 140)
+        )
 
         dpad.position = dpadCenter
         dpadCenterDot.position = dpadCenter
@@ -48,7 +54,7 @@ final class CombatControlsNode: SKNode {
         if distance(from: point, to: swayCenter) <= 43 { return .sway }
 
         let delta = CGVector(dx: point.x - dpadCenter.x, dy: point.y - dpadCenter.y)
-        guard hypot(delta.dx, delta.dy) <= movementCaptureRadius else { return .none }
+        guard movementCaptureFrame.contains(point) else { return .none }
         return .movement(directionVector(for: delta))
     }
 

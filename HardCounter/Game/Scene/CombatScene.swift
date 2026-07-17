@@ -33,7 +33,8 @@ final class CombatScene: SKScene {
     private var lastUpdateTime: TimeInterval?
     private var playerArenaPosition = CGPoint.zero
     private var cpuArenaPosition = CGPoint.zero
-    private var movementTouches: [ObjectIdentifier: CGVector] = [:]
+    private var movementTouchID: ObjectIdentifier?
+    private var movementVector = CGVector.zero
     private var smoothedPlayerMovement = CGVector.zero
     private var bufferedPlayerPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
@@ -103,7 +104,9 @@ final class CombatScene: SKScene {
             let input = controls.input(at: touch.location(in: self))
             switch input {
             case let .movement(vector):
-                movementTouches[ObjectIdentifier(touch)] = vector
+                guard movementTouchID == nil else { continue }
+                movementTouchID = ObjectIdentifier(touch)
+                movementVector = vector
                 refreshMovementIndicator()
             case .punch:
                 controls.flash(input)
@@ -128,8 +131,9 @@ final class CombatScene: SKScene {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             let identifier = ObjectIdentifier(touch)
-            guard movementTouches[identifier] != nil else { continue }
-            movementTouches[identifier] = controls.continuedMovement(at: touch.location(in: self))
+            guard movementTouchID == identifier else { continue }
+            let latestTouch = event?.coalescedTouches(for: touch)?.last ?? touch
+            movementVector = controls.continuedMovement(at: latestTouch.location(in: self))
         }
         refreshMovementIndicator()
     }
@@ -309,13 +313,7 @@ final class CombatScene: SKScene {
     }
 
     private func combinedMovementVector() -> CGVector {
-        let sum = movementTouches.values.reduce(CGVector.zero) { partial, vector in
-            CGVector(dx: partial.dx + vector.dx, dy: partial.dy + vector.dy)
-        }
-        let length = hypot(sum.dx, sum.dy)
-        guard length > 0 else { return .zero }
-        guard length > 1 else { return sum }
-        return CGVector(dx: sum.dx / length, dy: sum.dy / length)
+        movementVector
     }
 
     private func smoothMovement(toward target: CGVector, deltaTime: TimeInterval) -> CGVector {
@@ -589,7 +587,9 @@ final class CombatScene: SKScene {
     }
 
     private func endMovementTouches(_ touches: Set<UITouch>) {
-        touches.forEach { movementTouches.removeValue(forKey: ObjectIdentifier($0)) }
+        guard touches.contains(where: { ObjectIdentifier($0) == movementTouchID }) else { return }
+        movementTouchID = nil
+        movementVector = .zero
         refreshMovementIndicator()
     }
 
@@ -629,7 +629,8 @@ final class CombatScene: SKScene {
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
                 controls.alpha = 0.35
-                movementTouches.removeAll()
+                movementTouchID = nil
+                movementVector = .zero
                 smoothedPlayerMovement = .zero
                 controls.showMovement(nil)
                 layoutScene()
@@ -707,7 +708,8 @@ final class CombatScene: SKScene {
         cpu.resetPose()
         playerArenaPosition = .zero
         cpuArenaPosition = .zero
-        movementTouches.removeAll()
+        movementTouchID = nil
+        movementVector = .zero
         smoothedPlayerMovement = .zero
         bufferedPlayerPunch = nil
         bufferedPunchExpiresAt = 0
