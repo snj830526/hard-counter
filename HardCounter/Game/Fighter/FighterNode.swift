@@ -9,6 +9,7 @@ final class FighterNode: SKNode {
     private var activeSwayDirection: SwayDirection = .back
     private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
     private var locomotion = FighterLocomotionController()
+    private var orientation: FighterOrientationController
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
@@ -41,6 +42,7 @@ final class FighterNode: SKNode {
 
     init(facingRight: Bool, color: SKColor) {
         facing = facingRight ? 1 : -1
+        orientation = FighterOrientationController(facingRight: facingRight)
         rig = FighterRig(facing: facing, color: color)
         super.init()
         addChild(rig.animationRoot)
@@ -105,20 +107,12 @@ final class FighterNode: SKNode {
         activeSwayScreenDirection = screenDirection
     }
 
-    private func orient(toward direction: CGVector) {
-        let length = hypot(direction.dx, direction.dy)
-        guard length > 0.001 else { return }
-
-        let normalizedX = direction.dx / length
-        let normalizedY = direction.dy / length
-        opponentDirection = CGVector(dx: normalizedX, dy: normalizedY)
-        // Keep the last side while nearly head-on. This prevents rapid mirror
-        // popping when the fighters cross the same horizontal line.
-        if normalizedX > 0.30 { facing = 1 }
-        if normalizedX < -0.30 { facing = -1 }
-        let depthAmount = abs(normalizedY)
-        let facingCameraAmount = max(-normalizedY, 0)
-        let facingAwayAmount = max(normalizedY, 0)
+    private func applyOrientation(_ frame: FighterOrientationFrame) {
+        opponentDirection = frame.direction
+        facing = frame.facing
+        let depthAmount = frame.depthAmount
+        let facingCameraAmount = frame.towardCameraAmount
+        let facingAwayAmount = frame.awayFromCameraAmount
         // The torso should open up as the opponent moves into depth. Compressing
         // the whole rig in this pose made diagonal and head-on boxers look thin.
         let widthScale = 0.90 + depthAmount * 0.10
@@ -134,8 +128,8 @@ final class FighterNode: SKNode {
         frontLegAnchor.position.x = 6 + depthAmount * 6
         backLegAnchor.position.x = -6 - depthAmount * 6
 
-        if normalizedY < -0.18 { opponentIsTowardCamera = true }
-        if normalizedY > 0.18 { opponentIsTowardCamera = false }
+        if frame.direction.dy < -0.18 { opponentIsTowardCamera = true }
+        if frame.direction.dy > 0.18 { opponentIsTowardCamera = false }
 
         if opponentIsTowardCamera {
             frontUpperArm.zPosition = 4
@@ -160,14 +154,19 @@ final class FighterNode: SKNode {
         _ movementState: FighterMovementState,
         deltaTime: TimeInterval
     ) {
-        orient(toward: movementState.towardOpponent)
+        let orientationFrame = orientation.update(
+            toward: movementState.towardOpponent,
+            deltaTime: deltaTime
+        )
+        applyOrientation(orientationFrame)
         guard deltaTime > 0 else { return }
         let horizontalScale = xScale * animationRoot.xScale
         let verticalScale = yScale * animationRoot.yScale
         let input = movementState.locomotionInput(
             facing: facing,
             horizontalScale: horizontalScale,
-            verticalScale: verticalScale
+            verticalScale: verticalScale,
+            displayedOpponentDirection: opponentDirection
         )
         let frame = locomotion.update(
             input: input,

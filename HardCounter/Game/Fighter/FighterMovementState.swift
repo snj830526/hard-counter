@@ -16,7 +16,8 @@ struct FighterMovementState {
     func locomotionInput(
         facing: CGFloat,
         horizontalScale: CGFloat,
-        verticalScale: CGFloat
+        verticalScale: CGFloat,
+        displayedOpponentDirection: CGVector
     ) -> FighterLocomotionInput {
         FighterLocomotionInput(
             screenMovement: screenMovement,
@@ -27,7 +28,10 @@ struct FighterMovementState {
                     ? screenDisplacement.dy / verticalScale : 0
             ),
             facing: facing,
-            opponentDirection: normalized(towardOpponent, fallback: CGVector(dx: facing, dy: 0))
+            opponentDirection: normalized(
+                displayedOpponentDirection,
+                fallback: CGVector(dx: facing, dy: 0)
+            )
         )
     }
 

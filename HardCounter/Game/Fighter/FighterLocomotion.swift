@@ -127,6 +127,11 @@ struct FighterLocomotionController {
         let motionAmplitude = 0.62 + stepIntensity * 0.88
 
         let localDirectionX = stepDirection.dx * facing
+        let forwardDrive = stepDirection.dx * opponentDirection.dx
+            + stepDirection.dy * opponentDirection.dy
+        let lateralDrive = stepDirection.dx * -opponentDirection.dy
+            + stepDirection.dy * opponentDirection.dx
+        let directionalDepth = stepDirection.dy * displayedIntensity
 
         // Counter the fighter root's actual projected travel. Feet remain in
         // world space until their swing phase catches them back under the hips.
@@ -178,24 +183,28 @@ struct FighterLocomotionController {
         let weightLoad = supportSign * preload * motionAmplitude * 3.45
         let weightCatch = -supportSign * landing * motionAmplitude * 2.05
         let directionalLean = localDirectionX * displayedIntensity
+        let guardedForwardLoad = forwardDrive * displayedIntensity
+        let guardedLateralLoad = lateralDrive * facing * displayedIntensity
 
         let idleAmount = isNeutralPose ? max(1 - displayedIntensity * 1.8, 0) : 0
         let breath = sin(CGFloat(clock) * 2.55)
         let guardPulse = sin(CGFloat(clock) * 5.10 + 0.35)
 
         let targetPelvisPosition = CGPoint(
-            x: weightLoad + weightCatch,
-            y: compression
+            x: weightLoad + weightCatch + guardedLateralLoad * 1.25,
+            y: compression + directionalDepth * 0.55
         )
         let targetPelvisRotation = supportSign * (preload - landing * 0.55)
             * motionAmplitude * 0.045 - directionalLean * 0.030
         let targetUpperPosition = CGPoint(
-            x: (weightLoad + weightCatch) * 0.72 + directionalLean * 2.35,
+            x: (weightLoad + weightCatch) * 0.72 + directionalLean * 1.75
+                + guardedLateralLoad * 1.15,
             y: compression * 0.72 + breath * idleAmount * 0.72
-                + guardPulse * idleAmount * 0.18
+                + guardPulse * idleAmount * 0.18 + directionalDepth * 0.95
         )
         let targetUpperRotation = -supportSign * (preload - landing * 0.45)
-            * motionAmplitude * 0.036 - directionalLean * 0.046
+            * motionAmplitude * 0.036 - directionalLean * 0.032
+            - guardedLateralLoad * 0.022 + guardedForwardLoad * 0.012
             + breath * idleAmount * 0.007
 
         displayedPelvisPosition = damp(
@@ -225,12 +234,16 @@ struct FighterLocomotionController {
 
         return FighterLocomotionFrame(
             frontFootOffset: CGPoint(
-                x: frontFootPlantOffset.x,
-                y: frontFootPlantOffset.y + frontLift * motionAmplitude * 5.4
+                x: frontFootPlantOffset.x
+                    + localDirectionX * frontLift * motionAmplitude * 3.2,
+                y: frontFootPlantOffset.y + frontLift * motionAmplitude
+                    * (5.4 + stepDirection.dy * 1.6)
             ),
             backFootOffset: CGPoint(
-                x: backFootPlantOffset.x,
-                y: backFootPlantOffset.y + backLift * motionAmplitude * 5.4
+                x: backFootPlantOffset.x
+                    + localDirectionX * backLift * motionAmplitude * 3.2,
+                y: backFootPlantOffset.y + backLift * motionAmplitude
+                    * (5.4 + stepDirection.dy * 1.6)
             ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
