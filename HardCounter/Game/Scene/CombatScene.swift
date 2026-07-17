@@ -37,8 +37,7 @@ final class CombatScene: SKScene {
     private var smoothedPlayerMovement = CGVector.zero
     private var bufferedPlayerPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
-    private var pendingPlayerSway: SwayIntent?
-    private let arenaZoom: CGFloat = 1.27
+    private let arenaZoom: CGFloat = 2.20
 
     override init(size: CGSize) {
         super.init(size: size)
@@ -78,11 +77,6 @@ final class CombatScene: SKScene {
         lastUpdateTime = currentTime
         gameTime = currentTime
         updateMovement(deltaTime: deltaTime)
-
-        if let swayIntent = pendingPlayerSway {
-            pendingPlayerSway = nil
-            handle(engine.request(.sway(swayIntent), by: .player, at: currentTime))
-        }
 
         let fightersAreInRange = isWithinPunchRange()
         handle(engine.update(at: currentTime, canHit: { _ in fightersAreInRange }))
@@ -124,7 +118,7 @@ final class CombatScene: SKScene {
                 handle(events)
             case .sway:
                 controls.flash(input)
-                pendingPlayerSway = selectedSwayIntent()
+                handle(engine.request(.sway(selectedSwayIntent()), by: .player, at: gameTime))
             case .none:
                 break
             }
@@ -305,7 +299,6 @@ final class CombatScene: SKScene {
             cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed * deltaTime
         }
 
-        separateFighters()
         clampAndRenderFighters()
         updateCamera(deltaTime: deltaTime)
         player.updateLocomotion(
@@ -404,15 +397,44 @@ final class CombatScene: SKScene {
             direction = CGVector(dx: 1, dy: 0)
         }
         let correction = CombatTuning.minimumFighterSeparation - distance
-        playerArenaPosition.x -= direction.dx * correction * 0.5
-        playerArenaPosition.y -= direction.dy * correction * 0.5
-        cpuArenaPosition.x += direction.dx * correction * 0.5
-        cpuArenaPosition.y += direction.dy * correction * 0.5
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * correction * 0.5,
+            y: playerArenaPosition.y - direction.dy * correction * 0.5
+        ))
+        cpuArenaPosition = clampedToRing(CGPoint(
+            x: cpuArenaPosition.x + direction.dx * correction * 0.5,
+            y: cpuArenaPosition.y + direction.dy * correction * 0.5
+        ))
+
+        let correctedDelta = CGVector(
+            dx: cpuArenaPosition.x - playerArenaPosition.x,
+            dy: cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let correctedDistance = hypot(correctedDelta.dx, correctedDelta.dy)
+        let remaining = CombatTuning.minimumFighterSeparation - correctedDistance
+        guard remaining > 0.001 else { return }
+
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * remaining,
+            y: playerArenaPosition.y - direction.dy * remaining
+        ))
+        let finalDelta = CGVector(
+            dx: cpuArenaPosition.x - playerArenaPosition.x,
+            dy: cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let finalRemaining = CombatTuning.minimumFighterSeparation - hypot(finalDelta.dx, finalDelta.dy)
+        if finalRemaining > 0.001 {
+            cpuArenaPosition = clampedToRing(CGPoint(
+                x: cpuArenaPosition.x + direction.dx * finalRemaining,
+                y: cpuArenaPosition.y + direction.dy * finalRemaining
+            ))
+        }
     }
 
     private func clampAndRenderFighters() {
         playerArenaPosition = clampedToRing(playerArenaPosition)
         cpuArenaPosition = clampedToRing(cpuArenaPosition)
+        separateFighters()
 
         let playerScreenPosition = ringProjection.project(playerArenaPosition)
         let cpuScreenPosition = ringProjection.project(cpuArenaPosition)
@@ -471,7 +493,7 @@ final class CombatScene: SKScene {
             x: cameraRig.position.x + correction.dx,
             y: cameraRig.position.y + correction.dy
         ))
-        let blend = 1 - CGFloat(exp(-3.2 * deltaTime))
+        let blend = 1 - CGFloat(exp(-5.5 * deltaTime))
         cameraRig.position = CGPoint(
             x: cameraRig.position.x + (target.x - cameraRig.position.x) * blend,
             y: cameraRig.position.y + (target.y - cameraRig.position.y) * blend
@@ -480,8 +502,8 @@ final class CombatScene: SKScene {
 
     private func clampedCameraPosition(_ position: CGPoint) -> CGPoint {
         CGPoint(
-            x: min(max(position.x, -size.width * 0.20), size.width * 0.16),
-            y: min(max(position.y, -size.height * 0.20), size.height * 0.14)
+            x: min(max(position.x, -size.width * 0.74), size.width * 0.68),
+            y: min(max(position.y, -size.height * 0.68), size.height * 0.58)
         )
     }
 
@@ -492,7 +514,7 @@ final class CombatScene: SKScene {
         screenPosition: CGPoint
     ) {
         let progress = ringProjection.depthProgress(at: worldPosition)
-        let scale = perspectiveScale(at: worldPosition)
+        let scale = perspectiveScale(at: worldPosition) / arenaZoom
         fighter.setScale(scale)
         fighter.zPosition = 12 + (1 - progress) * 16
 
@@ -638,11 +660,11 @@ final class CombatScene: SKScene {
         impact.strokeColor = kind == .counter ? .systemYellow : .white
         impact.lineWidth = kind == .counter ? 8 : 4
         impact.zPosition = 30
-        impact.setScale(0.25)
+        impact.setScale(0.25 / arenaZoom)
         arenaNode.addChild(impact)
         impact.run(.sequence([
             .group([
-                .scale(to: 1.45, duration: CombatTuning.impactAnimationDuration),
+                .scale(to: 1.45 / arenaZoom, duration: CombatTuning.impactAnimationDuration),
                 .fadeOut(withDuration: CombatTuning.impactAnimationDuration)
             ]),
             .removeFromParent()
@@ -667,11 +689,12 @@ final class CombatScene: SKScene {
             .run { [weak self] in self?.arenaNode.speed = 1 }
         ]), withKey: "hitStop")
 
-        let distance = CombatTuning.cameraShakeDistance
+        let distance = CombatTuning.cameraShakeDistance / arenaZoom
+        let verticalDistance: CGFloat = 2 / arenaZoom
         arenaNode.run(.sequence([
-            .moveBy(x: distance, y: 2, duration: CombatTuning.cameraShakeDuration * 0.175),
-            .moveBy(x: -distance * 2, y: -4, duration: CombatTuning.cameraShakeDuration * 0.25),
-            .moveBy(x: distance * 1.5, y: 3, duration: CombatTuning.cameraShakeDuration * 0.225),
+            .moveBy(x: distance, y: verticalDistance, duration: CombatTuning.cameraShakeDuration * 0.175),
+            .moveBy(x: -distance * 2, y: -verticalDistance * 2, duration: CombatTuning.cameraShakeDuration * 0.25),
+            .moveBy(x: distance * 1.5, y: verticalDistance * 1.5, duration: CombatTuning.cameraShakeDuration * 0.225),
             .move(to: .zero, duration: CombatTuning.cameraShakeDuration * 0.35)
         ]), withKey: "shake")
     }
@@ -688,7 +711,6 @@ final class CombatScene: SKScene {
         smoothedPlayerMovement = .zero
         bufferedPlayerPunch = nil
         bufferedPunchExpiresAt = 0
-        pendingPlayerSway = nil
         controls.showMovement(nil)
         handle(engine.reset())
         cpuController.reset(at: gameTime)

@@ -101,6 +101,7 @@ final class FighterNode: SKNode {
     private var gaitPhase: CGFloat = 0
     private var displayedMoveIntensity: CGFloat = 0
     private var lastMoveDirection = CGVector(dx: 1, dy: 0)
+    private var opponentIsTowardCamera = false
 
     init(facingRight: Bool, color: SKColor) {
         facing = facingRight ? 1 : -1
@@ -178,9 +179,8 @@ final class FighterNode: SKNode {
         let normalizedY = direction.dy / length
         // Keep the last side while nearly head-on. This prevents rapid mirror
         // popping when the fighters cross the same horizontal line.
-        if abs(normalizedX) > 0.18 {
-            facing = normalizedX > 0 ? 1 : -1
-        }
+        if normalizedX > 0.30 { facing = 1 }
+        if normalizedX < -0.30 { facing = -1 }
         let sideAmount = abs(normalizedX)
         let depthAmount = abs(normalizedY)
         let facingCameraAmount = max(-normalizedY, 0)
@@ -198,7 +198,10 @@ final class FighterNode: SKNode {
         frontLegAnchor.position.x = 5 + depthAmount * 5
         backLegAnchor.position.x = -5 - depthAmount * 5
 
-        if normalizedY < 0 {
+        if normalizedY < -0.18 { opponentIsTowardCamera = true }
+        if normalizedY > 0.18 { opponentIsTowardCamera = false }
+
+        if opponentIsTowardCamera {
             frontUpperArm.zPosition = 4
             backUpperArm.zPosition = 1
             frontLegAnchor.zPosition = 2

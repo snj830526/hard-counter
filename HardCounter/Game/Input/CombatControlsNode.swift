@@ -74,7 +74,7 @@ final class CombatControlsNode: SKNode {
     func showMovement(_ vector: CGVector?) {
         dpadCenterDot.removeAllActions()
         let offset = vector.map { CGVector(dx: $0.dx * 22, dy: $0.dy * 22) } ?? .zero
-        dpadCenterDot.run(.move(to: CGPoint(x: dpadCenter.x + offset.dx, y: dpadCenter.y + offset.dy), duration: 0.06))
+        dpadCenterDot.position = CGPoint(x: dpadCenter.x + offset.dx, y: dpadCenter.y + offset.dy)
     }
 
     func flash(_ input: CombatControlInput) {
@@ -85,7 +85,10 @@ final class CombatControlsNode: SKNode {
         default: return
         }
         node.removeAction(forKey: "press")
-        node.run(.sequence([.scale(to: 0.88, duration: 0.045), .scale(to: 1, duration: 0.10)]), withKey: "press")
+        node.setScale(0.90)
+        let release = SKAction.scale(to: 1, duration: 0.08)
+        release.timingMode = .easeOut
+        node.run(release, withKey: "press")
     }
 
     private func buildControls() {
