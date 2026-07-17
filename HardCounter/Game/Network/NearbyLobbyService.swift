@@ -1,0 +1,326 @@
+import Combine
+import Foundation
+import Network
+import UIKit
+
+final class NearbyLobbyService: ObservableObject {
+    static let serviceType = "_hardcounter._tcp"
+
+    @Published private(set) var phase: NearbyLobbyPhase = .idle
+    @Published private(set) var rooms: [NearbyRoom] = []
+    @Published private(set) var role: NearbyLobbyRole?
+    @Published private(set) var localPlayerName = UIDevice.current.name
+    @Published private(set) var remotePlayerName = "상대 선수"
+    @Published private(set) var remoteFighter: FighterProfile = .allRounder
+    @Published private(set) var remoteIsReady = false
+    @Published var localFighter: FighterProfile = .allRounder {
+        didSet {
+            if localFighter != oldValue {
+                localIsReady = false
+                sendSnapshot()
+            }
+        }
+    }
+    @Published var localIsReady = false {
+        didSet {
+            if localIsReady != oldValue {
+                sendSnapshot()
+            }
+        }
+    }
+
+    var isConnected: Bool { phase == .connected }
+    var bothPlayersReady: Bool { isConnected && localIsReady && remoteIsReady }
+
+    private let networkQueue = DispatchQueue(label: "com.soonispapa.HardCounter.nearby")
+    private var listener: NWListener?
+    private var browser: NWBrowser?
+    private var connection: NWConnection?
+    private var receiveBuffer = Data()
+    private var isStopping = false
+
+    deinit {
+        listener?.cancel()
+        browser?.cancel()
+        connection?.cancel()
+    }
+
+    func startHosting() {
+        stop(resetPhase: false)
+        role = .host
+        phase = .hosting
+        remoteIsReady = false
+        remotePlayerName = "상대 선수"
+
+        do {
+            let parameters = Self.networkParameters()
+            let listener = try NWListener(using: parameters)
+            listener.service = NWListener.Service(
+                name: Self.sanitizedServiceName(localPlayerName),
+                type: Self.serviceType
+            )
+            listener.stateUpdateHandler = { [weak self] state in
+                Task { @MainActor in self?.handleListenerState(state) }
+            }
+            listener.newConnectionHandler = { [weak self] connection in
+                Task { @MainActor in self?.accept(connection) }
+            }
+            self.listener = listener
+            listener.start(queue: networkQueue)
+        } catch {
+            fail("방을 만들 수 없습니다: \(error.localizedDescription)")
+        }
+    }
+
+    func startBrowsing() {
+        stop(resetPhase: false)
+        role = .guest
+        phase = .browsing
+        rooms = []
+        remoteIsReady = false
+
+        let browser = NWBrowser(
+            for: .bonjour(type: Self.serviceType, domain: nil),
+            using: Self.networkParameters()
+        )
+        browser.stateUpdateHandler = { [weak self] state in
+            Task { @MainActor in self?.handleBrowserState(state) }
+        }
+        browser.browseResultsChangedHandler = { [weak self] results, _ in
+            Task { @MainActor in
+                self?.rooms = results.map(Self.room(from:)).sorted { $0.name < $1.name }
+            }
+        }
+        self.browser = browser
+        browser.start(queue: networkQueue)
+    }
+
+    func join(_ room: NearbyRoom) {
+        guard role == .guest else { return }
+        browser?.cancel()
+        browser = nil
+        rooms = []
+        phase = .connecting(room.name)
+        beginConnection(NWConnection(to: room.endpoint, using: Self.networkParameters()))
+    }
+
+    func toggleReady() {
+        guard isConnected else { return }
+        localIsReady.toggle()
+    }
+
+    func retry() {
+        if role == .host {
+            startHosting()
+        } else {
+            startBrowsing()
+        }
+    }
+
+    func stop() {
+        stop(resetPhase: true)
+    }
+
+    private func stop(resetPhase: Bool) {
+        isStopping = true
+        listener?.cancel()
+        listener = nil
+        browser?.cancel()
+        browser = nil
+        connection?.cancel()
+        connection = nil
+        receiveBuffer.removeAll(keepingCapacity: false)
+        rooms = []
+        remoteIsReady = false
+        localIsReady = false
+        if resetPhase {
+            phase = .idle
+            role = nil
+        }
+        isStopping = false
+    }
+
+    private func accept(_ newConnection: NWConnection) {
+        guard connection == nil, role == .host else {
+            newConnection.cancel()
+            return
+        }
+        listener?.cancel()
+        listener = nil
+        phase = .connecting("상대 선수")
+        beginConnection(newConnection)
+    }
+
+    private func beginConnection(_ newConnection: NWConnection) {
+        connection?.cancel()
+        connection = newConnection
+        receiveBuffer.removeAll(keepingCapacity: true)
+        newConnection.stateUpdateHandler = { [weak self, weak newConnection] state in
+            guard let newConnection else { return }
+            Task { @MainActor in self?.handleConnectionState(state, connection: newConnection) }
+        }
+        newConnection.start(queue: networkQueue)
+    }
+
+    private func handleListenerState(_ state: NWListener.State) {
+        switch state {
+        case .ready:
+            phase = .hosting
+        case let .failed(error):
+            fail("방을 열 수 없습니다: \(error.localizedDescription)")
+        case .cancelled:
+            break
+        default:
+            break
+        }
+    }
+
+    private func handleBrowserState(_ state: NWBrowser.State) {
+        switch state {
+        case .ready:
+            phase = .browsing
+        case .waiting:
+            // 첫 로컬 네트워크 권한 응답을 기다리는 동안에도 이 상태가 올 수 있다.
+            // 브라우저를 취소하지 않으면 권한 허용 후 자동으로 검색을 계속한다.
+            phase = .browsing
+        case let .failed(error):
+            fail("주변 방을 찾을 수 없습니다: \(error.localizedDescription)")
+        case .cancelled:
+            break
+        default:
+            break
+        }
+    }
+
+    private func handleConnectionState(_ state: NWConnection.State, connection: NWConnection) {
+        guard self.connection === connection else { return }
+
+        switch state {
+        case .ready:
+            phase = .connected
+            sendSnapshot()
+            receiveNext(on: connection)
+        case let .waiting(error):
+            phase = .connecting(error.localizedDescription)
+        case let .failed(error):
+            fail("연결이 끊어졌습니다: \(error.localizedDescription)")
+        case .cancelled:
+            if !isStopping, phase == .connected {
+                fail("상대와의 연결이 종료되었습니다.")
+            }
+        default:
+            break
+        }
+    }
+
+    private func sendSnapshot() {
+        guard phase == .connected, let connection else { return }
+
+        do {
+            let message = NearbyLobbyMessage(
+                playerName: localPlayerName,
+                fighter: localFighter,
+                isReady: localIsReady
+            )
+            let payload = try JSONEncoder().encode(message)
+            guard payload.count <= 65_536 else { return }
+
+            var length = UInt32(payload.count).bigEndian
+            var frame = Data(bytes: &length, count: MemoryLayout<UInt32>.size)
+            frame.append(payload)
+            connection.send(content: frame, completion: .contentProcessed { [weak self] error in
+                guard let self, let error else { return }
+                let message = "로비 정보를 보낼 수 없습니다: \(error.localizedDescription)"
+                Task { @MainActor [self] in
+                    self.fail(message)
+                }
+            })
+        } catch {
+            fail("로비 정보를 만들 수 없습니다: \(error.localizedDescription)")
+        }
+    }
+
+    private func receiveNext(on connection: NWConnection) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65_540) { [weak self, weak connection] data, _, isComplete, error in
+            guard let self, let connection else { return }
+            Task { @MainActor in
+                guard self.connection === connection else { return }
+                if let data, !data.isEmpty {
+                    self.receiveBuffer.append(data)
+                    self.processReceivedFrames()
+                }
+                if let error {
+                    self.fail("로비 정보를 받을 수 없습니다: \(error.localizedDescription)")
+                    return
+                }
+                if isComplete {
+                    self.fail("상대가 로비를 나갔습니다.")
+                    return
+                }
+                self.receiveNext(on: connection)
+            }
+        }
+    }
+
+    private func processReceivedFrames() {
+        while receiveBuffer.count >= MemoryLayout<UInt32>.size {
+            let length = receiveBuffer.prefix(4).reduce(UInt32.zero) { ($0 << 8) | UInt32($1) }
+            guard length <= 65_536 else {
+                fail("호환되지 않는 로비 데이터를 받았습니다.")
+                return
+            }
+            let frameLength = 4 + Int(length)
+            guard receiveBuffer.count >= frameLength else { return }
+            let payload = receiveBuffer.subdata(in: 4..<frameLength)
+            receiveBuffer.removeSubrange(0..<frameLength)
+
+            do {
+                let message = try JSONDecoder().decode(NearbyLobbyMessage.self, from: payload)
+                guard message.version == NearbyLobbyMessage.protocolVersion,
+                      let fighter = FighterProfile(rawValue: message.fighterID) else {
+                    fail("서로 다른 버전의 게임은 연결할 수 없습니다.")
+                    return
+                }
+                remotePlayerName = message.playerName
+                remoteFighter = fighter
+                remoteIsReady = message.isReady
+            } catch {
+                fail("로비 정보를 해석할 수 없습니다.")
+                return
+            }
+        }
+    }
+
+    private func fail(_ message: String) {
+        connection?.cancel()
+        connection = nil
+        listener?.cancel()
+        listener = nil
+        browser?.cancel()
+        browser = nil
+        rooms = []
+        remoteIsReady = false
+        phase = .failed(message)
+    }
+
+    private static func networkParameters() -> NWParameters {
+        let parameters = NWParameters.tcp
+        parameters.includePeerToPeer = true
+        return parameters
+    }
+
+    private static func room(from result: NWBrowser.Result) -> NearbyRoom {
+        let name: String
+        if case let .service(serviceName, _, _, _) = result.endpoint {
+            name = serviceName
+        } else {
+            name = "HARD COUNTER 방"
+        }
+        return NearbyRoom(id: String(describing: result.endpoint), name: name, endpoint: result.endpoint)
+    }
+
+    private static func sanitizedServiceName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "HARD COUNTER" : String(trimmed.prefix(40))
+    }
+}

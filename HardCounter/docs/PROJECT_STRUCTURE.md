@@ -9,6 +9,7 @@ SwiftUI App
   └─ ContentView
       ├─ ModeSelectionView
       ├─ FighterSelectionView
+      ├─ NearbyLobbyView
       └─ CombatContainerView
           └─ SpriteView
               └─ CombatScene
@@ -43,6 +44,7 @@ HardCounter/
 │   │   ├── FlowBackground.swift
 │   │   ├── ModeSelectionView.swift
 │   │   ├── FighterSelectionView.swift
+│   │   ├── NearbyLobbyView.swift
 │   │   └── CombatContainerView.swift
 │   ├── Fighter/
 │   │   ├── FighterNode.swift
@@ -57,6 +59,9 @@ HardCounter/
 │   │   ├── LocalInputSource.swift
 │   │   ├── CPUInputSource.swift
 │   │   └── SwayInputResolver.swift
+│   ├── Network/
+│   │   ├── NearbyLobbyModels.swift
+│   │   └── NearbyLobbyService.swift
 │   └── Scene/
 │       ├── BoxingRingNode.swift
 │       ├── CombatScene.swift
@@ -76,7 +81,8 @@ HardCounter/
 
 - `HardCounterApp.swift`: 앱 진입점과 가로 방향 제한
 - `ContentView.swift`: 모드 선택, 캐릭터 선택, 경기 화면의 앱 흐름과 전환을 관리한다.
-- `ModeSelectionView.swift`: 솔로와 근거리 대전 진입점을 제공한다. 근거리 대전은 네트워크 구현 전까지 준비 안내를 표시한다.
+- `ModeSelectionView.swift`: 솔로와 근거리 대전 진입점을 제공한다.
+- `NearbyLobbyView.swift`: 방 만들기·주변 방 찾기, 선수 선택과 양쪽 준비 상태를 하나의 근거리 로비 흐름으로 표시한다.
 - `FighterSelectionView.swift`: 출전 선수의 외형 테마와 능력치 미리보기를 선택한다.
 - `FighterProfile.swift`: 선수 식별자, 이름, 스타일, 색상과 능력치 미리보기 데이터를 정의한다.
 - `FighterPortraitView.swift`: 선수별 피부, 체형, 헤어와 장비 색상을 선택 카드의 사람형 초상으로 표현한다.
@@ -118,6 +124,12 @@ idle → swaying → idle
 - `SwayInputResolver.swift`: 버튼을 누른 순간의 스틱 입력을 상대 축 기준의 좌우 슬립, 풀백, 전진 실패로 변환한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
+
+### 근거리 네트워크 계층
+
+- `NearbyLobbyModels.swift`: 호스트/게스트 역할, 연결 단계, 발견한 방과 버전이 포함된 로비 메시지를 정의한다.
+- `NearbyLobbyService.swift`: Network.framework의 Bonjour 광고·검색과 일대일 TCP 연결을 관리한다. 메시지는 길이 헤더가 있는 JSON 프레임으로 보내며 선수 선택과 준비 상태를 동기화한다.
+- 근거리 로비는 `includePeerToPeer`를 활성화하고 `_hardcounter._tcp` 서비스를 사용한다. 현재 단계는 로비 동기화까지이며 전투 입력과 전투 상태 동기화는 다음 네트워크 단계에서 `FighterInputSource` 경계에 연결한다.
 
 ## 의존 방향 원칙
 

@@ -7,15 +7,21 @@ struct ContentView: View {
         ZStack {
             switch destination {
             case .modeSelection:
-                ModeSelectionView {
-                    destination = .fighterSelection
-                }
+                ModeSelectionView(
+                    onSelectSolo: { destination = .fighterSelection },
+                    onSelectNearby: { destination = .nearbyLobby }
+                )
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
             case .fighterSelection:
                 FighterSelectionView(
                     onBack: { destination = .modeSelection },
                     onStart: { fighter in destination = .combat(fighter) }
                 )
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            case .nearbyLobby:
+                NearbyLobbyView {
+                    destination = .modeSelection
+                }
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             case let .combat(fighter):
                 CombatContainerView(fighter: fighter) {
@@ -46,6 +52,7 @@ struct ContentView: View {
 private enum GameDestination: Equatable {
     case modeSelection
     case fighterSelection
+    case nearbyLobby
     case combat(FighterProfile)
 }
 
