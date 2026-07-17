@@ -36,7 +36,8 @@ HardCounter/
 │   ├── Fighter/
 │   │   └── FighterNode.swift
 │   ├── Input/
-│   │   └── CombatControlsNode.swift
+│   │   ├── CombatControlsNode.swift
+│   │   └── SwayInputResolver.swift
 │   └── Scene/
 │       ├── BoxingRingNode.swift
 │       └── CombatScene.swift
@@ -79,6 +80,7 @@ idle → swaying → idle
 
 - `FighterNode.swift`: 폴리곤 선수 리그, 독립적인 상·하체 풋워크, 가드/펀치/스웨이/피격/KO 포즈, 상대 방향에 따른 2.5D 자세를 표현한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다.
+- `SwayInputResolver.swift`: 스틱의 화면상 4방향 모션과 상대 방향 기준 회피 성공 여부를 서로 분리해 계산한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
 

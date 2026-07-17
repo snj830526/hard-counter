@@ -9,7 +9,7 @@ enum FighterID: CaseIterable {
 
 enum CombatAction {
     case punch(PunchIntent)
-    case sway(SwayDirection)
+    case sway(SwayIntent)
 }
 
 struct PunchIntent {
@@ -42,11 +42,19 @@ enum PunchHand {
     var opposite: PunchHand { self == .lead ? .rear : .lead }
 }
 
-enum SwayDirection {
+enum SwayDirection: Equatable {
     case left
     case right
+    case up
+    case down
     case back
-    case towardOpponent
+}
+
+struct SwayIntent {
+    var direction: SwayDirection
+    var isTowardOpponent: Bool
+
+    static let neutral = SwayIntent(direction: .back, isTowardOpponent: false)
 }
 
 enum FighterPhase: Equatable {
@@ -74,6 +82,7 @@ struct FighterCombatState {
     var activePunchProfile = PunchProfile()
     var lastPunchAt: TimeInterval?
     var activeSwayDirection: SwayDirection = .back
+    var activeSwayCanEvade = true
     var swayStartedAt: TimeInterval = 0
 }
 
@@ -120,10 +129,11 @@ struct CombatEngine {
                     for: fighter,
                     until: time + CombatTuning.punchStartup * profile.startupScale
                 )
-        case let .sway(direction):
-            states[fighter]?.activeSwayDirection = direction
+        case let .sway(intent):
+            states[fighter]?.activeSwayDirection = intent.direction
+            states[fighter]?.activeSwayCanEvade = !intent.isTowardOpponent
             states[fighter]?.swayStartedAt = time
-            return [.swayStarted(fighter, direction)]
+            return [.swayStarted(fighter, intent.direction)]
                 + setPhase(.swaying, for: fighter, until: time + CombatTuning.swayDuration)
         }
     }
@@ -191,7 +201,7 @@ struct CombatEngine {
         let swayElapsed = time - defenderState.swayStartedAt
         let isInsideSwayWindow = swayElapsed >= CombatTuning.swayEvadeStartup
             && swayElapsed <= CombatTuning.swayEvadeStartup + CombatTuning.swayEvadeActiveDuration
-        let isValidSwayDirection = defenderState.activeSwayDirection != .towardOpponent
+        let isValidSwayDirection = defenderState.activeSwayCanEvade
         if defenderState.phase == .swaying, isInsideSwayWindow, isValidSwayDirection {
             states[defender]?.counterWindowEndsAt = time + CombatTuning.counterWindow
             return [.swayed(defender: defender)]

@@ -4,6 +4,7 @@ final class FighterNode: SKNode {
     private static let skinColor = SKColor(red: 0.73, green: 0.47, blue: 0.30, alpha: 1)
     private struct Pose {
         var bodyX: CGFloat = 0
+        var bodyY: CGFloat = 0
         var bodyRotation: CGFloat = 0
         var frontUpper: CGFloat
         var frontLower: CGFloat
@@ -67,11 +68,18 @@ final class FighterNode: SKNode {
             frontLeg: -0.12, backLeg: 0.32
         )
 
-        static let swayTowardOpponent = Pose(
-            bodyX: 10, bodyRotation: 0.10,
-            frontUpper: 0.85, frontLower: 2.48,
-            backUpper: 0.42, backLower: 2.62,
-            frontLeg: -0.08, backLeg: 0.40
+        static let swayUp = Pose(
+            bodyX: -3, bodyY: 10, bodyRotation: -0.07,
+            frontUpper: 0.84, frontLower: 2.50,
+            backUpper: 0.40, backLower: 2.64,
+            frontLeg: -0.10, backLeg: 0.27
+        )
+
+        static let swayDown = Pose(
+            bodyX: -2, bodyY: -12, bodyRotation: 0.06,
+            frontUpper: 0.76, frontLower: 2.56,
+            backUpper: 0.34, backLower: 2.70,
+            frontLeg: -0.36, backLeg: 0.49
         )
     }
 
@@ -140,8 +148,9 @@ final class FighterNode: SKNode {
             switch activeSwayDirection {
             case .left: pose = .swayLeft
             case .right: pose = .swayRight
+            case .up: pose = .swayUp
+            case .down: pose = .swayDown
             case .back: pose = .swayBack
-            case .towardOpponent: pose = .swayTowardOpponent
             }
             transition(to: pose, duration: CombatTuning.swayDuration * 0.46)
         case .hit:
@@ -164,8 +173,9 @@ final class FighterNode: SKNode {
         switch direction {
         case .left: activeSwayDirection = .right
         case .right: activeSwayDirection = .left
+        case .up: activeSwayDirection = .up
+        case .down: activeSwayDirection = .down
         case .back: activeSwayDirection = .back
-        case .towardOpponent: activeSwayDirection = .towardOpponent
         }
     }
 
@@ -243,8 +253,9 @@ final class FighterNode: SKNode {
 
         frontLegAnchor.zRotation = step * stride
         backLegAnchor.zRotation = -step * stride
-        frontLegAnchor.position.y = 24 + max(-step, 0) * displayedMoveIntensity * 2.5
-        backLegAnchor.position.y = 24 + max(step, 0) * displayedMoveIntensity * 2.5
+        let plantedLegY = 24 - body.position.y
+        frontLegAnchor.position.y = plantedLegY + max(-step, 0) * displayedMoveIntensity * 2.5
+        backLegAnchor.position.y = plantedLegY + max(step, 0) * displayedMoveIntensity * 2.5
 
         let idleAmount = 1 - displayedMoveIntensity
         let idleBob = sin(CGFloat(locomotionClock) * 5.1) * 1.4 * idleAmount
@@ -269,7 +280,7 @@ final class FighterNode: SKNode {
         ])
         recoil.timingMode = .easeOut
         let recover = SKAction.group([
-            .moveTo(x: 0, duration: duration * 0.70),
+            .move(to: .zero, duration: duration * 0.70),
             .rotate(toAngle: 0, duration: duration * 0.70, shortestUnitArc: true)
         ])
         recover.timingMode = .easeInEaseOut
@@ -427,7 +438,7 @@ final class FighterNode: SKNode {
             node.run(rotation, withKey: "poseRotation")
         }
         let bodyMove = SKAction.group([
-            .moveTo(x: pose.bodyX, duration: duration),
+            .move(to: CGPoint(x: pose.bodyX, y: pose.bodyY), duration: duration),
             .rotate(toAngle: pose.bodyRotation, duration: duration, shortestUnitArc: true)
         ])
         bodyMove.timingMode = .easeInEaseOut
@@ -499,6 +510,7 @@ final class FighterNode: SKNode {
 
     private func apply(_ pose: Pose) {
         body.position.x = pose.bodyX
+        body.position.y = pose.bodyY
         body.zRotation = pose.bodyRotation
         frontUpperArm.zRotation = pose.frontUpper
         frontLowerArm.zRotation = pose.frontLower
