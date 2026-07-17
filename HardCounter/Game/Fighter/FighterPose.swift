@@ -94,13 +94,42 @@ struct FighterPose {
 }
 
 enum FighterPoseResolver {
-    static func sway(_ direction: SwayDirection) -> FighterPose {
+    static func sway(
+        _ direction: SwayDirection,
+        screenDirection: CGVector,
+        facing: CGFloat
+    ) -> FighterPose {
+        var pose: FighterPose
+        let distance: CGFloat
         switch direction {
-        case .left: return .swayLeft
-        case .right: return .swayRight
-        case .back: return .swayBack
-        case .forward: return .swayForward
+        case .left:
+            pose = .swayLeft
+            distance = 14
+        case .right:
+            pose = .swayRight
+            distance = 14
+        case .back:
+            pose = .swayBack
+            distance = 20
+        case .forward:
+            pose = .swayForward
+            distance = 11
         }
+
+        let localX = screenDirection.dx * facing
+        let localY = screenDirection.dy
+        pose.bodyX = localX * distance
+        pose.bodyY = localY * distance * 0.78
+
+        let tilt: CGFloat = direction == .back ? 0.20 : 0.15
+        // Depth-direction sways are sold mostly by projected translation. A
+        // large 2D rotation here made up/down input look like a sideways fall.
+        // animationRoot mirrors rotation as well as position. Use the opposite
+        // local sign so the final on-screen lean follows the stick instead of
+        // appearing to sway against it after facing is applied.
+        pose.bodyRotation = -localX * tilt - localY * 0.038
+        pose.pelvisRotation = localX * tilt * 0.34 + localY * 0.014
+        return pose
     }
 
     static func punch(hand: PunchHand, profile: PunchProfile, isActive: Bool) -> FighterPose {

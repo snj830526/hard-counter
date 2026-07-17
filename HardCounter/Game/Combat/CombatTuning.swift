@@ -6,16 +6,17 @@ enum CombatTuning {
     static let normalDamage = 18
     static let counterDamage = 34
 
-    static let punchStartup: TimeInterval = 0.20
-    static let punchActive: TimeInterval = 0.09
-    static let punchRecovery: TimeInterval = 0.32
-    static let swayDuration: TimeInterval = 0.44
-    static let swayEvadeStartup: TimeInterval = 0.07
-    static let swayEvadeActiveDuration: TimeInterval = 0.24
+    static let punchStartup: TimeInterval = 0.16
+    static let punchActive: TimeInterval = 0.07
+    static let punchRecovery: TimeInterval = 0.28
+    static let swayDuration: TimeInterval = 0.34
+    static let swayEvadeStartup: TimeInterval = 0.05
+    static let swayEvadeActiveDuration: TimeInterval = 0.19
     static let counterWindow: TimeInterval = 0.72
     static let punchInputBuffer: TimeInterval = 0.20
     static let swayPunchBufferGrace: TimeInterval = 0.10
     static let swayPunchCancelDelay: TimeInterval = 0.12
+    static let swayDirectionInputGrace: TimeInterval = 0.22
     static let hitReaction: TimeInterval = 0.24
     static let counterHitReaction: TimeInterval = 0.48
 
@@ -43,8 +44,8 @@ enum CombatTuning {
     static let counterTitleHoldDuration: TimeInterval = 0.35
     static let counterTitleOutDuration: TimeInterval = 0.20
 
-    static let playerMoveSpeed: CGFloat = 160
-    static let playerDepthMoveSpeed: CGFloat = 118
+    static let playerMoveSpeed: CGFloat = 148
+    static let playerDepthMoveSpeed: CGFloat = 110
     static let punchStartupFootworkMultiplier: CGFloat = 0.72
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
@@ -54,8 +55,11 @@ enum CombatTuning {
     static let movementDeceleration: CGFloat = 14
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
-    static let cpuMoveSpeed: CGFloat = 78
-    static let cpuMovementDecisionInterval: ClosedRange<TimeInterval> = 0.55...1.05
+    static let cpuMoveSpeed: CGFloat = 72
+    static let cpuMovementDecisionInterval: ClosedRange<TimeInterval> = 0.72...1.18
+    static let cpuMovementAcceleration: CGFloat = 5.8
+    static let cpuMovementTurnAcceleration: CGFloat = 7.2
+    static let cpuMovementDeceleration: CGFloat = 7.8
     static let punchReachAtUnitScale: CGFloat = 108
     static let retreatingPunchReachScale: CGFloat = 0.92
     static let drivingPunchReachScale: CGFloat = 1.08

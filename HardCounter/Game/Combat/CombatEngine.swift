@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 enum FighterID: CaseIterable {
@@ -52,8 +53,13 @@ enum SwayDirection: Equatable {
 struct SwayIntent {
     var direction: SwayDirection
     var isTowardOpponent: Bool
+    var screenDirection: CGVector
 
-    static let neutral = SwayIntent(direction: .back, isTowardOpponent: false)
+    static let neutral = SwayIntent(
+        direction: .back,
+        isTowardOpponent: false,
+        screenDirection: .zero
+    )
 }
 
 enum FighterPhase: Equatable {
@@ -88,7 +94,7 @@ struct FighterCombatState {
 enum CombatEvent {
     case phaseChanged(FighterID, FighterPhase)
     case punchStarted(FighterID, PunchHand, PunchProfile)
-    case swayStarted(FighterID, SwayDirection)
+    case swayStarted(FighterID, SwayDirection, CGVector)
     case hit(attacker: FighterID, defender: FighterID, kind: HitKind, damage: Int)
     case swayed(defender: FighterID)
     case healthChanged(FighterID, Int)
@@ -137,7 +143,7 @@ struct CombatEngine {
             states[fighter]?.activeSwayDirection = intent.direction
             states[fighter]?.activeSwayCanEvade = !intent.isTowardOpponent
             states[fighter]?.swayStartedAt = time
-            return [.swayStarted(fighter, intent.direction)]
+            return [.swayStarted(fighter, intent.direction, intent.screenDirection)]
                 + setPhase(.swaying, for: fighter, until: time + CombatTuning.swayDuration)
         }
     }

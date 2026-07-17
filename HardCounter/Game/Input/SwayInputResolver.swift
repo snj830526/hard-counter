@@ -2,28 +2,56 @@ import CoreGraphics
 
 enum SwayInputResolver {
     static func resolve(movement: CGVector, towardOpponent: CGVector) -> SwayIntent {
-        let movementLength = hypot(movement.dx, movement.dy)
-        guard movementLength > 0.18 else { return .neutral }
-
         let opponentDistance = hypot(towardOpponent.dx, towardOpponent.dy)
         guard opponentDistance > 0.001 else {
             return .neutral
         }
+        let opponentDirection = CGVector(
+            dx: towardOpponent.dx / opponentDistance,
+            dy: towardOpponent.dy / opponentDistance
+        )
+        let movementLength = hypot(movement.dx, movement.dy)
+        guard movementLength > 0.18 else {
+            return SwayIntent(
+                direction: .back,
+                isTowardOpponent: false,
+                screenDirection: CGVector(
+                    dx: -opponentDirection.dx,
+                    dy: -opponentDirection.dy
+                )
+            )
+        }
+        let movementDirection = CGVector(
+            dx: movement.dx / movementLength,
+            dy: movement.dy / movementLength
+        )
 
         let forwardDot = (
-            movement.dx / movementLength * towardOpponent.dx / opponentDistance
-            + movement.dy / movementLength * towardOpponent.dy / opponentDistance
+            movementDirection.dx * opponentDirection.dx
+            + movementDirection.dy * opponentDirection.dy
         )
         if forwardDot > 0.24 {
-            return SwayIntent(direction: .forward, isTowardOpponent: true)
+            return SwayIntent(
+                direction: .forward,
+                isTowardOpponent: true,
+                screenDirection: movementDirection
+            )
         }
         if forwardDot < -0.18 {
-            return SwayIntent(direction: .back, isTowardOpponent: false)
+            return SwayIntent(
+                direction: .back,
+                isTowardOpponent: false,
+                screenDirection: movementDirection
+            )
         }
 
-        let leftX = -towardOpponent.dy / opponentDistance
-        let leftY = towardOpponent.dx / opponentDistance
-        let lateralDot = movement.dx / movementLength * leftX + movement.dy / movementLength * leftY
-        return SwayIntent(direction: lateralDot >= 0 ? .left : .right, isTowardOpponent: false)
+        let leftX = -opponentDirection.dy
+        let leftY = opponentDirection.dx
+        let lateralDot = movementDirection.dx * leftX + movementDirection.dy * leftY
+        return SwayIntent(
+            direction: lateralDot >= 0 ? .left : .right,
+            isTowardOpponent: false,
+            screenDirection: movementDirection
+        )
     }
 }

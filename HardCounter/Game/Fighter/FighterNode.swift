@@ -5,7 +5,9 @@ final class FighterNode: SKNode {
     private let rig: FighterRig
     private var activePunchHand: PunchHand = .lead
     private var activePunchProfile = PunchProfile()
+    private var activePunchAimDirection = CGVector(dx: 1, dy: 0)
     private var activeSwayDirection: SwayDirection = .back
+    private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
     private var locomotion = FighterLocomotionController()
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
@@ -55,35 +57,31 @@ final class FighterNode: SKNode {
             transition(to: .guardPose, duration: CombatTuning.idleReturnDuration, style: .settle)
         case .punchStartup:
             transition(
-                to: FighterPoseResolver.punch(
-                    hand: activePunchHand,
-                    profile: activePunchProfile,
-                    isActive: false
-                ),
-                duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.82,
+                to: projectedPunchPose(isActive: false),
+                duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.72,
                 style: .anticipation
             )
         case .punchActive:
-            let snapScale: Double = activePunchProfile.motion == .counter ? 0.38 : 0.52
+            let snapScale: Double = activePunchProfile.motion == .counter ? 0.50 : 0.64
             transition(
-                to: FighterPoseResolver.punch(
-                    hand: activePunchHand,
-                    profile: activePunchProfile,
-                    isActive: true
-                ),
+                to: projectedPunchPose(isActive: true),
                 duration: CombatTuning.punchActive * snapScale,
                 style: .strike
             )
         case .punchRecovery:
             transition(
                 to: .guardPose,
-                duration: CombatTuning.punchRecovery * activePunchProfile.recoveryScale * 0.72,
+                duration: CombatTuning.punchRecovery * activePunchProfile.recoveryScale * 0.76,
                 style: .settle
             )
         case .swaying:
             transition(
-                to: FighterPoseResolver.sway(activeSwayDirection),
-                duration: CombatTuning.swayDuration * 0.46,
+                to: FighterPoseResolver.sway(
+                    activeSwayDirection,
+                    screenDirection: activeSwayScreenDirection,
+                    facing: facing
+                ),
+                duration: CombatTuning.swayDuration * 0.34,
                 style: .evasive
             )
         case .hit:
@@ -96,19 +94,15 @@ final class FighterNode: SKNode {
     func preparePunch(_ hand: PunchHand, profile: PunchProfile) {
         activePunchHand = hand
         activePunchProfile = profile
+        // Lock the exact continuous aim vector at commitment. The opponent may
+        // keep moving during startup, but the fist should finish along one
+        // readable line instead of snapping between projected pose updates.
+        activePunchAimDirection = opponentDirection
     }
 
-    func prepareSway(_ direction: SwayDirection) {
-        guard facing < 0 else {
-            activeSwayDirection = direction
-            return
-        }
-        switch direction {
-        case .left: activeSwayDirection = .right
-        case .right: activeSwayDirection = .left
-        case .back: activeSwayDirection = .back
-        case .forward: activeSwayDirection = .forward
-        }
+    func prepareSway(_ direction: SwayDirection, screenDirection: CGVector) {
+        activeSwayDirection = direction
+        activeSwayScreenDirection = screenDirection
     }
 
     func orient(toward direction: CGVector) {
@@ -162,25 +156,55 @@ final class FighterNode: SKNode {
         faceFacet.alpha = 0.22 + facingCameraAmount * 0.78
     }
 
-    func updateLocomotion(movement: CGVector, deltaTime: TimeInterval) {
+    func updateLocomotion(
+        movement: CGVector,
+        screenDisplacement: CGVector,
+        deltaTime: TimeInterval
+    ) {
         guard deltaTime > 0 else { return }
+        let horizontalScale = xScale * animationRoot.xScale
+        let verticalScale = yScale * animationRoot.yScale
+        let localRootDisplacement = CGVector(
+            dx: abs(horizontalScale) > 0.001
+                ? screenDisplacement.dx / horizontalScale : 0,
+            dy: abs(verticalScale) > 0.001
+                ? screenDisplacement.dy / verticalScale : 0
+        )
         let frame = locomotion.update(
             movement: movement,
+            rootDisplacement: localRootDisplacement,
             facing: facing,
             opponentDirection: opponentDirection,
             isNeutralPose: isInNeutralPose,
             deltaTime: deltaTime
         )
 
-        frontLegAnchor.zRotation = frame.frontHipRotation
-        backLegAnchor.zRotation = frame.backHipRotation
-        frontLegAnchor.position.x += frame.frontHipX
-        backLegAnchor.position.x += frame.backHipX
-        frontKneeMotionRoot.zRotation = frame.frontKneeRotation
-        backKneeMotionRoot.zRotation = frame.backKneeRotation
-        let plantedLegY = 36 - pelvisPoseRoot.position.y - frame.pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + frame.frontHipLift
-        backLegAnchor.position.y = plantedLegY + frame.backHipLift
+        let frontLegSolution = FighterLegIK.solve(
+            upperAngle: frontLeg.zRotation,
+            kneeAngle: frontLowerLeg.zRotation,
+            bendDirection: -1,
+            footOffset: frame.frontFootOffset,
+            upperLength: FighterGeometry.upperLegLength,
+            lowerLength: FighterGeometry.lowerLegLength
+        )
+        let backLegSolution = FighterLegIK.solve(
+            upperAngle: backLeg.zRotation,
+            kneeAngle: backLowerLeg.zRotation,
+            bendDirection: -1,
+            footOffset: frame.backFootOffset,
+            upperLength: FighterGeometry.upperLegLength,
+            lowerLength: FighterGeometry.lowerLegLength
+        )
+        frontLegAnchor.zRotation = frontLegSolution.hipCorrection
+        backLegAnchor.zRotation = backLegSolution.hipCorrection
+        frontKneeMotionRoot.zRotation = frontLegSolution.kneeCorrection
+        backKneeMotionRoot.zRotation = backLegSolution.kneeCorrection
+        // Negative compression lowers the hips and flexes both knees. The old
+        // subtraction raised the hip on each load/landing beat, producing the
+        // rigid straight-leg pop visible during movement.
+        let plantedLegY = 36 - pelvisPoseRoot.position.y + frame.pelvisCompression
+        frontLegAnchor.position.y = plantedLegY
+        backLegAnchor.position.y = plantedLegY
         pelvisMotionRoot.position = frame.pelvisPosition
         pelvisMotionRoot.zRotation = frame.pelvisRotation
         upperBodyMotionRoot.position = frame.upperBodyPosition
@@ -293,7 +317,14 @@ final class FighterNode: SKNode {
                 shortestUnitArc: true
             )
             rotation.timingMode = style == .strike ? .easeOut : .easeInEaseOut
-            node.run(rotation, withKey: "poseRotation")
+            let delay = transitionDelay(
+                for: node,
+                style: style,
+                duration: duration,
+                isActiveArm: isActiveArm,
+                isLeg: isLeg
+            )
+            node.run(delayed(rotation, by: delay), withKey: "poseRotation")
         }
         let upperDurationScale: Double = style == .strike ? 0.72 : 1
         let upperBodyMove = SKAction.group([
@@ -308,7 +339,14 @@ final class FighterNode: SKNode {
             )
         ])
         upperBodyMove.timingMode = style == .strike || style == .evasive ? .easeOut : .easeInEaseOut
-        upperBodyPoseRoot.run(upperBodyMove, withKey: "pose")
+        let upperBodyDelay: TimeInterval
+        switch style {
+        case .anticipation: upperBodyDelay = duration * 0.09
+        case .strike: upperBodyDelay = duration * 0.08
+        case .evasive: upperBodyDelay = duration * 0.14
+        case .settle: upperBodyDelay = 0
+        }
+        upperBodyPoseRoot.run(delayed(upperBodyMove, by: upperBodyDelay), withKey: "pose")
 
         let pelvisDurationScale: Double
         switch style {
@@ -330,6 +368,80 @@ final class FighterNode: SKNode {
         ])
         pelvisMove.timingMode = style == .strike || style == .evasive ? .easeOut : .easeInEaseOut
         pelvisPoseRoot.run(pelvisMove, withKey: "pose")
+    }
+
+    private func transitionDelay(
+        for node: SKNode,
+        style: FighterTransitionStyle,
+        duration: TimeInterval,
+        isActiveArm: Bool,
+        isLeg: Bool
+    ) -> TimeInterval {
+        switch style {
+        case .anticipation:
+            if isLeg { return 0 }
+            if isActiveArm {
+                return node === frontLowerArm || node === backLowerArm
+                    ? duration * 0.20 : duration * 0.13
+            }
+            return duration * 0.08
+        case .strike:
+            if isLeg { return 0 }
+            if isActiveArm {
+                return node === frontLowerArm || node === backLowerArm
+                    ? duration * 0.14 : duration * 0.09
+            }
+            return duration * 0.06
+        case .evasive:
+            if isLeg { return 0 }
+            return duration * 0.20
+        case .settle:
+            return 0
+        }
+    }
+
+    private func delayed(_ action: SKAction, by delay: TimeInterval) -> SKAction {
+        guard delay > 0 else { return action }
+        return .sequence([.wait(forDuration: delay), action])
+    }
+
+    private func projectedPunchPose(isActive: Bool) -> FighterPose {
+        var pose = FighterPoseResolver.punch(
+            hand: activePunchHand,
+            profile: activePunchProfile,
+            isActive: isActive
+        )
+        let localDirection = CGVector(
+            dx: activePunchAimDirection.dx * facing,
+            dy: activePunchAimDirection.dy
+        )
+        let directionLength = max(hypot(localDirection.dx, localDirection.dy), 0.001)
+        let normalized = CGVector(
+            dx: localDirection.dx / directionLength,
+            dy: localDirection.dy / directionLength
+        )
+
+        // Limb geometry points down at angle zero. Convert the opponent's
+        // projected screen direction into that local angular convention.
+        let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
+        let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
+        let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
+        let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
+        let projectedAngle = baseArmAngle + aimDelta * armProjectionBlend
+        if activePunchHand == .lead {
+            pose.frontUpper += projectedAngle - baseArmAngle
+        } else {
+            pose.backUpper += projectedAngle - baseArmAngle
+        }
+
+        let bodyTravel = pose.bodyX
+        pose.bodyX = bodyTravel * normalized.dx
+        pose.bodyY += bodyTravel * normalized.dy * 0.72
+        return pose
+    }
+
+    private func shortestAngleDelta(from source: CGFloat, to target: CGFloat) -> CGFloat {
+        atan2(sin(target - source), cos(target - source))
     }
 
     private func apply(_ pose: FighterPose) {
