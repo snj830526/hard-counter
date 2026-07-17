@@ -8,7 +8,7 @@ enum CombatTuning {
     static let counterDamage = 34
 
     static let straightStaminaCost: Double = 7
-    static let hookStaminaCost: Double = 11
+    static let smashStaminaCost: Double = 11
     static let uppercutStaminaCost: Double = 14
     static let swayStaminaCost: Double = 5
     static let counterStaminaRefund: Double = 3
@@ -74,7 +74,7 @@ enum CombatTuning {
     static let retreatingPunchReachScale: CGFloat = 0.92
     static let drivingPunchReachScale: CGFloat = 1.08
     static let counterPunchReachScale: CGFloat = 1.14
-    static let hookReachScale: CGFloat = 0.88
+    static let smashReachScale: CGFloat = 0.88
     static let uppercutReachScale: CGFloat = 0.78
     static let minimumFighterScreenSeparation: CGFloat = 56
     static let farPerspectiveScale: CGFloat = 0.62

@@ -685,7 +685,7 @@ final class CombatScene: SKScene {
         let techniqueReachScale: CGFloat
         switch profile.technique {
         case .straight: techniqueReachScale = 1
-        case .hook: techniqueReachScale = CombatTuning.hookReachScale
+        case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
         return visibleFighterDistance()

@@ -30,7 +30,7 @@ enum PunchMotion: Equatable {
 
 enum PunchTechnique: Equatable {
     case straight
-    case hook
+    case smash
     case uppercut
 }
 
@@ -352,7 +352,7 @@ struct CombatEngine {
         let techniquePowerScale: Double
         switch technique {
         case .straight: techniquePowerScale = 1
-        case .hook: techniquePowerScale = 1.06
+        case .smash: techniquePowerScale = 1.10
         case .uppercut: techniquePowerScale = 1.12
         }
         let forwardScale = 1 + max(intent.forwardDrive, 0) * 0.16
@@ -380,9 +380,9 @@ struct CombatEngine {
             techniqueStartupScale = 1
             techniqueActiveScale = 1
             techniqueRecoveryScale = 1
-        case .hook:
+        case .smash:
             techniqueStartupScale = 0.94
-            techniqueActiveScale = 1.55
+            techniqueActiveScale = 1.50
             techniqueRecoveryScale = 1.08
         case .uppercut:
             techniqueStartupScale = 1.05
@@ -441,7 +441,7 @@ struct CombatEngine {
     private func punchTechnique(for state: FighterCombatState) -> PunchTechnique {
         guard state.phase == .swaying else { return .straight }
         switch state.activeSwayDirection {
-        case .left, .right: return .hook
+        case .left, .right: return .smash
         case .forward: return .uppercut
         case .back: return .straight
         }
@@ -450,7 +450,7 @@ struct CombatEngine {
     private func staminaCost(for technique: PunchTechnique) -> Double {
         switch technique {
         case .straight: return CombatTuning.straightStaminaCost
-        case .hook: return CombatTuning.hookStaminaCost
+        case .smash: return CombatTuning.smashStaminaCost
         case .uppercut: return CombatTuning.uppercutStaminaCost
         }
     }

@@ -69,7 +69,7 @@ final class FighterNode: SKNode {
             switch activePunchProfile.technique {
             case .straight:
                 snapScale = activePunchProfile.motion == .counter ? 0.50 : 0.64
-            case .hook:
+            case .smash:
                 snapScale = activePunchProfile.motion == .counter ? 0.68 : 0.80
             case .uppercut:
                 snapScale = activePunchProfile.motion == .counter ? 0.72 : 0.84
@@ -433,8 +433,8 @@ final class FighterNode: SKNode {
 
         // Limb geometry points down at angle zero. Convert the opponent's
         // projected screen direction into that local angular convention.
+        let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
         if activePunchProfile.technique == .straight {
-            let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
             let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
             let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
             let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
@@ -443,6 +443,18 @@ final class FighterNode: SKNode {
                 pose.frontUpper += projectedAngle - baseArmAngle
             } else {
                 pose.backUpper += projectedAngle - baseArmAngle
+            }
+        } else if activePunchProfile.technique == .smash, isActive {
+            // Keep the elbow below the target line, then drive the forearm up
+            // through it. This gives the smash a long, rising silhouette while
+            // still following opponents around the quarter-view ring.
+            let upperArmAngle = projectedArmAngle - 0.30
+            if activePunchHand == .lead {
+                pose.frontUpper = upperArmAngle
+                pose.frontLower = 0.52
+            } else {
+                pose.backUpper = upperArmAngle - 0.04
+                pose.backLower = 0.58
             }
         }
 

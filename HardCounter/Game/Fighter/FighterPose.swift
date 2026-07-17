@@ -60,36 +60,36 @@ struct FighterPose {
         frontKnee: -0.10, backKnee: 0.24
     )
 
-    static let leadHookWindUp = FighterPose(
-        bodyX: -7, bodyRotation: -0.24, pelvisRotation: -0.12,
-        frontUpper: 0.32, frontLower: 2.72,
+    static let leadSmashWindUp = FighterPose(
+        bodyX: -7, bodyY: -5, bodyRotation: -0.22, pelvisRotation: -0.14,
+        frontUpper: 0.24, frontLower: 2.76,
         backUpper: 0.44, backLower: 2.60,
-        frontLeg: 0.23, backLeg: -0.34,
-        frontKnee: -0.20, backKnee: 0.22
+        frontLeg: 0.27, backLeg: -0.38,
+        frontKnee: -0.27, backKnee: 0.29
     )
 
-    static let leadHook = FighterPose(
-        bodyX: 6, bodyRotation: 0.48, pelvisRotation: 0.30,
-        frontUpper: 1.52, frontLower: 1.56,
+    static let leadSmash = FighterPose(
+        bodyX: 13, bodyY: 7, bodyRotation: 0.36, pelvisRotation: 0.25,
+        frontUpper: 1.24, frontLower: 0.52,
         backUpper: 0.52, backLower: 2.54,
-        frontLeg: 0.07, backLeg: -0.43,
-        frontKnee: -0.09, backKnee: 0.26
+        frontLeg: 0.04, backLeg: -0.49,
+        frontKnee: -0.06, backKnee: 0.30
     )
 
-    static let rearHookWindUp = FighterPose(
-        bodyX: -9, bodyRotation: -0.30, pelvisRotation: -0.18,
+    static let rearSmashWindUp = FighterPose(
+        bodyX: -10, bodyY: -6, bodyRotation: -0.31, pelvisRotation: -0.20,
         frontUpper: 0.88, frontLower: 2.46,
-        backUpper: -0.30, backLower: 2.86,
-        frontLeg: 0.25, backLeg: -0.39,
-        frontKnee: -0.21, backKnee: 0.25
+        backUpper: -0.26, backLower: 2.88,
+        frontLeg: 0.29, backLeg: -0.42,
+        frontKnee: -0.29, backKnee: 0.32
     )
 
-    static let rearHook = FighterPose(
-        bodyX: 7, bodyRotation: 0.52, pelvisRotation: 0.34,
+    static let rearSmash = FighterPose(
+        bodyX: 16, bodyY: 9, bodyRotation: 0.44, pelvisRotation: 0.34,
         frontUpper: 0.76, frontLower: 2.56,
-        backUpper: 1.50, backLower: 1.58,
-        frontLeg: 0.04, backLeg: -0.47,
-        frontKnee: -0.07, backKnee: 0.29
+        backUpper: 1.20, backLower: 0.58,
+        frontLeg: 0.01, backLeg: -0.53,
+        frontKnee: -0.04, backKnee: 0.33
     )
 
     static let leadUppercutWindUp = FighterPose(
@@ -207,11 +207,11 @@ enum FighterPoseResolver {
             } else {
                 pose = isActive ? .rearPunch : .rearWindUp
             }
-        case .hook:
+        case .smash:
             if hand == .lead {
-                pose = isActive ? .leadHook : .leadHookWindUp
+                pose = isActive ? .leadSmash : .leadSmashWindUp
             } else {
-                pose = isActive ? .rearHook : .rearHookWindUp
+                pose = isActive ? .rearSmash : .rearSmashWindUp
             }
         case .uppercut:
             if hand == .lead {
@@ -238,8 +238,9 @@ enum FighterPoseResolver {
                     pose.frontKnee = -0.12
                     pose.backKnee = 0.18
                 }
-            } else if profile.technique == .hook, isActive {
-                pose.bodyRotation *= 1.08
+            } else if profile.technique == .smash, isActive {
+                pose.bodyRotation *= 1.10
+                pose.bodyY += 3
             } else if profile.technique == .uppercut, isActive {
                 pose.bodyY += 3
             }
@@ -276,8 +277,9 @@ enum FighterPoseResolver {
                 case .straight:
                     pose.bodyX += 13
                     pose.bodyRotation *= 1.30
-                case .hook:
-                    pose.bodyX += 7
+                case .smash:
+                    pose.bodyX += 9
+                    pose.bodyY += 4
                     pose.bodyRotation *= 1.22
                 case .uppercut:
                     pose.bodyX += 5
