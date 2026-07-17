@@ -1,38 +1,34 @@
-//
-//  ContentView.swift
-//  HardCounter
-//
-//  Created by john choi on 7/17/26.
-//
-
 import SwiftUI
-import SpriteKit
 
 struct ContentView: View {
-    @State private var combatScene = CombatScene()
+    @State private var destination: GameDestination = .modeSelection
 
     var body: some View {
-        GeometryReader { proxy in
-            SpriteView(scene: combatScene, options: [.ignoresSiblingOrder])
-                .ignoresSafeArea()
-                .onAppear {
-                    requestLandscapeOrientation()
-                    updateSafeArea(from: proxy)
+        ZStack {
+            switch destination {
+            case .modeSelection:
+                ModeSelectionView {
+                    destination = .fighterSelection
                 }
-                .onChange(of: proxy.safeAreaInsets) { _, _ in updateSafeArea(from: proxy) }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            case .fighterSelection:
+                FighterSelectionView(
+                    onBack: { destination = .modeSelection },
+                    onStart: { fighter in destination = .combat(fighter) }
+                )
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            case let .combat(fighter):
+                CombatContainerView(fighter: fighter) {
+                    destination = .modeSelection
+                }
+                .transition(.opacity)
+            }
         }
-        .background(Color.black)
+        .animation(.easeInOut(duration: 0.24), value: destination)
+        .background(Color(red: 0.025, green: 0.032, blue: 0.055))
+        .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
-    }
-
-    private func updateSafeArea(from proxy: GeometryProxy) {
-        let insets = proxy.safeAreaInsets
-        combatScene.updateSafeAreaInsets(EdgeInsetsSnapshot(
-            top: insets.top,
-            leading: insets.leading,
-            bottom: insets.bottom,
-            trailing: insets.trailing
-        ))
+        .onAppear(perform: requestLandscapeOrientation)
     }
 
     private func requestLandscapeOrientation() {
@@ -45,6 +41,12 @@ struct ContentView: View {
             .rootViewController?
             .setNeedsUpdateOfSupportedInterfaceOrientations()
     }
+}
+
+private enum GameDestination: Equatable {
+    case modeSelection
+    case fighterSelection
+    case combat(FighterProfile)
 }
 
 #Preview {

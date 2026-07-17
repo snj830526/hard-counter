@@ -7,13 +7,16 @@ Hard Counter는 SwiftUI 앱 안에 SpriteKit 전투 장면을 넣는 구조다.
 ```text
 SwiftUI App
   └─ ContentView
-      └─ SpriteView
-          └─ CombatScene
-              ├─ 입력과 이동
-              ├─ 전투 엔진
-              ├─ CPU
-              ├─ 캐릭터와 링 렌더링
-              └─ 햅틱 및 화면 피드백
+      ├─ ModeSelectionView
+      ├─ FighterSelectionView
+      └─ CombatContainerView
+          └─ SpriteView
+              └─ CombatScene
+                  ├─ 입력과 이동
+                  ├─ 전투 엔진
+                  ├─ CPU
+                  ├─ 캐릭터와 링 렌더링
+                  └─ 햅틱 및 화면 피드백
 ```
 
 SwiftUI는 앱 생명주기, 가로 화면 요청, 안전 영역 전달을 담당한다. SpriteKit은 프레임 업데이트, 터치, 캐릭터와 링의 렌더링을 담당한다.
@@ -33,6 +36,12 @@ HardCounter/
 │   │   └── CombatTuning.swift
 │   ├── Feedback/
 │   │   └── HapticController.swift
+│   ├── Flow/
+│   │   ├── FighterProfile.swift
+│   │   ├── FlowBackground.swift
+│   │   ├── ModeSelectionView.swift
+│   │   ├── FighterSelectionView.swift
+│   │   └── CombatContainerView.swift
 │   ├── Fighter/
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
@@ -60,7 +69,11 @@ HardCounter/
 ### 앱 계층
 
 - `HardCounterApp.swift`: 앱 진입점과 가로 방향 제한
-- `ContentView.swift`: `SpriteView` 생성, 시스템 UI 숨김, 안전 영역 전달
+- `ContentView.swift`: 모드 선택, 캐릭터 선택, 경기 화면의 앱 흐름과 전환을 관리한다.
+- `ModeSelectionView.swift`: 솔로와 근거리 대전 진입점을 제공한다. 근거리 대전은 네트워크 구현 전까지 준비 안내를 표시한다.
+- `FighterSelectionView.swift`: 출전 선수의 외형 테마와 능력치 미리보기를 선택한다.
+- `FighterProfile.swift`: 선수 식별자, 이름, 스타일, 색상과 능력치 미리보기 데이터를 정의한다.
+- `CombatContainerView.swift`: 선택된 선수로 `CombatScene`을 만들고 안전 영역 전달과 메뉴 복귀를 담당한다.
 
 ### 장면 계층
 
