@@ -151,10 +151,23 @@ final class FighterNode: SKNode {
         faceFacet.alpha = 0.22 + facingCameraAmount * 0.78
     }
 
-    func updateLocomotion(movement: CGVector, deltaTime: TimeInterval) {
+    func updateLocomotion(
+        movement: CGVector,
+        screenDisplacement: CGVector,
+        deltaTime: TimeInterval
+    ) {
         guard deltaTime > 0 else { return }
+        let horizontalScale = xScale * animationRoot.xScale
+        let verticalScale = yScale * animationRoot.yScale
+        let localRootDisplacement = CGVector(
+            dx: abs(horizontalScale) > 0.001
+                ? screenDisplacement.dx / horizontalScale : 0,
+            dy: abs(verticalScale) > 0.001
+                ? screenDisplacement.dy / verticalScale : 0
+        )
         let frame = locomotion.update(
             movement: movement,
+            rootDisplacement: localRootDisplacement,
             facing: facing,
             opponentDirection: opponentDirection,
             isNeutralPose: isInNeutralPose,

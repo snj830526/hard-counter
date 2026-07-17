@@ -122,8 +122,10 @@ enum FighterPoseResolver {
         pose.bodyY = localY * distance * 0.78
 
         let tilt: CGFloat = direction == .back ? 0.20 : 0.15
-        pose.bodyRotation = localX * tilt - localY * 0.12
-        pose.pelvisRotation = -localX * tilt * 0.34 + localY * 0.035
+        // Depth-direction sways are sold mostly by projected translation. A
+        // large 2D rotation here made up/down input look like a sideways fall.
+        pose.bodyRotation = localX * tilt - localY * 0.038
+        pose.pelvisRotation = -localX * tilt * 0.34 + localY * 0.014
         return pose
     }
 

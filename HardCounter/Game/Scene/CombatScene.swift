@@ -307,10 +307,21 @@ final class CombatScene: SKScene {
 
     private func updateMovement(deltaTime: TimeInterval) {
         guard engine.winner == nil, deltaTime > 0 else {
-            player.updateLocomotion(movement: .zero, deltaTime: deltaTime)
-            cpu.updateLocomotion(movement: .zero, deltaTime: deltaTime)
+            player.updateLocomotion(
+                movement: .zero,
+                screenDisplacement: .zero,
+                deltaTime: deltaTime
+            )
+            cpu.updateLocomotion(
+                movement: .zero,
+                screenDisplacement: .zero,
+                deltaTime: deltaTime
+            )
             return
         }
+
+        let previousPlayerScreenPosition = player.position
+        let previousCPUScreenPosition = cpu.position
 
         let phaseMultiplier = playerFootworkMultiplier()
         let targetMovement = combinedMovementVector()
@@ -343,9 +354,20 @@ final class CombatScene: SKScene {
         updateCamera(deltaTime: deltaTime)
         player.updateLocomotion(
             movement: CGVector(dx: screenMovement.dx * movementMultiplier, dy: screenMovement.dy * movementMultiplier),
+            screenDisplacement: CGVector(
+                dx: player.position.x - previousPlayerScreenPosition.x,
+                dy: player.position.y - previousPlayerScreenPosition.y
+            ),
             deltaTime: deltaTime
         )
-        cpu.updateLocomotion(movement: ringProjection.screenVector(forWorldVector: cpuMovement), deltaTime: deltaTime)
+        cpu.updateLocomotion(
+            movement: ringProjection.screenVector(forWorldVector: cpuMovement),
+            screenDisplacement: CGVector(
+                dx: cpu.position.x - previousCPUScreenPosition.x,
+                dy: cpu.position.y - previousCPUScreenPosition.y
+            ),
+            deltaTime: deltaTime
+        )
     }
 
     private func combinedMovementVector() -> CGVector {

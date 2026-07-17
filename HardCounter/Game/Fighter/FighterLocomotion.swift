@@ -22,6 +22,8 @@ struct FighterLocomotionController {
     private var stepDirection = CGVector(dx: 1, dy: 0)
     private var frontFootInitiates = true
     private var previousInputDirection = CGVector(dx: 1, dy: 0)
+    private var frontFootPlantOffset = CGPoint.zero
+    private var backFootPlantOffset = CGPoint.zero
 
     // These filters give the body a short chain of follow-through: the hips
     // initiate, the rib cage catches up, and the guard remains readable.
@@ -32,6 +34,7 @@ struct FighterLocomotionController {
 
     mutating func update(
         movement: CGVector,
+        rootDisplacement: CGVector,
         facing: CGFloat,
         opponentDirection: CGVector,
         isNeutralPose: Bool,
@@ -92,17 +95,11 @@ struct FighterLocomotionController {
         // A boxing shuffle is not two walking arcs. Weight loads onto the
         // support leg first, the initiating foot travels and lands, then the
         // support foot catches up while the body settles over the new stance.
-        let launchAdvance = smoothstep(0.11, 0.31, phase)
-        let launchSettle = 1 - smoothstep(0.44, 0.70, phase)
-        let launch = launchAdvance * launchSettle
-        let follow = pulse(phase, start: 0.50, end: 0.96)
         let launchLift = pow(pulse(phase, start: 0.11, end: 0.43), 1.28)
         let followLift = pow(pulse(phase, start: 0.51, end: 0.86), 1.34)
         let landing = pulse(phase, start: 0.30, end: 0.88)
         let preload = pulse(phase, start: 0, end: 0.30)
 
-        let frontSlide = frontFootInitiates ? launch : follow
-        let backSlide = frontFootInitiates ? follow : launch
         let frontLift = frontFootInitiates ? launchLift : followLift
         let backLift = frontFootInitiates ? followLift : launchLift
 
@@ -112,20 +109,45 @@ struct FighterLocomotionController {
         let motionAmplitude = 0.62 + stepIntensity * 0.88
 
         let localDirectionX = stepDirection.dx * facing
-        let forwardDrive = stepDirection.dx * opponentDirection.dx
-            + stepDirection.dy * opponentDirection.dy
-        let horizontalTravel = abs(localDirectionX) > 0.18
-            ? sign(localDirectionX)
-            : sign(forwardDrive)
-        let travel = horizontalTravel * motionAmplitude * 11.5
 
-        // The non-initiating foot briefly moves against the root travel. This
-        // visually pins it to the canvas while the other foot leaves the floor.
-        let supportPlant = max(1 - smoothstep(0.36, 0.70, phase), 0)
-        let frontSupport = frontFootInitiates ? 0 : supportPlant
-        let backSupport = frontFootInitiates ? supportPlant : 0
-        let frontTravel = travel * (frontSlide - frontSupport * 0.42)
-        let backTravel = travel * (backSlide - backSupport * 0.42)
+        // Counter the fighter root's actual projected travel. Feet remain in
+        // world space until their swing phase catches them back under the hips.
+        frontFootPlantOffset.x -= rootDisplacement.dx
+        frontFootPlantOffset.y -= rootDisplacement.dy
+        backFootPlantOffset.x -= rootDisplacement.dx
+        backFootPlantOffset.y -= rootDisplacement.dy
+        frontFootPlantOffset = clampedFootOffset(frontFootPlantOffset)
+        backFootPlantOffset = clampedFootOffset(backFootPlantOffset)
+
+        let frontCatch = frontFootInitiates ? launchLift : followLift
+        let backCatch = frontFootInitiates ? followLift : launchLift
+        frontFootPlantOffset = damp(
+            frontFootPlantOffset,
+            toward: .zero,
+            response: frontCatch * 28,
+            deltaTime: deltaTime
+        )
+        backFootPlantOffset = damp(
+            backFootPlantOffset,
+            toward: .zero,
+            response: backCatch * 28,
+            deltaTime: deltaTime
+        )
+
+        if stepProgress >= 1, targetIntensity < 0.05 {
+            frontFootPlantOffset = damp(
+                frontFootPlantOffset,
+                toward: .zero,
+                response: 14,
+                deltaTime: deltaTime
+            )
+            backFootPlantOffset = damp(
+                backFootPlantOffset,
+                toward: .zero,
+                response: 14,
+                deltaTime: deltaTime
+            )
+        }
 
         let compression = -(preload * 1.70 + landing * 1.05) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
@@ -179,12 +201,12 @@ struct FighterLocomotionController {
 
         return FighterLocomotionFrame(
             frontFootOffset: CGPoint(
-                x: frontTravel,
-                y: frontLift * motionAmplitude * 5.4
+                x: frontFootPlantOffset.x,
+                y: frontFootPlantOffset.y + frontLift * motionAmplitude * 5.4
             ),
             backFootOffset: CGPoint(
-                x: backTravel,
-                y: backLift * motionAmplitude * 5.4
+                x: backFootPlantOffset.x,
+                y: backFootPlantOffset.y + backLift * motionAmplitude * 5.4
             ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
@@ -205,6 +227,8 @@ struct FighterLocomotionController {
         stepDirection = CGVector(dx: 1, dy: 0)
         frontFootInitiates = true
         previousInputDirection = CGVector(dx: 1, dy: 0)
+        frontFootPlantOffset = .zero
+        backFootPlantOffset = .zero
         displayedPelvisPosition = .zero
         displayedPelvisRotation = 0
         displayedUpperPosition = .zero
@@ -265,8 +289,11 @@ struct FighterLocomotionController {
         return sin(amount * .pi)
     }
 
-    private func sign(_ value: CGFloat) -> CGFloat {
-        value >= 0 ? 1 : -1
+    private func clampedFootOffset(_ offset: CGPoint) -> CGPoint {
+        CGPoint(
+            x: min(max(offset.x, -19), 19),
+            y: min(max(offset.y, -11), 11)
+        )
     }
 }
 
