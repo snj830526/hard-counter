@@ -65,10 +65,18 @@ final class FighterNode: SKNode {
                 style: .anticipation
             )
         case .punchActive:
-            let snapScale: Double = activePunchProfile.motion == .counter ? 0.50 : 0.64
+            let snapScale: Double
+            switch activePunchProfile.technique {
+            case .straight:
+                snapScale = activePunchProfile.motion == .counter ? 0.50 : 0.64
+            case .hook:
+                snapScale = activePunchProfile.motion == .counter ? 0.68 : 0.80
+            case .uppercut:
+                snapScale = activePunchProfile.motion == .counter ? 0.72 : 0.84
+            }
             transition(
                 to: projectedPunchPose(isActive: true),
-                duration: CombatTuning.punchActive * snapScale,
+                duration: CombatTuning.punchActive * activePunchProfile.activeScale * snapScale,
                 style: .strike
             )
         case .punchRecovery:

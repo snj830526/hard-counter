@@ -69,8 +69,8 @@ struct FighterPose {
     )
 
     static let leadHook = FighterPose(
-        bodyX: 8, bodyRotation: 0.34, pelvisRotation: 0.22,
-        frontUpper: 1.35, frontLower: 1.42,
+        bodyX: 6, bodyRotation: 0.48, pelvisRotation: 0.30,
+        frontUpper: 1.52, frontLower: 1.56,
         backUpper: 0.52, backLower: 2.54,
         frontLeg: 0.07, backLeg: -0.43,
         frontKnee: -0.09, backKnee: 0.26
@@ -85,9 +85,9 @@ struct FighterPose {
     )
 
     static let rearHook = FighterPose(
-        bodyX: 10, bodyRotation: 0.40, pelvisRotation: 0.28,
+        bodyX: 7, bodyRotation: 0.52, pelvisRotation: 0.34,
         frontUpper: 0.76, frontLower: 2.56,
-        backUpper: 1.30, backLower: 1.46,
+        backUpper: 1.50, backLower: 1.58,
         frontLeg: 0.04, backLeg: -0.47,
         frontKnee: -0.07, backKnee: 0.29
     )

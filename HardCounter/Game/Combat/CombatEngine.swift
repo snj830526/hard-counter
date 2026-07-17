@@ -40,6 +40,7 @@ struct PunchProfile {
     var powerScale: Double = 1
     var lateralDrive: Double = 0
     var startupScale: Double = 1
+    var activeScale: Double = 1
     var recoveryScale: Double = 1
 }
 
@@ -222,7 +223,12 @@ struct CombatEngine {
     ) -> [CombatEvent] {
         switch state(for: fighter).phase {
         case .punchStartup:
-            var events = setPhase(.punchActive, for: fighter, until: time + CombatTuning.punchActive)
+            let profile = state(for: fighter).activePunchProfile
+            var events = setPhase(
+                .punchActive,
+                for: fighter,
+                until: time + CombatTuning.punchActive * profile.activeScale
+            )
             if canHit(fighter) {
                 events += resolvePunch(from: fighter, at: time)
             }
@@ -364,19 +370,23 @@ struct CombatEngine {
             )
         let performance = staminaPerformance(for: state)
         let powerScale = basePowerScale * performance
-        let fatigueRecoveryScale = 1 + (1 - performance) * 0.85
-        let fatigueStartupScale = 1 + (1 - performance) * 0.18
+        let fatigueRecoveryScale = 1 + (1 - performance) * 1.15
+        let fatigueStartupScale = 1 + (1 - performance) * 0.32
         let techniqueStartupScale: Double
+        let techniqueActiveScale: Double
         let techniqueRecoveryScale: Double
         switch technique {
         case .straight:
             techniqueStartupScale = 1
+            techniqueActiveScale = 1
             techniqueRecoveryScale = 1
         case .hook:
             techniqueStartupScale = 0.94
+            techniqueActiveScale = 1.55
             techniqueRecoveryScale = 1.08
         case .uppercut:
             techniqueStartupScale = 1.05
+            techniqueActiveScale = 1.40
             techniqueRecoveryScale = 1.16
         }
 
@@ -389,6 +399,7 @@ struct CombatEngine {
                 lateralDrive: intent.lateralDrive,
                 startupScale: (hand == .lead ? 0.80 : 0.96)
                     * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
                 recoveryScale: (hand == .lead ? 0.82 : 1.02)
                     * fatigueRecoveryScale * techniqueRecoveryScale
             )
@@ -399,6 +410,7 @@ struct CombatEngine {
                 powerScale: powerScale * 0.92,
                 lateralDrive: intent.lateralDrive,
                 startupScale: 0.84 * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
                 recoveryScale: 0.86 * fatigueRecoveryScale * techniqueRecoveryScale
             )
         case .driving:
@@ -409,6 +421,7 @@ struct CombatEngine {
                 lateralDrive: intent.lateralDrive,
                 startupScale: (hand == .lead ? 0.88 : 1.05)
                     * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
                 recoveryScale: (hand == .lead ? 0.94 : 1.12)
                     * fatigueRecoveryScale * techniqueRecoveryScale
             )
@@ -419,6 +432,7 @@ struct CombatEngine {
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
                 startupScale: 0.68 * fatigueStartupScale * techniqueStartupScale,
+                activeScale: techniqueActiveScale,
                 recoveryScale: 1.08 * fatigueRecoveryScale * techniqueRecoveryScale
             )
         }
@@ -444,7 +458,7 @@ struct CombatEngine {
     private func staminaPerformance(for state: FighterCombatState) -> Double {
         guard state.stamina < CombatTuning.lowStaminaThreshold else { return 1 }
         let fraction = max(state.stamina / CombatTuning.lowStaminaThreshold, 0)
-        return 0.72 + fraction * 0.28
+        return 0.45 + fraction * 0.55
     }
 
     private mutating func spendStamina(

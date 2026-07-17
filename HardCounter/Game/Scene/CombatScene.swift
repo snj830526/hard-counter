@@ -383,6 +383,7 @@ final class CombatScene: SKScene {
         let worldMovement = ringProjection.worldDirection(forScreenVector: screenMovement)
         let directionMultiplier = directionalFootworkMultiplier(for: worldMovement)
         let movementMultiplier = phaseMultiplier * directionMultiplier
+            * staminaFootworkMultiplier(for: .player)
         let playerIsMoving = movementMultiplier > 0 && hypot(worldMovement.dx, worldMovement.dy) > 0.02
 
         if playerIsMoving {
@@ -406,8 +407,11 @@ final class CombatScene: SKScene {
             deltaTime: deltaTime
         )
         if cpuCanMove {
-            cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed * deltaTime
-            cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed * deltaTime
+            let staminaMultiplier = staminaFootworkMultiplier(for: .cpu)
+            cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed
+                * staminaMultiplier * deltaTime
+            cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed
+                * staminaMultiplier * deltaTime
         }
 
         clampAndRenderFighters()
@@ -478,6 +482,13 @@ final class CombatScene: SKScene {
         case .hit, .knockedOut:
             return 0
         }
+    }
+
+    private func staminaFootworkMultiplier(for fighter: FighterID) -> CGFloat {
+        let stamina = engine.state(for: fighter).stamina
+        guard stamina < CombatTuning.lowStaminaThreshold else { return 1 }
+        let fraction = max(stamina / CombatTuning.lowStaminaThreshold, 0)
+        return CGFloat(0.62 + fraction * 0.38)
     }
 
     private func directionalFootworkMultiplier(for movement: CGVector) -> CGFloat {
