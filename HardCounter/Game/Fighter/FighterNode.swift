@@ -105,7 +105,7 @@ final class FighterNode: SKNode {
         activeSwayScreenDirection = screenDirection
     }
 
-    func orient(toward direction: CGVector) {
+    private func orient(toward direction: CGVector) {
         let length = hypot(direction.dx, direction.dy)
         guard length > 0.001 else { return }
 
@@ -156,25 +156,21 @@ final class FighterNode: SKNode {
         faceFacet.alpha = 0.22 + facingCameraAmount * 0.78
     }
 
-    func updateLocomotion(
-        movement: CGVector,
-        screenDisplacement: CGVector,
+    func updateMotion(
+        _ movementState: FighterMovementState,
         deltaTime: TimeInterval
     ) {
+        orient(toward: movementState.towardOpponent)
         guard deltaTime > 0 else { return }
         let horizontalScale = xScale * animationRoot.xScale
         let verticalScale = yScale * animationRoot.yScale
-        let localRootDisplacement = CGVector(
-            dx: abs(horizontalScale) > 0.001
-                ? screenDisplacement.dx / horizontalScale : 0,
-            dy: abs(verticalScale) > 0.001
-                ? screenDisplacement.dy / verticalScale : 0
+        let input = movementState.locomotionInput(
+            facing: facing,
+            horizontalScale: horizontalScale,
+            verticalScale: verticalScale
         )
         let frame = locomotion.update(
-            movement: movement,
-            rootDisplacement: localRootDisplacement,
-            facing: facing,
-            opponentDirection: opponentDirection,
+            input: input,
             isNeutralPose: isInNeutralPose,
             deltaTime: deltaTime
         )

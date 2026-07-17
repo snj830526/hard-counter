@@ -33,14 +33,15 @@ struct FighterLocomotionController {
     private var displayedUpperRotation: CGFloat = 0
 
     mutating func update(
-        movement: CGVector,
-        rootDisplacement: CGVector,
-        facing: CGFloat,
-        opponentDirection: CGVector,
+        input: FighterLocomotionInput,
         isNeutralPose: Bool,
         deltaTime: TimeInterval
     ) -> FighterLocomotionFrame {
         clock += deltaTime
+        let movement = input.screenMovement
+        let rootDisplacement = input.localRootDisplacement
+        let facing = input.facing
+        let opponentDirection = input.opponentDirection
         let targetIntensity = min(hypot(movement.dx, movement.dy), 1)
         let visualResponse: CGFloat = targetIntensity > displayedIntensity ? 14.5 : 17.0
         displayedIntensity = damp(
