@@ -118,6 +118,7 @@ idle → swaying → idle
 - `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
+- `SwayShowcaseController.swift`: Debug 실행에서 좌우 슬립·풀백·전진 실패를 일정한 간격으로 반복해 스웨이 실루엣을 비교한다.
 - `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
 - `FighterCommand.swift`: 이동과 전투 행동을 선수 식별자·입력 시각과 함께 전달하는 공통 명령 형식과 입력 소스 규약을 정의한다.

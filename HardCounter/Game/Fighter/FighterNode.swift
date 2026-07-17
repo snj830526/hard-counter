@@ -95,7 +95,7 @@ final class FighterNode: SKNode {
                     facing: facing,
                     performance: activeSwayPerformance
                 ),
-                duration: CombatTuning.swayDuration * 0.34,
+                duration: CombatTuning.swayDuration * 0.30,
                 style: .evasive
             )
         case .hit:
@@ -354,9 +354,11 @@ final class FighterNode: SKNode {
             node.run(delayed(rotation, by: delay), withKey: "poseRotation")
         }
         let upperDurationScale: Double = style == .strike ? 0.72 : 1
+        let upperTranslationX: CGFloat = style == .evasive ? 0.92 : 0.68
+        let upperTranslationY: CGFloat = style == .evasive ? 0.94 : 0.78
         let upperBodyMove = SKAction.group([
             .move(
-                to: CGPoint(x: pose.bodyX * 0.68, y: pose.bodyY * 0.78),
+                to: CGPoint(x: pose.bodyX * upperTranslationX, y: pose.bodyY * upperTranslationY),
                 duration: duration * upperDurationScale
             ),
             .rotate(
@@ -370,7 +372,7 @@ final class FighterNode: SKNode {
         switch style {
         case .anticipation: upperBodyDelay = duration * 0.09
         case .strike: upperBodyDelay = duration * 0.08
-        case .evasive: upperBodyDelay = duration * 0.14
+        case .evasive: upperBodyDelay = duration * 0.08
         case .settle: upperBodyDelay = 0
         }
         upperBodyPoseRoot.run(delayed(upperBodyMove, by: upperBodyDelay), withKey: "pose")
