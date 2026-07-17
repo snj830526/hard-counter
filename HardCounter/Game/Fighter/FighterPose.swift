@@ -199,7 +199,10 @@ enum FighterPoseResolver {
         // local sign so the final on-screen lean follows the stick instead of
         // appearing to sway against it after facing is applied.
         pose.bodyRotation = (-localX * tilt - localY * 0.065) * motionScale
-        pose.pelvisRotation = (localX * tilt * 0.44 + localY * 0.026) * motionScale
+        // Keep only a subtle counter-turn in the hips. A large opposite pelvis
+        // rotation makes the independently rendered torso and shorts tear apart
+        // at the waist when the slip reaches its widest point.
+        pose.pelvisRotation = (localX * tilt * 0.18 + localY * 0.012) * motionScale
         return pose
     }
 
