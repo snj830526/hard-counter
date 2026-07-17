@@ -42,10 +42,10 @@ final class FighterNode: SKNode {
     private var backAnkleMotionRoot: SKNode { rig.backAnkleMotionRoot }
     private var headAnchor: SKNode { rig.headAnchor }
 
-    init(facingRight: Bool, color: SKColor) {
+    init(facingRight: Bool, appearance: FighterAppearance) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
-        rig = FighterRig(facing: facing, color: color)
+        rig = FighterRig(facing: facing, appearance: appearance)
         super.init()
         addChild(rig.animationRoot)
         apply(.guardPose)
@@ -174,7 +174,7 @@ final class FighterNode: SKNode {
             break
         }
 
-        torso.fillColor = rig.lineColor.withAlphaComponent(
+        torso.fillColor = rig.skinColor.withAlphaComponent(
             0.70 + facingCameraAmount * 0.18 - facingAwayAmount * 0.08
         )
         chestFacet.alpha = 0.18 + facingCameraAmount * 0.82

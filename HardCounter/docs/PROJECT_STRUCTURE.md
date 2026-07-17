@@ -39,6 +39,7 @@ HardCounter/
 │   │   └── HapticController.swift
 │   ├── Flow/
 │   │   ├── FighterProfile.swift
+│   │   ├── FighterPortraitView.swift
 │   │   ├── FlowBackground.swift
 │   │   ├── ModeSelectionView.swift
 │   │   ├── FighterSelectionView.swift
@@ -46,6 +47,7 @@ HardCounter/
 │   ├── Fighter/
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
+│   │   ├── FighterAppearance.swift
 │   │   ├── FighterGeometry.swift
 │   │   ├── FighterPose.swift
 │   │   └── FighterLocomotion.swift
@@ -74,6 +76,7 @@ HardCounter/
 - `ModeSelectionView.swift`: 솔로와 근거리 대전 진입점을 제공한다. 근거리 대전은 네트워크 구현 전까지 준비 안내를 표시한다.
 - `FighterSelectionView.swift`: 출전 선수의 외형 테마와 능력치 미리보기를 선택한다.
 - `FighterProfile.swift`: 선수 식별자, 이름, 스타일, 색상과 능력치 미리보기 데이터를 정의한다.
+- `FighterPortraitView.swift`: 선수별 피부, 체형, 헤어와 장비 색상을 선택 카드의 사람형 초상으로 표현한다.
 - `CombatContainerView.swift`: 선택된 선수로 `CombatScene`을 만들고 안전 영역 전달과 메뉴 복귀를 담당한다.
 
 ### 장면 계층
@@ -101,6 +104,7 @@ idle → swaying → idle
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
+- `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
 - `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
