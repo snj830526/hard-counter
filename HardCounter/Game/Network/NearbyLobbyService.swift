@@ -14,6 +14,8 @@ final class NearbyLobbyService: ObservableObject {
     @Published private(set) var remoteFighter: FighterProfile = .allRounder
     @Published private(set) var remoteIsReady = false
     @Published private(set) var matchConfiguration: NearbyMatchConfiguration?
+    @Published private(set) var localRematchAccepted = false
+    @Published private(set) var remoteRematchAccepted = false
     @Published var localFighter: FighterProfile = .allRounder {
         didSet {
             if localFighter != oldValue {
@@ -35,6 +37,7 @@ final class NearbyLobbyService: ObservableObject {
     var onCombatInput: ((NearbyCombatInput) -> Void)?
     var onCombatState: ((NearbyCombatState) -> Void)?
     var onRestartRound: (() -> Void)?
+    var onRematchStateChanged: ((Bool, Bool) -> Void)?
 
     private let networkQueue = DispatchQueue(label: "com.soonispapa.HardCounter.nearby")
     private var listener: NWListener?
@@ -130,15 +133,19 @@ final class NearbyLobbyService: ObservableObject {
         send(NearbyLobbyMessage(kind: .combatState, matchID: matchID, state: state))
     }
 
-    func sendRestartRound() {
-        guard role == .host, let matchID = matchConfiguration?.id else { return }
-        send(NearbyLobbyMessage(kind: .restartRound, matchID: matchID))
+    func setRematchAccepted(_ accepted: Bool) {
+        guard let matchID = matchConfiguration?.id else { return }
+        localRematchAccepted = accepted
+        onRematchStateChanged?(localRematchAccepted, remoteRematchAccepted)
+        send(NearbyLobbyMessage(matchID: matchID, rematchAccepted: accepted))
+        beginRematchIfHostAndReady()
     }
 
     func detachCombatHandlers() {
         onCombatInput = nil
         onCombatState = nil
         onRestartRound = nil
+        onRematchStateChanged = nil
     }
 
     func retry() {
@@ -166,6 +173,7 @@ final class NearbyLobbyService: ObservableObject {
         remoteIsReady = false
         localIsReady = false
         matchConfiguration = nil
+        resetRematchState(notify: false)
         detachCombatHandlers()
         if resetPhase {
             phase = .idle
@@ -351,8 +359,15 @@ final class NearbyLobbyService: ObservableObject {
                   message.matchID == matchConfiguration?.id,
                   let state = message.combatState else { return }
             onCombatState?(state)
+        case .rematchVote:
+            guard message.matchID == matchConfiguration?.id,
+                  let accepted = message.rematchAccepted else { return }
+            remoteRematchAccepted = accepted
+            onRematchStateChanged?(localRematchAccepted, remoteRematchAccepted)
+            beginRematchIfHostAndReady()
         case .restartRound:
             guard role == .guest, message.matchID == matchConfiguration?.id else { return }
+            resetRematchState(notify: true)
             onRestartRound?()
         }
     }
@@ -362,6 +377,22 @@ final class NearbyLobbyService: ObservableObject {
         let matchID = UUID()
         matchConfiguration = makeMatchConfiguration(id: matchID)
         send(NearbyLobbyMessage(kind: .startMatch, matchID: matchID))
+    }
+
+    private func beginRematchIfHostAndReady() {
+        guard role == .host,
+              localRematchAccepted,
+              remoteRematchAccepted,
+              let matchID = matchConfiguration?.id else { return }
+        send(NearbyLobbyMessage(kind: .restartRound, matchID: matchID))
+        resetRematchState(notify: true)
+        onRestartRound?()
+    }
+
+    private func resetRematchState(notify: Bool) {
+        localRematchAccepted = false
+        remoteRematchAccepted = false
+        if notify { onRematchStateChanged?(false, false) }
     }
 
     private func makeMatchConfiguration(id: UUID) -> NearbyMatchConfiguration {

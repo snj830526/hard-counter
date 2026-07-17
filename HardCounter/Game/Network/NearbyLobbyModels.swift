@@ -39,10 +39,11 @@ struct NearbyLobbyMessage: Codable {
         case startMatch
         case combatInput
         case combatState
+        case rematchVote
         case restartRound
     }
 
-    static let protocolVersion = 2
+    static let protocolVersion = 3
 
     let version: Int
     let kind: Kind
@@ -52,6 +53,7 @@ struct NearbyLobbyMessage: Codable {
     var matchID: UUID?
     var combatInput: NearbyCombatInput?
     var combatState: NearbyCombatState?
+    var rematchAccepted: Bool?
 
     init(playerName: String, fighter: FighterProfile, isReady: Bool) {
         version = Self.protocolVersion
@@ -67,6 +69,13 @@ struct NearbyLobbyMessage: Codable {
         self.matchID = matchID
         combatInput = input
         combatState = state
+    }
+
+    init(matchID: UUID, rematchAccepted: Bool) {
+        version = Self.protocolVersion
+        kind = .rematchVote
+        self.matchID = matchID
+        self.rematchAccepted = rematchAccepted
     }
 }
 
