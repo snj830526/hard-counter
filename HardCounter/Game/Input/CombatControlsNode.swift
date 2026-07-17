@@ -10,6 +10,7 @@ enum CombatControlInput {
 final class CombatControlsNode: SKNode {
     private let movementCaptureRadius: CGFloat = 92
     private let movementDeadZone: CGFloat = 9
+    private let movementFullSpeedRadius: CGFloat = 58
     private let dpad = SKShapeNode(circleOfRadius: 58)
     private let dpadCenterDot = SKShapeNode(circleOfRadius: 12)
     private let punchButton = SKShapeNode(circleOfRadius: 39)
@@ -58,12 +59,21 @@ final class CombatControlsNode: SKNode {
     private func directionVector(for delta: CGVector) -> CGVector {
         let length = hypot(delta.dx, delta.dy)
         guard length >= movementDeadZone else { return .zero }
-        return CGVector(dx: delta.dx / length, dy: delta.dy / length)
+
+        let availableTravel = movementFullSpeedRadius - movementDeadZone
+        let linearAmount = min(max((length - movementDeadZone) / availableTravel, 0), 1)
+        // A slightly eager response keeps small corrections available without
+        // making the outer half of the stick feel slow.
+        let speedAmount = CGFloat(pow(Double(linearAmount), 0.72))
+        return CGVector(
+            dx: delta.dx / length * speedAmount,
+            dy: delta.dy / length * speedAmount
+        )
     }
 
     func showMovement(_ vector: CGVector?) {
         dpadCenterDot.removeAllActions()
-        let offset = vector.map { CGVector(dx: $0.dx * 17, dy: $0.dy * 17) } ?? .zero
+        let offset = vector.map { CGVector(dx: $0.dx * 22, dy: $0.dy * 22) } ?? .zero
         dpadCenterDot.run(.move(to: CGPoint(x: dpadCenter.x + offset.dx, y: dpadCenter.y + offset.dy), duration: 0.06))
     }
 

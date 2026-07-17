@@ -11,6 +11,7 @@ enum CombatTuning {
     static let punchRecovery: TimeInterval = 0.42
     static let swayDuration: TimeInterval = 0.42
     static let counterWindow: TimeInterval = 0.72
+    static let punchInputBuffer: TimeInterval = 0.20
     static let hitReaction: TimeInterval = 0.24
     static let counterHitReaction: TimeInterval = 0.48
 
@@ -44,9 +45,11 @@ enum CombatTuning {
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
     static let swayFootworkMultiplier: CGFloat = 0.28
-    static let movementAcceleration: CGFloat = 20
-    static let movementTurnAcceleration: CGFloat = 30
-    static let movementDeceleration: CGFloat = 26
+    static let movementAcceleration: CGFloat = 8.5
+    static let movementTurnAcceleration: CGFloat = 13.5
+    static let movementDeceleration: CGFloat = 11
+    static let retreatSpeedMultiplier: CGFloat = 0.82
+    static let lateralSpeedMultiplier: CGFloat = 0.90
     static let cpuMoveSpeed: CGFloat = 78
     static let cpuMovementDecisionInterval: ClosedRange<TimeInterval> = 0.55...1.05
     static let punchReachAtUnitScale: CGFloat = 112

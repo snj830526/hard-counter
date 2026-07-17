@@ -63,7 +63,7 @@ HardCounter/
 
 ### 전투 계층
 
-- `CombatEngine.swift`: 선수 상태와 전투 단계 전이를 관리한다. SpriteKit 노드에 직접 의존하지 않는다.
+- `CombatEngine.swift`: 선수 상태와 전투 단계 전이를 관리한다. 이동 의도와 펀치 리듬으로 펀치 프로필을 만들며 SpriteKit 노드에 직접 의존하지 않는다.
 - `CombatTuning.swift`: 피해량, 프레임 시간, 이동 속도, 사거리, 연출 시간 등 조정 가능한 수치를 모은다.
 
 전투 상태는 대략 다음 순서로 흐른다.
@@ -77,8 +77,8 @@ idle → swaying → idle
 
 ### 표현 및 입력 계층
 
-- `FighterNode.swift`: 폴리곤 선수 리그, 가드/펀치/스웨이/피격/KO 포즈, 상대 방향에 따른 2.5D 자세를 표현한다.
-- `CombatControlsNode.swift`: D-pad와 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다.
+- `FighterNode.swift`: 폴리곤 선수 리그, 독립적인 상·하체 풋워크, 가드/펀치/스웨이/피격/KO 포즈, 상대 방향에 따른 2.5D 자세를 표현한다.
+- `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
 
