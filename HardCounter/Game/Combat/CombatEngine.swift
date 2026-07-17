@@ -8,8 +8,31 @@ enum FighterID: CaseIterable {
 }
 
 enum CombatAction {
-    case punch
-    case sway(SwayDirection)
+    case punch(PunchIntent)
+    case sway(SwayIntent)
+}
+
+struct PunchIntent {
+    var forwardDrive: Double
+    var lateralDrive: Double
+    var movementIntensity: Double
+
+    static let neutral = PunchIntent(forwardDrive: 0, lateralDrive: 0, movementIntensity: 0)
+}
+
+enum PunchMotion: Equatable {
+    case quick
+    case retreating
+    case driving
+    case counter
+}
+
+struct PunchProfile {
+    var motion: PunchMotion = .quick
+    var powerScale: Double = 1
+    var lateralDrive: Double = 0
+    var startupScale: Double = 1
+    var recoveryScale: Double = 1
 }
 
 enum PunchHand {
@@ -19,10 +42,19 @@ enum PunchHand {
     var opposite: PunchHand { self == .lead ? .rear : .lead }
 }
 
-enum SwayDirection {
+enum SwayDirection: Equatable {
     case left
     case right
+    case up
+    case down
     case back
+}
+
+struct SwayIntent {
+    var direction: SwayDirection
+    var isTowardOpponent: Bool
+
+    static let neutral = SwayIntent(direction: .back, isTowardOpponent: false)
 }
 
 enum FighterPhase: Equatable {
@@ -47,11 +79,16 @@ struct FighterCombatState {
     var counterWindowEndsAt: TimeInterval = 0
     var nextPunchHand: PunchHand = .lead
     var activePunchHand: PunchHand = .lead
+    var activePunchProfile = PunchProfile()
+    var lastPunchAt: TimeInterval?
+    var activeSwayDirection: SwayDirection = .back
+    var activeSwayCanEvade = true
+    var swayStartedAt: TimeInterval = 0
 }
 
 enum CombatEvent {
     case phaseChanged(FighterID, FighterPhase)
-    case punchStarted(FighterID, PunchHand)
+    case punchStarted(FighterID, PunchHand, PunchProfile)
     case swayStarted(FighterID, SwayDirection)
     case hit(attacker: FighterID, defender: FighterID, kind: HitKind, damage: Int)
     case swayed(defender: FighterID)
@@ -74,14 +111,29 @@ struct CombatEngine {
         guard winner == nil, state(for: fighter).phase == .idle else { return [] }
 
         switch action {
-        case .punch:
+        case let .punch(intent):
             let hand = state(for: fighter).nextPunchHand
+            let profile = makePunchProfile(
+                hand: hand,
+                intent: intent,
+                state: state(for: fighter),
+                time: time
+            )
             states[fighter]?.activePunchHand = hand
+            states[fighter]?.activePunchProfile = profile
             states[fighter]?.nextPunchHand = hand.opposite
-            return [.punchStarted(fighter, hand)]
-                + setPhase(.punchStartup, for: fighter, until: time + CombatTuning.punchStartup)
-        case let .sway(direction):
-            return [.swayStarted(fighter, direction)]
+            states[fighter]?.lastPunchAt = time
+            return [.punchStarted(fighter, hand, profile)]
+                + setPhase(
+                    .punchStartup,
+                    for: fighter,
+                    until: time + CombatTuning.punchStartup * profile.startupScale
+                )
+        case let .sway(intent):
+            states[fighter]?.activeSwayDirection = intent.direction
+            states[fighter]?.activeSwayCanEvade = !intent.isTowardOpponent
+            states[fighter]?.swayStartedAt = time
+            return [.swayStarted(fighter, intent.direction)]
                 + setPhase(.swaying, for: fighter, until: time + CombatTuning.swayDuration)
         }
     }
@@ -129,7 +181,12 @@ struct CombatEngine {
             }
             return events
         case .punchActive:
-            return setPhase(.punchRecovery, for: fighter, until: time + CombatTuning.punchRecovery)
+            let profile = state(for: fighter).activePunchProfile
+            return setPhase(
+                .punchRecovery,
+                for: fighter,
+                until: time + CombatTuning.punchRecovery * profile.recoveryScale
+            )
         case .punchRecovery, .swaying, .hit:
             return setPhase(.idle, for: fighter, until: 0)
         case .idle, .knockedOut:
@@ -141,14 +198,22 @@ struct CombatEngine {
         let defender = attacker.opponent
         let defenderState = state(for: defender)
 
-        if defenderState.phase == .swaying {
+        let swayElapsed = time - defenderState.swayStartedAt
+        let isInsideSwayWindow = swayElapsed >= CombatTuning.swayEvadeStartup
+            && swayElapsed <= CombatTuning.swayEvadeStartup + CombatTuning.swayEvadeActiveDuration
+        let isValidSwayDirection = defenderState.activeSwayCanEvade
+        if defenderState.phase == .swaying, isInsideSwayWindow, isValidSwayDirection {
             states[defender]?.counterWindowEndsAt = time + CombatTuning.counterWindow
             return [.swayed(defender: defender)]
         }
 
-        let isCounter = attacker == .player && time <= state(for: attacker).counterWindowEndsAt
+        let counterWindowEndsAt = state(for: attacker).counterWindowEndsAt
+        let isCounter = attacker == .player && counterWindowEndsAt > 0 && time <= counterWindowEndsAt
         let kind: HitKind = isCounter ? .counter : .normal
-        let damage = isCounter ? CombatTuning.counterDamage : CombatTuning.normalDamage
+        let profile = state(for: attacker).activePunchProfile
+        let damage = isCounter
+            ? CombatTuning.counterDamage
+            : max(1, Int((Double(CombatTuning.normalDamage) * profile.powerScale).rounded()))
         let remainingHealth = max(0, defenderState.health - damage)
         states[defender]?.health = remainingHealth
         states[attacker]?.counterWindowEndsAt = 0
@@ -177,5 +242,81 @@ struct CombatEngine {
         states[fighter]?.phase = phase
         states[fighter]?.phaseEndsAt = endTime
         return [.phaseChanged(fighter, phase)]
+    }
+
+    private func makePunchProfile(
+        hand: PunchHand,
+        intent: PunchIntent,
+        state: FighterCombatState,
+        time: TimeInterval
+    ) -> PunchProfile {
+        let hasCounter = state.counterWindowEndsAt > 0 && time <= state.counterWindowEndsAt
+        let rhythmScale: Double
+        if let lastPunchAt = state.lastPunchAt {
+            let interval = time - lastPunchAt
+            if interval < 0.68 {
+                rhythmScale = 0.82
+            } else if interval <= 1.20 {
+                rhythmScale = 1.06
+            } else {
+                rhythmScale = 0.94
+            }
+        } else {
+            rhythmScale = 0.96
+        }
+
+        let motion: PunchMotion
+        if hasCounter {
+            motion = .counter
+        } else if intent.forwardDrive > 0.28 {
+            motion = .driving
+        } else if intent.forwardDrive < -0.24 {
+            motion = .retreating
+        } else {
+            motion = .quick
+        }
+
+        let handScale = hand == .lead ? 0.86 : 1.06
+        let forwardScale = 1 + max(intent.forwardDrive, 0) * 0.16
+            + min(intent.forwardDrive, 0) * 0.12
+        let movementControl = 1 - min(abs(intent.lateralDrive), 1) * 0.035
+        let powerScale = hasCounter
+            ? 1.25
+            : min(max(handScale * rhythmScale * forwardScale * movementControl, 0.66), 1.22)
+
+        switch motion {
+        case .quick:
+            return PunchProfile(
+                motion: motion,
+                powerScale: powerScale,
+                lateralDrive: intent.lateralDrive,
+                startupScale: hand == .lead ? 0.80 : 0.96,
+                recoveryScale: hand == .lead ? 0.82 : 1.02
+            )
+        case .retreating:
+            return PunchProfile(
+                motion: motion,
+                powerScale: powerScale * 0.92,
+                lateralDrive: intent.lateralDrive,
+                startupScale: 0.84,
+                recoveryScale: 0.86
+            )
+        case .driving:
+            return PunchProfile(
+                motion: motion,
+                powerScale: powerScale,
+                lateralDrive: intent.lateralDrive,
+                startupScale: hand == .lead ? 0.88 : 1.05,
+                recoveryScale: hand == .lead ? 0.94 : 1.12
+            )
+        case .counter:
+            return PunchProfile(
+                motion: motion,
+                powerScale: powerScale,
+                lateralDrive: intent.lateralDrive,
+                startupScale: 0.68,
+                recoveryScale: 1.08
+            )
+        }
     }
 }
