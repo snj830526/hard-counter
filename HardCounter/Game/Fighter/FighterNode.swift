@@ -10,6 +10,8 @@ final class FighterNode: SKNode {
     private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
     private var activeSwayPerformance: CGFloat = 1
     private var locomotion = FighterLocomotionController()
+    private var motionClipPlayer = FighterMotionClipPlayer()
+    private var appliedPose = FighterPose.guardPose
     private var orientation: FighterOrientationController
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
@@ -18,6 +20,7 @@ final class FighterNode: SKNode {
 
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
+    private var actionRoot: SKNode { rig.actionRoot }
     private var body: SKNode { rig.body }
     private var pelvisMotionRoot: SKNode { rig.pelvisMotionRoot }
     private var pelvisPoseRoot: SKNode { rig.pelvisPoseRoot }
@@ -59,14 +62,33 @@ final class FighterNode: SKNode {
         isInNeutralPose = phase == .idle
         switch phase {
         case .idle:
-            transition(to: .guardPose, duration: CombatTuning.idleReturnDuration, style: .settle)
+            motionClipPlayer.finishAction()
+            removePoseActions()
+            actionRoot.position = .zero
+            actionRoot.zRotation = 0
         case .punchStartup:
-            transition(
-                to: projectedPunchPose(isActive: false),
-                duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.72,
-                style: .anticipation
-            )
+            if usesRearStraightMotionClip {
+                removePoseActions()
+                motionClipPlayer.play(FighterMotionLibrary.rearStraight(
+                    guardPose: appliedPose,
+                    loadPose: projectedPunchPose(isActive: false),
+                    strikePose: projectedPunchPose(isActive: true),
+                    startup: CombatTuning.punchStartup * activePunchProfile.startupScale,
+                    active: CombatTuning.punchActive * activePunchProfile.activeScale,
+                    recovery: CombatTuning.punchRecovery * activePunchProfile.recoveryScale
+                ))
+            } else {
+                motionClipPlayer.finishAction()
+                actionRoot.position = .zero
+                actionRoot.zRotation = 0
+                transition(
+                    to: projectedPunchPose(isActive: false),
+                    duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.72,
+                    style: .anticipation
+                )
+            }
         case .punchActive:
+            if motionClipPlayer.isPlayingAction { break }
             let snapScale: Double
             switch activePunchProfile.technique {
             case .straight:
@@ -82,12 +104,16 @@ final class FighterNode: SKNode {
                 style: .strike
             )
         case .punchRecovery:
+            if motionClipPlayer.isPlayingAction { break }
             transition(
                 to: .guardPose,
                 duration: CombatTuning.punchRecovery * activePunchProfile.recoveryScale * 0.76,
                 style: .settle
             )
         case .swaying:
+            motionClipPlayer.finishAction()
+            actionRoot.position = .zero
+            actionRoot.zRotation = 0
             transition(
                 to: FighterPoseResolver.sway(
                     activeSwayDirection,
@@ -101,6 +127,9 @@ final class FighterNode: SKNode {
         case .hit:
             break
         case .knockedOut:
+            motionClipPlayer.finishAction()
+            actionRoot.position = .zero
+            actionRoot.zRotation = 0
             playKnockout()
         }
     }
@@ -191,6 +220,16 @@ final class FighterNode: SKNode {
         )
         applyOrientation(orientationFrame)
         guard deltaTime > 0 else { return }
+
+        let actionFrame = motionClipPlayer.update(
+            phase: currentPhase,
+            deltaTime: deltaTime
+        )
+        if let actionFrame {
+            apply(actionFrame.pose)
+            actionRoot.position = actionFrame.rootPosition
+            actionRoot.zRotation = actionFrame.rootRotation
+        }
         let horizontalScale = xScale * animationRoot.xScale
         let verticalScale = yScale * animationRoot.yScale
         let input = movementState.locomotionInput(
@@ -209,7 +248,10 @@ final class FighterNode: SKNode {
             upperAngle: frontLeg.zRotation,
             kneeAngle: frontLowerLeg.zRotation,
             bendDirection: -1,
-            footOffset: frame.frontFootOffset,
+            footOffset: CGPoint(
+                x: frame.frontFootOffset.x + (actionFrame?.frontFootOffset.x ?? 0),
+                y: frame.frontFootOffset.y + (actionFrame?.frontFootOffset.y ?? 0)
+            ),
             upperLength: FighterGeometry.upperLegLength,
             lowerLength: FighterGeometry.lowerLegLength
         )
@@ -217,7 +259,10 @@ final class FighterNode: SKNode {
             upperAngle: backLeg.zRotation,
             kneeAngle: backLowerLeg.zRotation,
             bendDirection: -1,
-            footOffset: frame.backFootOffset,
+            footOffset: CGPoint(
+                x: frame.backFootOffset.x + (actionFrame?.backFootOffset.x ?? 0),
+                y: frame.backFootOffset.y + (actionFrame?.backFootOffset.y ?? 0)
+            ),
             upperLength: FighterGeometry.upperLegLength,
             lowerLength: FighterGeometry.lowerLegLength
         )
@@ -282,33 +327,44 @@ final class FighterNode: SKNode {
         let distance = baseDistance * techniqueTravel * (0.78 + power * 0.22)
         body.removeAction(forKey: "impact")
         headAnchor.removeAction(forKey: "impact")
-        let recoil = SKAction.group([
-            .move(to: CGPoint(x: -distance, y: lift), duration: duration * 0.20),
-            .rotate(
-                toAngle: recoilRotation,
-                duration: duration * 0.20,
-                shortestUnitArc: true
-            )
-        ])
-        recoil.timingMode = .easeOut
-        let rebound = SKAction.group([
-            .move(
-                to: CGPoint(x: distance * 0.08, y: -lift * 0.12),
-                duration: duration * 0.26
-            ),
-            .rotate(
-                toAngle: -recoilRotation * 0.12,
-                duration: duration * 0.26,
-                shortestUnitArc: true
-            )
-        ])
-        rebound.timingMode = .easeInEaseOut
-        let recover = SKAction.group([
-            .move(to: .zero, duration: duration * 0.54),
-            .rotate(toAngle: 0, duration: duration * 0.54, shortestUnitArc: true)
-        ])
-        recover.timingMode = .easeInEaseOut
-        body.run(.sequence([recoil, rebound, recover]), withKey: "impact")
+        if profile.technique == .straight {
+            removePoseActions()
+            body.position = .zero
+            body.zRotation = 0
+            motionClipPlayer.play(FighterMotionLibrary.straightHit(
+                from: appliedPose,
+                kind: kind,
+                profile: profile
+            ))
+        } else {
+            let recoil = SKAction.group([
+                .move(to: CGPoint(x: -distance, y: lift), duration: duration * 0.20),
+                .rotate(
+                    toAngle: recoilRotation,
+                    duration: duration * 0.20,
+                    shortestUnitArc: true
+                )
+            ])
+            recoil.timingMode = .easeOut
+            let rebound = SKAction.group([
+                .move(
+                    to: CGPoint(x: distance * 0.08, y: -lift * 0.12),
+                    duration: duration * 0.26
+                ),
+                .rotate(
+                    toAngle: -recoilRotation * 0.12,
+                    duration: duration * 0.26,
+                    shortestUnitArc: true
+                )
+            ])
+            rebound.timingMode = .easeInEaseOut
+            let recover = SKAction.group([
+                .move(to: .zero, duration: duration * 0.54),
+                .rotate(toAngle: 0, duration: duration * 0.54, shortestUnitArc: true)
+            ])
+            recover.timingMode = .easeInEaseOut
+            body.run(.sequence([recoil, rebound, recover]), withKey: "impact")
+        }
 
         let headRecoil = SKAction.move(
             to: CGPoint(x: -distance * 0.18, y: 108 + lift * 0.58),
@@ -328,6 +384,7 @@ final class FighterNode: SKNode {
     }
 
     func playHitConfirm(_ profile: PunchProfile) {
+        if profile.technique == .straight, motionClipPlayer.isPlayingAction { return }
         body.removeAction(forKey: "impact")
         let travel: CGFloat
         switch profile.technique {
@@ -344,6 +401,7 @@ final class FighterNode: SKNode {
     }
 
     func playWhiff(_ profile: PunchProfile) {
+        if profile.technique == .straight, motionClipPlayer.isPlayingAction { return }
         body.removeAction(forKey: "impact")
         let travel: CGFloat
         let drop: CGFloat
@@ -382,6 +440,8 @@ final class FighterNode: SKNode {
         animationRoot.position = .zero
         locomotionRoot.position = .zero
         locomotionRoot.zRotation = 0
+        actionRoot.position = .zero
+        actionRoot.zRotation = 0
         pelvisMotionRoot.position = .zero
         pelvisMotionRoot.zRotation = 0
         pelvisPoseRoot.position = .zero
@@ -405,6 +465,8 @@ final class FighterNode: SKNode {
         frontLegAnchor.position.y = 36
         backLegAnchor.position.y = 36
         locomotion.reset()
+        motionClipPlayer.reset()
+        appliedPose = .guardPose
         isInNeutralPose = true
         currentPhase = .idle
         zRotation = 0
@@ -509,6 +571,22 @@ final class FighterNode: SKNode {
         pelvisPoseRoot.run(pelvisMove, withKey: "pose")
     }
 
+    private var usesRearStraightMotionClip: Bool {
+        activePunchHand == .rear && activePunchProfile.technique == .straight
+    }
+
+    private func removePoseActions() {
+        let nodes = [
+            frontUpperArm, frontLowerArm, backUpperArm, backLowerArm,
+            frontLeg, frontLowerLeg, backLeg, backLowerLeg,
+            pelvisPoseRoot, upperBodyPoseRoot
+        ]
+        for node in nodes {
+            node.removeAction(forKey: "pose")
+            node.removeAction(forKey: "poseRotation")
+        }
+    }
+
     private func transitionDelay(
         for node: SKNode,
         style: FighterTransitionStyle,
@@ -598,6 +676,7 @@ final class FighterNode: SKNode {
     }
 
     private func apply(_ pose: FighterPose) {
+        appliedPose = pose
         upperBodyPoseRoot.position.x = pose.bodyX * 0.68
         upperBodyPoseRoot.position.y = pose.bodyY * 0.78
         upperBodyPoseRoot.zRotation = pose.bodyRotation

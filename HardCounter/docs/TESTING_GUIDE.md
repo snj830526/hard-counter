@@ -54,6 +54,17 @@ xcrun simctl launch <SIMULATOR_UDID> com.soonispapa.HardCounter --sway-showcase
 CPU가 좌우 슬립, 풀백, 전진 실패를 순서대로 시연한다. 좌우 슬립의 머리 이동 방향과
 골반·무릎의 반대 균형, 풀백의 거리, 전진 실패의 구분을 같은 카메라에서 확인한다.
 
+시간축 모션 클립을 기존 포즈 전환과 직접 비교할 때는 다음 인자를 사용한다.
+
+```bash
+xcrun simctl launch <SIMULATOR_UDID> com.soonispapa.HardCounter --motion-clip-showcase
+```
+
+CPU가 `LEGACY LEAD STRAIGHT`와 `CLIP REAR STRAIGHT`를 번갈아 시연한다. 새 클립에서는
+준비 동작 뒤 골반·어깨·뒷주먹이 순차적으로 전진하는지, 타격과 회수 중 양발이 매트에서
+미끄러지지 않는지, 스트레이트를 맞은 선수의 발은 남고 전신이 하나로 밀리는지 확인한다.
+정지 구간에는 가드가 고정 그림처럼 멈추지 않고 작은 호흡과 체중 이동이 이어져야 한다.
+
 기술별 적중과 피격 리액션을 반복 비교할 때는 근접 위치로 시작하는 다음 인자를 사용한다.
 
 ```bash

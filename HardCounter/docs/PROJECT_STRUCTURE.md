@@ -36,6 +36,10 @@ HardCounter/
 │   │   ├── CombatEngine.swift
 │   │   ├── CombatTuning.swift
 │   │   └── FighterStats.swift
+│   ├── Debug/
+│   │   ├── MotionClipShowcaseController.swift
+│   │   ├── MotionShowcaseController.swift
+│   │   └── SwayShowcaseController.swift
 │   ├── Feedback/
 │   │   └── HapticController.swift
 │   ├── Flow/
@@ -53,6 +57,7 @@ HardCounter/
 │   │   ├── FighterAppearance.swift
 │   │   ├── FighterGeometry.swift
 │   │   ├── FighterPose.swift
+│   │   ├── FighterMotionClip.swift
 │   │   └── FighterLocomotion.swift
 │   ├── Input/
 │   │   ├── CombatControlsNode.swift
@@ -118,6 +123,8 @@ idle → swaying → idle
 - `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
+- `FighterMotionClip.swift`: 시간축 키프레임, 보간 곡선과 루트·발 고정 오프셋을 샘플링한다. 현재 가드 호흡, 리어 스트레이트와 스트레이트 피격 반응부터 이 경로를 사용한다.
+- `MotionClipShowcaseController.swift`: Debug 실행에서 기존 리드 스트레이트와 시간축 리어 스트레이트를 번갈아 재생해 새 모션 경로를 A/B 비교한다.
 - `SwayShowcaseController.swift`: Debug 실행에서 좌우 슬립·풀백·전진 실패를 일정한 간격으로 반복해 스웨이 실루엣을 비교한다.
 - `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
@@ -138,7 +145,8 @@ idle → swaying → idle
 
 - 전투 규칙은 화면 노드에서 분리한다.
 - 시각 노드는 전투 이벤트를 받아 표현하되 승패 규칙을 결정하지 않는다.
-- 모션 계산은 `FighterLocomotionController`와 `FighterPoseResolver`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
+- 모션 계산은 `FighterLocomotionController`, `FighterPoseResolver`, `FighterMotionClipPlayer`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
+- 시간축 클립은 루트 이동과 양발의 상쇄 오프셋을 함께 기록해 체중 이동 중에도 발이 매트에서 미끄러지지 않게 한다. 검증된 클립만 기존 상태 전환 모션을 단계적으로 대체한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
 - 이동 경계는 링 내부 좌표로 계산하고, 펀치 사거리와 선수 간 최소 간격은 실제 보이는 크기에 맞춰 투영된 화면 거리로 계산한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
