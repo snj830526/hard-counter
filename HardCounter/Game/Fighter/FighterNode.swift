@@ -24,78 +24,78 @@ final class FighterNode: SKNode {
         var backLower: CGFloat
         var frontLeg: CGFloat
         var backLeg: CGFloat
-        var frontKnee: CGFloat = 0.10
+        var frontKnee: CGFloat = -0.12
         var backKnee: CGFloat = 0.14
 
         static let guardPose = Pose(
             frontUpper: 0.90, frontLower: 2.45,
             backUpper: 0.45, backLower: 2.60,
-            frontLeg: -0.18, backLeg: 0.30,
-            frontKnee: 0.12, backKnee: 0.16
+            frontLeg: 0.18, backLeg: -0.26,
+            frontKnee: -0.16, backKnee: 0.18
         )
 
         static let leadWindUp = Pose(
             bodyX: -5, bodyRotation: -0.08, pelvisRotation: -0.025,
             frontUpper: 0.42, frontLower: 2.58,
             backUpper: 0.45, backLower: 2.60,
-            frontLeg: -0.24, backLeg: 0.38,
-            frontKnee: 0.16, backKnee: 0.20
+            frontLeg: 0.22, backLeg: -0.32,
+            frontKnee: -0.18, backKnee: 0.20
         )
 
         static let leadPunch = Pose(
             bodyX: 12, bodyRotation: 0.09, pelvisRotation: 0.035,
             frontUpper: 1.48, frontLower: 0.02,
             backUpper: 0.45, backLower: 2.60,
-            frontLeg: -0.10, backLeg: 0.42,
-            frontKnee: 0.06, backKnee: 0.20
+            frontLeg: 0.10, backLeg: -0.36,
+            frontKnee: -0.10, backKnee: 0.20
         )
 
         static let rearWindUp = Pose(
             bodyX: -8, bodyRotation: -0.18, pelvisRotation: -0.11,
             frontUpper: 0.90, frontLower: 2.45,
             backUpper: -0.18, backLower: 2.82,
-            frontLeg: -0.26, backLeg: 0.42,
-            frontKnee: 0.17, backKnee: 0.23
+            frontLeg: 0.23, backLeg: -0.36,
+            frontKnee: -0.18, backKnee: 0.23
         )
 
         static let rearPunch = Pose(
             bodyX: 16, bodyRotation: 0.16, pelvisRotation: 0.14,
             frontUpper: 0.72, frontLower: 2.58,
             backUpper: 1.52, backLower: 0.04,
-            frontLeg: -0.08, backLeg: 0.48,
-            frontKnee: 0.08, backKnee: 0.24
+            frontLeg: 0.08, backLeg: -0.42,
+            frontKnee: -0.10, backKnee: 0.24
         )
 
         static let swayBack = Pose(
             bodyX: -20, bodyRotation: -0.20, pelvisRotation: 0.055,
             frontUpper: 0.82, frontLower: 2.50,
             backUpper: 0.39, backLower: 2.66,
-            frontLeg: -0.26, backLeg: 0.39,
-            frontKnee: 0.18, backKnee: 0.21
+            frontLeg: 0.23, backLeg: -0.34,
+            frontKnee: -0.20, backKnee: 0.21
         )
 
         static let swayLeft = Pose(
             bodyX: -12, bodyRotation: 0.24, pelvisRotation: -0.075,
             frontUpper: 0.84, frontLower: 2.50,
             backUpper: 0.40, backLower: 2.64,
-            frontLeg: -0.23, backLeg: 0.37,
-            frontKnee: 0.20, backKnee: 0.18
+            frontLeg: 0.20, backLeg: -0.31,
+            frontKnee: -0.22, backKnee: 0.18
         )
 
         static let swayRight = Pose(
             bodyX: 12, bodyRotation: -0.26, pelvisRotation: 0.08,
             frontUpper: 0.82, frontLower: 2.56,
             backUpper: 0.43, backLower: 2.57,
-            frontLeg: -0.12, backLeg: 0.32,
-            frontKnee: 0.12, backKnee: 0.22
+            frontLeg: 0.12, backLeg: -0.28,
+            frontKnee: -0.14, backKnee: 0.22
         )
 
         static let swayForward = Pose(
             bodyX: 8, bodyRotation: 0.08, pelvisRotation: 0.045,
             frontUpper: 0.80, frontLower: 2.52,
             backUpper: 0.38, backLower: 2.66,
-            frontLeg: -0.12, backLeg: 0.38,
-            frontKnee: 0.15, backKnee: 0.20
+            frontLeg: 0.12, backLeg: -0.33,
+            frontKnee: -0.16, backKnee: 0.20
         )
     }
 
@@ -299,25 +299,25 @@ final class FighterNode: SKNode {
             : lateralDrive * facing >= 0
         let frontSlide = frontFootInitiates ? firstSlide : followSlide
         let backSlide = frontFootInitiates ? followSlide : firstSlide
-        let stride = displayedMoveIntensity * 0.065
+        let stride = displayedMoveIntensity * 0.12
 
         // Boxing footwork is a shuffle: the foot nearest the travel direction
         // slides first and the other foot restores the stance. Neither leg
         // swings through like a walking gait.
         frontLegAnchor.zRotation = (frontSlide - backSlide * 0.28) * stride
         backLegAnchor.zRotation = -(backSlide - frontSlide * 0.28) * stride
-        let stanceFlex = 0.025 + displayedMoveIntensity * 0.025
-        frontKneeMotionRoot.zRotation = stanceFlex
-            + frontSlide * displayedMoveIntensity * 0.17
-            + backSlide * displayedMoveIntensity * 0.025
+        let stanceFlex = 0.025 + displayedMoveIntensity * 0.035
+        frontKneeMotionRoot.zRotation = -(stanceFlex
+            + frontSlide * displayedMoveIntensity * 0.22
+            + backSlide * displayedMoveIntensity * 0.035)
         backKneeMotionRoot.zRotation = stanceFlex
-            + backSlide * displayedMoveIntensity * 0.17
-            + frontSlide * displayedMoveIntensity * 0.025
+            + backSlide * displayedMoveIntensity * 0.22
+            + frontSlide * displayedMoveIntensity * 0.035
         let shufflePulse = min(firstSlide + followSlide, 1)
         let pelvisCompression = -shufflePulse * displayedMoveIntensity * 0.85
         let plantedLegY = 36 - pelvisPoseRoot.position.y - pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + frontSlide * displayedMoveIntensity * 1.45
-        backLegAnchor.position.y = plantedLegY + backSlide * displayedMoveIntensity * 1.45
+        frontLegAnchor.position.y = plantedLegY + frontSlide * displayedMoveIntensity * 2.8
+        backLegAnchor.position.y = plantedLegY + backSlide * displayedMoveIntensity * 2.8
 
         let idleAmount = isInNeutralPose ? 1 - displayedMoveIntensity : 0
         let breath = sin(CGFloat(locomotionClock) * 2.7)
@@ -684,18 +684,18 @@ final class FighterNode: SKNode {
                 pose.bodyRotation *= 0.72
                 if isActive {
                     pose.bodyX -= 2
-                    pose.frontLeg = -0.14
-                    pose.backLeg = 0.34
-                    pose.frontKnee = 0.08
+                    pose.frontLeg = 0.14
+                    pose.backLeg = -0.30
+                    pose.frontKnee = -0.12
                     pose.backKnee = 0.18
                 }
             }
         case .retreating:
             pose.bodyRotation *= 0.68
             pose.bodyX -= isActive ? 7 : 3
-            pose.frontLeg = -0.25
-            pose.backLeg = 0.27
-            pose.frontKnee = 0.18
+            pose.frontLeg = 0.24
+            pose.backLeg = -0.25
+            pose.frontKnee = -0.20
             pose.backKnee = 0.14
             if isActive {
                 if activePunchHand == .lead {
@@ -708,28 +708,28 @@ final class FighterNode: SKNode {
             if isActive {
                 pose.bodyX += activePunchHand == .lead ? 6 : 10
                 pose.bodyRotation *= activePunchHand == .lead ? 1.08 : 1.20
-                pose.frontLeg = -0.03
-                pose.backLeg = 0.54
-                pose.frontKnee = 0.06
+                pose.frontLeg = 0.04
+                pose.backLeg = -0.48
+                pose.frontKnee = -0.08
                 pose.backKnee = 0.27
             } else {
                 pose.bodyX -= 4
                 pose.bodyRotation *= 1.14
-                pose.backLeg += 0.06
+                pose.backLeg -= 0.06
             }
         case .counter:
             if isActive {
                 pose.bodyX += 13
                 pose.bodyRotation *= 1.30
                 pose.frontLeg = 0.02
-                pose.backLeg = 0.58
-                pose.frontKnee = 0.04
+                pose.backLeg = -0.52
+                pose.frontKnee = -0.06
                 pose.backKnee = 0.30
             } else {
                 pose.bodyX -= 7
                 pose.bodyRotation *= 1.24
-                pose.frontLeg = -0.30
-                pose.backLeg = 0.48
+                pose.frontLeg = 0.27
+                pose.backLeg = -0.42
             }
         }
         return pose
