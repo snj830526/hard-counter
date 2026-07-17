@@ -34,7 +34,11 @@ HardCounter/
 │   ├── Feedback/
 │   │   └── HapticController.swift
 │   ├── Fighter/
-│   │   └── FighterNode.swift
+│   │   ├── FighterNode.swift
+│   │   ├── FighterRig.swift
+│   │   ├── FighterGeometry.swift
+│   │   ├── FighterPose.swift
+│   │   └── FighterLocomotion.swift
 │   ├── Input/
 │   │   ├── CombatControlsNode.swift
 │   │   └── SwayInputResolver.swift
@@ -80,7 +84,11 @@ idle → swaying → idle
 
 ### 표현 및 입력 계층
 
-- `FighterNode.swift`: 인체 비율의 폴리곤 선수 리그와 절차형 모션을 담당한다. 허벅지–종아리–발목과 위팔–아래팔을 실제 관절로 연결하고, 골반·상체를 모션 루트와 포즈 루트로 분리한다. 가드 호흡·발 디딤·체중 이동·관절별 지연과 지면을 향하는 발목 보정을 포즈 위에 합성한다. 복부 실루엣은 상체와 골반 사이를 겹쳐 연결하며, 정면에 가까운 각도에서는 방향과 팔다리 깊이에 히스테리시스를 적용한다.
+- `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
+- `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
+- `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
+- `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
+- `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
 - `SwayInputResolver.swift`: 버튼을 누른 순간의 스틱 입력을 상대 축 기준의 좌우 슬립, 풀백, 전진 실패로 변환한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
@@ -90,6 +98,8 @@ idle → swaying → idle
 
 - 전투 규칙은 화면 노드에서 분리한다.
 - 시각 노드는 전투 이벤트를 받아 표현하되 승패 규칙을 결정하지 않는다.
+- 모션 계산은 `FighterLocomotionController`와 `FighterPoseResolver`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
+- 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
 - 이동 경계는 링 내부 좌표로 계산하고, 펀치 사거리와 선수 간 최소 간격은 실제 보이는 크기에 맞춰 투영된 화면 거리로 계산한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
 - `CombatScene`이 지나치게 커지면 입력, 이동/충돌, HUD를 별도 객체로 분리한다.
