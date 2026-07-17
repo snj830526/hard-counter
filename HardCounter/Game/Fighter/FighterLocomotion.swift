@@ -80,7 +80,7 @@ struct FighterLocomotionController {
         }
 
         if stepProgress < 1 {
-            let stepDuration = 0.43 - Double(stepIntensity) * 0.12
+            let stepDuration = 0.50 - Double(stepIntensity) * 0.10
             stepProgress = min(stepProgress + CGFloat(deltaTime / stepDuration), 1)
         }
         if targetIntensity > 0.025 {

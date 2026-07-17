@@ -60,11 +60,11 @@ final class FighterNode: SKNode {
                     profile: activePunchProfile,
                     isActive: false
                 ),
-                duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.82,
+                duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.72,
                 style: .anticipation
             )
         case .punchActive:
-            let snapScale: Double = activePunchProfile.motion == .counter ? 0.38 : 0.52
+            let snapScale: Double = activePunchProfile.motion == .counter ? 0.32 : 0.44
             transition(
                 to: FighterPoseResolver.punch(
                     hand: activePunchHand,
@@ -77,13 +77,13 @@ final class FighterNode: SKNode {
         case .punchRecovery:
             transition(
                 to: .guardPose,
-                duration: CombatTuning.punchRecovery * activePunchProfile.recoveryScale * 0.72,
+                duration: CombatTuning.punchRecovery * activePunchProfile.recoveryScale * 0.76,
                 style: .settle
             )
         case .swaying:
             transition(
                 to: FighterPoseResolver.sway(activeSwayDirection),
-                duration: CombatTuning.swayDuration * 0.46,
+                duration: CombatTuning.swayDuration * 0.34,
                 style: .evasive
             )
         case .hit:
