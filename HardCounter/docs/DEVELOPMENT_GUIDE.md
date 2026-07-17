@@ -63,7 +63,7 @@ CombatEvent
 
 ### 멀티터치 유지
 
-이동을 유지한 채 펀치 또는 스웨이를 누를 수 있어야 한다. 이동 터치와 액션 터치를 별도로 추적하고, `touchesEnded`와 `touchesCancelled`에서 확실히 해제한다.
+이동을 유지한 채 펀치 또는 스웨이를 누를 수 있어야 한다. `LocalInputSource`가 이동 터치와 최근 스웨이 방향, 펀치 버퍼를 소유하며 `touchesEnded`와 `touchesCancelled`에서 확실히 해제한다. `CombatScene`은 로컬과 CPU 입력을 모두 `FighterCommand`로 실행하고, 새 입력 방식을 추가할 때 전투 엔진을 직접 호출하는 별도 경로를 만들지 않는다.
 
 ### 실제 화면 우선
 

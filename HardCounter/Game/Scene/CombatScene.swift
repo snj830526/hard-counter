@@ -28,7 +28,8 @@ final class CombatScene: SKScene {
     private let haptics = HapticController()
 
     private lazy var engine = CombatEngine(playerStats: fighterProfile.stats)
-    private var cpuController = CPUController()
+    private let localInputSource = LocalInputSource()
+    private var cpuInputSource = CPUInputSource()
     private var gameTime: TimeInterval = 0
     private var safeInsets = UIEdgeInsets.zero
     private var ringProjection = QuarterViewProjection(
@@ -40,8 +41,6 @@ final class CombatScene: SKScene {
     private var playerArenaPosition = CGPoint.zero
     private var cpuArenaPosition = CGPoint.zero
     private var playerToCPUScreenDirection = CGVector(dx: 1, dy: 0)
-    private var movementTouchID: ObjectIdentifier?
-    private var movementVector = CGVector.zero
     private var playerMovementSmoother = MovementSmoother(
         acceleration: CombatTuning.movementAcceleration,
         turnAcceleration: CombatTuning.movementTurnAcceleration,
@@ -56,10 +55,6 @@ final class CombatScene: SKScene {
         turnDotThreshold: -0.12,
         idleThreshold: 0.012
     )
-    private var rememberedSwayMovement = CGVector.zero
-    private var rememberedSwayMovementAt: TimeInterval = -.infinity
-    private var bufferedPlayerPunch: PunchIntent?
-    private var bufferedPunchExpiresAt: TimeInterval = 0
     private let arenaZoom: CGFloat = 2.20
 #if DEBUG
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
@@ -93,7 +88,7 @@ final class CombatScene: SKScene {
         didSetUp = true
         view.isMultipleTouchEnabled = true
         buildScene()
-        cpuController.reset(at: gameTime)
+        cpuInputSource.reset(at: gameTime)
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
 #endif
@@ -113,7 +108,7 @@ final class CombatScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == nil {
-            cpuController.reset(at: currentTime)
+            cpuInputSource.reset(at: currentTime)
 #if DEBUG
             motionShowcaseController.reset(at: currentTime)
 #endif
@@ -165,38 +160,28 @@ final class CombatScene: SKScene {
             let input = controls.input(at: location)
             switch input {
             case .movement:
-                guard movementTouchID == nil else { continue }
-                movementTouchID = ObjectIdentifier(touch)
-                movementVector = controls.beginMovement(at: location)
+                guard localInputSource.beginMovement(
+                    touchID: ObjectIdentifier(touch)
+                ) else { continue }
+                let vector = controls.beginMovement(at: location)
+                localInputSource.updateMovement(
+                    touchID: ObjectIdentifier(touch),
+                    vector: vector,
+                    at: gameTime
+                )
                 refreshMovementIndicator()
             case .punch:
                 controls.flash(input)
-                let intent = playerPunchIntent()
-                let playerState = engine.state(for: .player)
-                let events = engine.request(.punch(intent), by: .player, at: gameTime)
-                if events.isEmpty {
-                    bufferedPlayerPunch = intent
-                    let normalExpiry = gameTime + CombatTuning.punchInputBuffer
-                    if playerState.phase == .swaying {
-                        // A punch pressed during a sway is an intentional chain.
-                        // Preserve it through the full sway instead of letting the
-                        // generic short input buffer expire before neutral returns.
-                        bufferedPunchExpiresAt = max(
-                            normalExpiry,
-                            playerState.swayStartedAt
-                                + CombatTuning.swayPunchCancelDelay
-                                + CombatTuning.swayPunchBufferGrace
-                        )
-                    } else {
-                        bufferedPunchExpiresAt = normalExpiry
-                    }
-                } else {
-                    bufferedPlayerPunch = nil
-                }
-                handle(events)
+                execute(localInputSource.actionCommand(
+                    .punch(playerPunchIntent()),
+                    at: gameTime
+                ))
             case .sway:
                 controls.flash(input)
-                handle(engine.request(.sway(selectedSwayIntent()), by: .player, at: gameTime))
+                execute(localInputSource.actionCommand(
+                    .sway(selectedSwayIntent()),
+                    at: gameTime
+                ))
             case .none:
                 break
             }
@@ -215,13 +200,12 @@ final class CombatScene: SKScene {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             let identifier = ObjectIdentifier(touch)
-            guard movementTouchID == identifier else { continue }
             let latestTouch = event?.coalescedTouches(for: touch)?.last ?? touch
-            movementVector = controls.continuedMovement(at: latestTouch.location(in: self))
-            if hypot(movementVector.dx, movementVector.dy) > 0.18 {
-                rememberedSwayMovement = movementVector
-                rememberedSwayMovementAt = gameTime
-            }
+            localInputSource.updateMovement(
+                touchID: identifier,
+                vector: controls.continuedMovement(at: latestTouch.location(in: self)),
+                at: gameTime
+            )
         }
         refreshMovementIndicator()
     }
@@ -407,7 +391,8 @@ final class CombatScene: SKScene {
         let previousCPUScreenPosition = cpu.position
 
         let phaseMultiplier = playerFootworkMultiplier()
-        let targetMovement = combinedMovementVector()
+        let targetMovement = localInputSource.movementCommand(at: gameTime)
+            .movementVector ?? .zero
         let screenMovement = playerMovementSmoother.update(
             toward: targetMovement,
             deltaTime: deltaTime
@@ -427,7 +412,9 @@ final class CombatScene: SKScene {
         let cpuCanMove = engine.state(for: .cpu).phase == .idle && !isMotionShowcaseEnabled
         var cpuTargetMovement = CGVector.zero
         if cpuCanMove {
-            cpuTargetMovement = cpuController.movement(for: cpuPerception(at: gameTime))
+            cpuTargetMovement = cpuInputSource
+                .movementCommand(for: cpuPerception(at: gameTime))
+                .movementVector ?? .zero
         }
         let cpuMovement = cpuMovementSmoother.update(
             toward: cpuTargetMovement,
@@ -488,10 +475,6 @@ final class CombatScene: SKScene {
             ),
             deltaTime: deltaTime
         )
-    }
-
-    private func combinedMovementVector() -> CGVector {
-        movementVector
     }
 
     private func playerFootworkMultiplier() -> CGFloat {
@@ -745,11 +728,8 @@ final class CombatScene: SKScene {
     }
 
     private func selectedSwayIntent() -> SwayIntent {
-        let liveMovement = combinedMovementVector()
-        let useRememberedDirection = hypot(liveMovement.dx, liveMovement.dy) <= 0.18
-            && gameTime - rememberedSwayMovementAt <= CombatTuning.swayDirectionInputGrace
-        return SwayInputResolver.resolve(
-            movement: useRememberedDirection ? rememberedSwayMovement : liveMovement,
+        localInputSource.swayIntent(
+            at: gameTime,
             towardOpponent: ringProjection.screenVector(forWorldVector: CGVector(
                 dx: cpuArenaPosition.x - playerArenaPosition.x,
                 dy: cpuArenaPosition.y - playerArenaPosition.y
@@ -758,7 +738,8 @@ final class CombatScene: SKScene {
     }
 
     private func playerPunchIntent() -> PunchIntent {
-        let rawMovement = combinedMovementVector()
+        let rawMovement = localInputSource.movementCommand(at: gameTime)
+            .movementVector ?? .zero
         let effectiveMovement = CGVector(
             dx: playerMovementSmoother.value.dx * 0.70 + rawMovement.dx * 0.30,
             dy: playerMovementSmoother.value.dy * 0.70 + rawMovement.dy * 0.30
@@ -809,15 +790,10 @@ final class CombatScene: SKScene {
     }
 
     private func updateCPUCombat(at time: TimeInterval) {
-        guard let action = cpuController.combatAction(for: cpuPerception(at: time)) else {
-            return
-        }
-        switch action {
-        case let .punch(intent):
-            handle(engine.request(.punch(intent), by: .cpu, at: time))
-        case let .sway(intent):
-            handle(engine.request(.sway(intent), by: .cpu, at: time))
-        }
+        guard let command = cpuInputSource.combatCommand(
+            for: cpuPerception(at: time)
+        ) else { return }
+        execute(command)
     }
 
 #if DEBUG
@@ -838,40 +814,59 @@ final class CombatScene: SKScene {
             statusLabel.alpha = 1
             statusLabel.fontColor = .systemYellow
             statusLabel.text = label
-            handle(engine.request(.sway(intent), by: .cpu, at: time))
+            execute(FighterCommand(
+                fighter: .cpu,
+                payload: .action(.sway(intent)),
+                issuedAt: time
+            ))
         case .punch:
-            handle(engine.request(.punch(.neutral), by: .cpu, at: time))
+            execute(FighterCommand(
+                fighter: .cpu,
+                payload: .action(.punch(.neutral)),
+                issuedAt: time
+            ))
         }
     }
 #endif
 
     private func processBufferedPunch(at time: TimeInterval) {
-        guard let intent = bufferedPlayerPunch else { return }
-        guard time <= bufferedPunchExpiresAt else {
-            bufferedPlayerPunch = nil
-            return
-        }
-        let playerState = engine.state(for: .player)
-        let canTransitionFromSway = playerState.phase == .swaying
-            && (playerState.swayWasSuccessful
-                || time >= playerState.swayStartedAt + CombatTuning.swayPunchCancelDelay)
-        guard playerState.phase == .idle || canTransitionFromSway else { return }
-
-        bufferedPlayerPunch = nil
-        handle(engine.request(.punch(intent), by: .player, at: time))
+        guard let command = localInputSource.bufferedPunchCommand(
+            at: time,
+            state: engine.state(for: .player)
+        ) else { return }
+        execute(command)
     }
 
     private func refreshMovementIndicator() {
-        let movement = combinedMovementVector()
+        let movement = localInputSource.movementCommand(at: gameTime)
+            .movementVector ?? .zero
         controls.showMovement(movement == .zero ? nil : movement)
     }
 
     private func endMovementTouches(_ touches: Set<UITouch>) {
-        guard touches.contains(where: { ObjectIdentifier($0) == movementTouchID }) else { return }
-        movementTouchID = nil
-        movementVector = .zero
+        let identifiers = Set(touches.map(ObjectIdentifier.init))
+        guard localInputSource.endMovement(touchIDs: identifiers) else { return }
         controls.endMovement()
         refreshMovementIndicator()
+    }
+
+    private func execute(_ command: FighterCommand) {
+        guard case let .action(action) = command.payload else { return }
+        let stateBeforeRequest = engine.state(for: command.fighter)
+        let events = engine.request(
+            action,
+            by: command.fighter,
+            at: command.issuedAt
+        )
+        if command.fighter == .player, case let .punch(intent) = action {
+            localInputSource.recordPunchResult(
+                intent: intent,
+                events: events,
+                stateBeforeRequest: stateBeforeRequest,
+                at: command.issuedAt
+            )
+        }
+        handle(events)
     }
 
     private func handle(_ events: [CombatEvent]) {
@@ -889,8 +884,7 @@ final class CombatScene: SKScene {
                 )
             case let .hit(_, defender, kind, _):
                 if defender == .player {
-                    bufferedPlayerPunch = nil
-                    bufferedPunchExpiresAt = 0
+                    localInputSource.clearBufferedPunch()
                 }
                 node(for: defender).playHit(kind)
                 showImpact(kind)
@@ -898,14 +892,11 @@ final class CombatScene: SKScene {
                 if kind == .counter { playCounterFeedback() }
             case .swayed(let defender):
                 if defender == .player {
-                    if bufferedPlayerPunch != nil {
-                        // A late successful evade must not lose a follow-up
-                        // that was pressed during the sway's loading motion.
-                        bufferedPunchExpiresAt = max(
-                            bufferedPunchExpiresAt,
-                            gameTime + CombatTuning.counterWindow
-                        )
-                    }
+                    // A late successful evade must not lose a follow-up that
+                    // was pressed during the sway's loading motion.
+                    localInputSource.extendBufferedPunch(
+                        until: gameTime + CombatTuning.counterWindow
+                    )
                     statusLabel.text = "COUNTER READY"
                     statusLabel.fontColor = .systemYellow
                     statusLabel.run(.sequence([
@@ -928,8 +919,7 @@ final class CombatScene: SKScene {
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
                 controls.alpha = 0.35
-                movementTouchID = nil
-                movementVector = .zero
+                localInputSource.reset(at: gameTime)
                 controls.endMovement()
                 playerMovementSmoother.reset()
                 cpuMovementSmoother.reset()
@@ -1024,18 +1014,13 @@ final class CombatScene: SKScene {
         cpu.resetPose()
         playerArenaPosition = .zero
         cpuArenaPosition = .zero
-        movementTouchID = nil
-        movementVector = .zero
+        localInputSource.reset(at: gameTime)
         controls.endMovement()
         playerMovementSmoother.reset()
         cpuMovementSmoother.reset()
-        rememberedSwayMovement = .zero
-        rememberedSwayMovementAt = -.infinity
-        bufferedPlayerPunch = nil
-        bufferedPunchExpiresAt = 0
         controls.showMovement(nil)
         handle(engine.reset())
-        cpuController.reset(at: gameTime)
+        cpuInputSource.reset(at: gameTime)
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
 #endif

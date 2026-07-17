@@ -53,6 +53,9 @@ HardCounter/
 │   │   └── FighterLocomotion.swift
 │   ├── Input/
 │   │   ├── CombatControlsNode.swift
+│   │   ├── FighterCommand.swift
+│   │   ├── LocalInputSource.swift
+│   │   ├── CPUInputSource.swift
 │   │   └── SwayInputResolver.swift
 │   └── Scene/
 │       ├── BoxingRingNode.swift
@@ -81,7 +84,7 @@ HardCounter/
 
 ### 장면 계층
 
-- `CombatScene.swift`: 게임 루프와 객체 조정자다. 터치 입력, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
+- `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
 - `BoxingRingNode.swift`: 링 바닥, 로프, 포스트, 관중과 배경을 생성한다.
 - `QuarterViewProjection.swift`: 정사각형 링 내부 좌표를 대각선 쿼터 뷰 화면 좌표로 변환하고, 화면 입력을 다시 링 이동 방향으로 역변환한다.
 
@@ -109,6 +112,9 @@ idle → swaying → idle
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
 - `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
+- `FighterCommand.swift`: 이동과 전투 행동을 선수 식별자·입력 시각과 함께 전달하는 공통 명령 형식과 입력 소스 규약을 정의한다.
+- `LocalInputSource.swift`: 이동 터치, 최근 스웨이 방향, 스웨이–펀치 버퍼를 소유하고 플레이어 명령을 만든다.
+- `CPUInputSource.swift`: CPU 판단 결과를 로컬 입력과 같은 `FighterCommand`로 변환한다. 근거리 대전에서는 동일한 자리에 원격 입력 소스를 연결한다.
 - `SwayInputResolver.swift`: 버튼을 누른 순간의 스틱 입력을 상대 축 기준의 좌우 슬립, 풀백, 전진 실패로 변환한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
