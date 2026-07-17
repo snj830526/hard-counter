@@ -14,6 +14,7 @@ final class FighterNode: SKNode {
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
+    private var currentPhase: FighterPhase = .idle
 
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
@@ -54,6 +55,7 @@ final class FighterNode: SKNode {
     required init?(coder aDecoder: NSCoder) { nil }
 
     func show(phase: FighterPhase) {
+        currentPhase = phase
         isInNeutralPose = phase == .idle
         switch phase {
         case .idle:
@@ -70,7 +72,7 @@ final class FighterNode: SKNode {
             case .straight:
                 snapScale = activePunchProfile.motion == .counter ? 0.50 : 0.64
             case .smash:
-                snapScale = activePunchProfile.motion == .counter ? 0.68 : 0.80
+                snapScale = activePunchProfile.motion == .counter ? 0.46 : 0.52
             case .uppercut:
                 snapScale = activePunchProfile.motion == .counter ? 0.72 : 0.84
             }
@@ -156,6 +158,20 @@ final class FighterNode: SKNode {
             backUpperArm.zPosition = -3
             frontLegAnchor.zPosition = 0
             backLegAnchor.zPosition = -2
+        }
+
+        // Rear-hand attacks can otherwise remain behind the torso in several
+        // quarter-view orientations. Keep the committed striking arm in front
+        // until recovery finishes so the punch silhouette never disappears.
+        switch currentPhase {
+        case .punchStartup, .punchActive, .punchRecovery:
+            if activePunchHand == .lead {
+                frontUpperArm.zPosition = 6
+            } else {
+                backUpperArm.zPosition = 6
+            }
+        case .idle, .swaying, .hit, .knockedOut:
+            break
         }
 
         torso.fillColor = rig.lineColor.withAlphaComponent(
@@ -289,6 +305,7 @@ final class FighterNode: SKNode {
         backLegAnchor.position.y = 36
         locomotion.reset()
         isInNeutralPose = true
+        currentPhase = .idle
         zRotation = 0
         transition(to: .guardPose, duration: CombatTuning.poseResetDuration, style: .settle)
     }
