@@ -93,35 +93,35 @@ struct FighterPose {
     )
 
     static let leadUppercutWindUp = FighterPose(
-        bodyX: -4, bodyY: -5, bodyRotation: -0.10, pelvisRotation: -0.08,
-        frontUpper: 0.48, frontLower: 2.76,
+        bodyX: -5, bodyY: -9, bodyRotation: -0.13, pelvisRotation: -0.11,
+        frontUpper: 0.18, frontLower: 0.58,
         backUpper: 0.43, backLower: 2.62,
-        frontLeg: 0.27, backLeg: -0.36,
-        frontKnee: -0.28, backKnee: 0.27
+        frontLeg: 0.31, backLeg: -0.40,
+        frontKnee: -0.34, backKnee: 0.34
     )
 
     static let leadUppercut = FighterPose(
-        bodyX: 7, bodyY: 8, bodyRotation: 0.13, pelvisRotation: 0.12,
-        frontUpper: 0.54, frontLower: 2.56,
+        bodyX: 10, bodyY: 14, bodyRotation: 0.18, pelvisRotation: 0.16,
+        frontUpper: 0.78, frontLower: 2.22,
         backUpper: 0.48, backLower: 2.58,
-        frontLeg: 0.05, backLeg: -0.44,
-        frontKnee: -0.08, backKnee: 0.28
+        frontLeg: 0.01, backLeg: -0.49,
+        frontKnee: -0.03, backKnee: 0.32
     )
 
     static let rearUppercutWindUp = FighterPose(
-        bodyX: -6, bodyY: -6, bodyRotation: -0.16, pelvisRotation: -0.13,
+        bodyX: -8, bodyY: -10, bodyRotation: -0.20, pelvisRotation: -0.17,
         frontUpper: 0.88, frontLower: 2.48,
-        backUpper: 0.20, backLower: 2.83,
-        frontLeg: 0.28, backLeg: -0.41,
-        frontKnee: -0.29, backKnee: 0.30
+        backUpper: 0.08, backLower: 0.72,
+        frontLeg: 0.32, backLeg: -0.45,
+        frontKnee: -0.35, backKnee: 0.37
     )
 
     static let rearUppercut = FighterPose(
-        bodyX: 9, bodyY: 10, bodyRotation: 0.18, pelvisRotation: 0.17,
+        bodyX: 13, bodyY: 17, bodyRotation: 0.24, pelvisRotation: 0.22,
         frontUpper: 0.78, frontLower: 2.55,
-        backUpper: 0.43, backLower: 2.62,
-        frontLeg: 0.03, backLeg: -0.49,
-        frontKnee: -0.06, backKnee: 0.31
+        backUpper: 0.70, backLower: 2.30,
+        frontLeg: -0.01, backLeg: -0.54,
+        frontKnee: -0.02, backKnee: 0.35
     )
 
     static let swayBack = FighterPose(

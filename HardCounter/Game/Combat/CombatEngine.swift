@@ -386,7 +386,7 @@ struct CombatEngine {
             techniqueRecoveryScale = 1.08
         case .uppercut:
             techniqueStartupScale = 1.05
-            techniqueActiveScale = 1.40
+            techniqueActiveScale = 2.00
             techniqueRecoveryScale = 1.16
         }
 

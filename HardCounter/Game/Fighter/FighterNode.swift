@@ -74,7 +74,7 @@ final class FighterNode: SKNode {
             case .smash:
                 snapScale = activePunchProfile.motion == .counter ? 0.46 : 0.52
             case .uppercut:
-                snapScale = activePunchProfile.motion == .counter ? 0.72 : 0.84
+                snapScale = activePunchProfile.motion == .counter ? 0.48 : 0.56
             }
             transition(
                 to: projectedPunchPose(isActive: true),
