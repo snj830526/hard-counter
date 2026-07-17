@@ -5,11 +5,13 @@ struct CPUController {
     private var nextAttackTime: TimeInterval?
     private var nextMovementDecisionTime: TimeInterval = 0
     private var movementVector = CGVector.zero
+    private var circlingDirection: CGFloat = 1
 
     mutating func reset(at time: TimeInterval) {
         nextAttackTime = time + CombatTuning.cpuInitialDelay
         nextMovementDecisionTime = time
         movementVector = .zero
+        circlingDirection = Bool.random() ? 1 : -1
     }
 
     mutating func shouldPunch(at time: TimeInterval, state: FighterCombatState) -> Bool {
@@ -33,8 +35,16 @@ struct CPUController {
             dx: playerPosition.x - cpuPosition.x,
             dy: playerPosition.y - cpuPosition.y
         ))
-        let circleDirection: CGFloat = Bool.random() ? 1 : -1
-        let circle = CGVector(dx: -toward.dy * circleDirection, dy: toward.dx * circleDirection)
+        // Hold a circling lane across several decisions. Re-rolling the side on
+        // every update made the CPU zigzag even when its tactical state had not
+        // changed.
+        if Double.random(in: 0...1) < 0.14 {
+            circlingDirection *= -1
+        }
+        let circle = CGVector(
+            dx: -toward.dy * circlingDirection,
+            dy: toward.dx * circlingDirection
+        )
         let roll = Double.random(in: 0...1)
 
         if visibleDistance > preferredPunchRange * 1.55 {
