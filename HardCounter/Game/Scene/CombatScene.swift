@@ -24,7 +24,7 @@ final class CombatScene: SKScene {
     private let controls = CombatControlsNode()
     private let haptics = HapticController()
 
-    private var engine = CombatEngine()
+    private lazy var engine = CombatEngine(playerStats: fighterProfile.stats)
     private var cpuController = CPUController()
     private var gameTime: TimeInterval = 0
     private var safeInsets = UIEdgeInsets.zero
@@ -413,6 +413,7 @@ final class CombatScene: SKScene {
         let directionMultiplier = directionalFootworkMultiplier(for: worldMovement)
         let movementMultiplier = phaseMultiplier * directionMultiplier
             * staminaFootworkMultiplier(for: .player)
+            * fighterProfile.stats.movementSpeedMultiplier
         let playerIsMoving = movementMultiplier > 0 && hypot(worldMovement.dx, worldMovement.dy) > 0.02
 
         if playerIsMoving {
@@ -508,9 +509,9 @@ final class CombatScene: SKScene {
     }
 
     private func staminaFootworkMultiplier(for fighter: FighterID) -> CGFloat {
-        let stamina = engine.state(for: fighter).stamina
-        guard stamina < CombatTuning.lowStaminaThreshold else { return 1 }
-        let fraction = max(stamina / CombatTuning.lowStaminaThreshold, 0)
+        let state = engine.state(for: fighter)
+        guard state.stamina < state.stats.lowStaminaThreshold else { return 1 }
+        let fraction = max(state.stamina / state.stats.lowStaminaThreshold, 0)
         let minimum = CombatTuning.minimumExhaustedFootwork
         return minimum + CGFloat(fraction) * (1 - minimum)
     }
@@ -940,7 +941,8 @@ final class CombatScene: SKScene {
     }
 
     private func updateHealth(_ fighter: FighterID, health: Int) {
-        let fraction = CGFloat(health) / CGFloat(CombatTuning.maximumHealth)
+        let maximumHealth = engine.state(for: fighter).stats.maximumHealth
+        let fraction = CGFloat(health) / CGFloat(maximumHealth)
         let bar = fighter == .player ? playerHealthBar : cpuHealthBar
         let action = SKAction.scaleX(to: fraction, duration: CombatTuning.healthBarAnimationDuration)
         action.timingMode = .easeOut
@@ -948,12 +950,13 @@ final class CombatScene: SKScene {
     }
 
     private func updateStamina(_ fighter: FighterID, stamina: Double) {
-        let fraction = CGFloat(stamina / CombatTuning.maximumStamina)
+        let state = engine.state(for: fighter)
+        let fraction = CGFloat(stamina / state.stats.maximumStamina)
         let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
         bar.xScale = fraction
-        if stamina <= CombatTuning.lowStaminaThreshold {
+        if stamina <= state.stats.lowStaminaThreshold {
             bar.color = .systemRed
-        } else if stamina <= CombatTuning.maximumStamina * 0.50 {
+        } else if stamina <= state.stats.maximumStamina * 0.50 {
             bar.color = .systemYellow
         } else {
             bar.color = .systemGreen

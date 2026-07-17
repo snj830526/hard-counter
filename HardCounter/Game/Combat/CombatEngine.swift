@@ -86,8 +86,9 @@ enum HitKind {
 }
 
 struct FighterCombatState {
-    var health = CombatTuning.maximumHealth
-    var stamina = CombatTuning.maximumStamina
+    let stats: FighterStats
+    var health: Int
+    var stamina: Double
     var staminaRecoveryBlockedUntil: TimeInterval = 0
     var lastStaminaUpdateAt: TimeInterval?
     var phase: FighterPhase = .idle
@@ -102,6 +103,12 @@ struct FighterCombatState {
     var activeSwayPerformance: Double = 1
     var swayWasSuccessful = false
     var swayStartedAt: TimeInterval = 0
+
+    init(stats: FighterStats = .standard) {
+        self.stats = stats
+        health = stats.maximumHealth
+        stamina = stats.maximumStamina
+    }
 }
 
 enum CombatEvent {
@@ -116,14 +123,23 @@ enum CombatEvent {
 }
 
 struct CombatEngine {
-    private(set) var states: [FighterID: FighterCombatState] = [
-        .player: FighterCombatState(),
-        .cpu: FighterCombatState()
-    ]
+    private let fighterStats: [FighterID: FighterStats]
+    private(set) var states: [FighterID: FighterCombatState]
     private(set) var winner: FighterID?
 
+    init(
+        playerStats: FighterStats = .standard,
+        cpuStats: FighterStats = .standard
+    ) {
+        fighterStats = [.player: playerStats, .cpu: cpuStats]
+        states = [
+            .player: FighterCombatState(stats: playerStats),
+            .cpu: FighterCombatState(stats: cpuStats)
+        ]
+    }
+
     func state(for fighter: FighterID) -> FighterCombatState {
-        states[fighter] ?? FighterCombatState()
+        states[fighter] ?? FighterCombatState(stats: fighterStats[fighter] ?? .standard)
     }
 
     mutating func request(_ action: CombatAction, by fighter: FighterID, at time: TimeInterval) -> [CombatEvent] {
@@ -206,11 +222,14 @@ struct CombatEngine {
 
     mutating func reset() -> [CombatEvent] {
         winner = nil
-        states = [.player: FighterCombatState(), .cpu: FighterCombatState()]
+        states = Dictionary(uniqueKeysWithValues: FighterID.allCases.map { fighter in
+            (fighter, FighterCombatState(stats: fighterStats[fighter] ?? .standard))
+        })
         return FighterID.allCases.flatMap { fighter in
-            [
-                CombatEvent.healthChanged(fighter, CombatTuning.maximumHealth),
-                .staminaChanged(fighter, CombatTuning.maximumStamina),
+            let state = state(for: fighter)
+            return [
+                CombatEvent.healthChanged(fighter, state.stats.maximumHealth),
+                .staminaChanged(fighter, state.stats.maximumStamina),
                 .phaseChanged(fighter, .idle)
             ]
         }
@@ -286,9 +305,10 @@ struct CombatEngine {
         ]
 
         if kind == .counter {
+            let maximumStamina = state(for: attacker).stats.maximumStamina
             let refundedStamina = min(
                 state(for: attacker).stamina + CombatTuning.counterStaminaRefund,
-                CombatTuning.maximumStamina
+                maximumStamina
             )
             states[attacker]?.stamina = refundedStamina
             events.append(.staminaChanged(attacker, refundedStamina))
@@ -456,8 +476,9 @@ struct CombatEngine {
     }
 
     private func staminaPerformance(for state: FighterCombatState) -> Double {
-        guard state.stamina < CombatTuning.lowStaminaThreshold else { return 1 }
-        let fraction = max(state.stamina / CombatTuning.lowStaminaThreshold, 0)
+        let lowStaminaThreshold = state.stats.lowStaminaThreshold
+        guard state.stamina < lowStaminaThreshold else { return 1 }
+        let fraction = max(state.stamina / lowStaminaThreshold, 0)
         let minimum = CombatTuning.minimumExhaustedPerformance
         return minimum + fraction * (1 - minimum)
     }
@@ -490,11 +511,11 @@ struct CombatEngine {
         states[fighter]?.lastStaminaUpdateAt = time
         let recoveryStart = max(lastUpdate, currentState.staminaRecoveryBlockedUntil)
         guard time > recoveryStart,
-              currentState.stamina < CombatTuning.maximumStamina else { return [] }
+              currentState.stamina < currentState.stats.maximumStamina else { return [] }
         let recovered = min(
             currentState.stamina
                 + (time - recoveryStart) * CombatTuning.staminaRecoveryPerSecond,
-            CombatTuning.maximumStamina
+            currentState.stats.maximumStamina
         )
         states[fighter]?.stamina = recovered
         return [.staminaChanged(fighter, recovered)]

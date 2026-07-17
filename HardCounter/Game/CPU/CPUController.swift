@@ -69,8 +69,10 @@ struct CPUController {
         )
         let away = CGVector(dx: -toward.dx, dy: -toward.dy)
         let distanceScale = perception.visibleDistance / max(perception.preferredPunchRange, 1)
-        let isTired = perception.selfState.stamina <= CombatTuning.lowStaminaThreshold
-        let opponentIsTired = perception.opponentState.stamina <= CombatTuning.lowStaminaThreshold
+        let isTired = perception.selfState.stamina
+            <= perception.selfState.stats.lowStaminaThreshold
+        let opponentIsTired = perception.opponentState.stamina
+            <= perception.opponentState.stats.lowStaminaThreshold
         let roll = Double.random(in: 0...1)
 
         if isTired {

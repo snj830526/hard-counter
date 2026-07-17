@@ -15,7 +15,7 @@ enum CombatTuning {
     static let staminaRecoveryPerSecond: Double = 12
     static let staminaRecoveryDelay: TimeInterval = 0.70
     static let exhaustedStaminaRecoveryDelay: TimeInterval = 1.20
-    static let lowStaminaThreshold: Double = 15
+    static let lowStaminaFraction: Double = 0.25
     static let minimumExhaustedPerformance: Double = 0.20
     static let minimumExhaustedFootwork: CGFloat = 0.34
 
