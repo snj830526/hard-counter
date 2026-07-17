@@ -16,6 +16,7 @@ struct FighterLocomotionFrame {
 struct FighterLocomotionController {
     private var clock: TimeInterval = 0
     private var stepProgress: CGFloat = 1
+    private var stepPlaybackRate: CGFloat = 1
     private var displayedIntensity: CGFloat = 0
     private var stepIntensity: CGFloat = 0
     private var stepDirection = CGVector(dx: 1, dy: 0)
@@ -58,10 +59,10 @@ struct FighterLocomotionController {
             + inputDirection.dy * stepDirection.dy
         let directionChanged = targetIntensity > 0.05 && directionDot < 0.35
 
-        // A sharp turn lands the current shuffle first. Starting a completely
-        // new arc on the same frame makes the feet cross and reads as skating.
-        if directionChanged, stepProgress < 0.72 {
-            stepProgress = 0.72
+        // Finish a sharp turn quickly without jumping the animation clock.
+        // Skipping directly to the landing phase produced a one-frame foot pop.
+        if directionChanged, stepProgress < 1 {
+            stepPlaybackRate = 2.15
         }
 
         if targetIntensity > 0.045, stepProgress >= 1 {
@@ -75,7 +76,13 @@ struct FighterLocomotionController {
 
         if stepProgress < 1 {
             let stepDuration = 0.50 - Double(stepIntensity) * 0.10
-            stepProgress = min(stepProgress + CGFloat(deltaTime / stepDuration), 1)
+            stepProgress = min(
+                stepProgress + CGFloat(deltaTime / stepDuration) * stepPlaybackRate,
+                1
+            )
+            if stepProgress >= 1 {
+                stepPlaybackRate = 1
+            }
         }
         if targetIntensity > 0.025 {
             previousInputDirection = inputDirection
@@ -192,6 +199,7 @@ struct FighterLocomotionController {
     mutating func reset() {
         clock = 0
         stepProgress = 1
+        stepPlaybackRate = 1
         displayedIntensity = 0
         stepIntensity = 0
         stepDirection = CGVector(dx: 1, dy: 0)
@@ -210,7 +218,8 @@ struct FighterLocomotionController {
         opponentDirection: CGVector
     ) {
         stepProgress = 0
-        stepIntensity = max(intensity, 0.30)
+        stepPlaybackRate = 1
+        stepIntensity = max(intensity, 0.42)
         stepDirection = direction
 
         let forwardDrive = direction.dx * opponentDirection.dx
