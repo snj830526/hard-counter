@@ -11,6 +11,8 @@ final class CombatScene: SKScene {
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let playerHealthBar = SKSpriteNode(color: .systemCyan, size: CGSize(width: 220, height: 14))
     private let cpuHealthBar = SKSpriteNode(color: .systemOrange, size: CGSize(width: 220, height: 14))
+    private let playerStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
+    private let cpuStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
     private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
@@ -215,10 +217,16 @@ final class CombatScene: SKScene {
 
         addHealthBarBackground(for: playerHealthBar)
         addHealthBarBackground(for: cpuHealthBar)
+        addStaminaBarBackground(for: playerStaminaBar, name: "playerStaminaBackground")
+        addStaminaBarBackground(for: cpuStaminaBar, name: "cpuStaminaBackground")
         playerHealthBar.anchorPoint = CGPoint(x: 0, y: 0.5)
         cpuHealthBar.anchorPoint = CGPoint(x: 1, y: 0.5)
+        playerStaminaBar.anchorPoint = CGPoint(x: 0, y: 0.5)
+        cpuStaminaBar.anchorPoint = CGPoint(x: 1, y: 0.5)
         addChild(playerHealthBar)
         addChild(cpuHealthBar)
+        addChild(playerStaminaBar)
+        addChild(cpuStaminaBar)
 
         statusLabel.fontSize = 26
         statusLabel.fontColor = .white
@@ -260,6 +268,17 @@ final class CombatScene: SKScene {
     private func addHealthBarBackground(for bar: SKSpriteNode) {
         let background = SKSpriteNode(color: SKColor.white.withAlphaComponent(0.13), size: CGSize(width: 228, height: 22))
         background.name = bar === playerHealthBar ? "playerHealthBackground" : "cpuHealthBackground"
+        background.zPosition = 9
+        addChild(background)
+        bar.zPosition = 10
+    }
+
+    private func addStaminaBarBackground(for bar: SKSpriteNode, name: String) {
+        let background = SKSpriteNode(
+            color: SKColor.white.withAlphaComponent(0.11),
+            size: CGSize(width: 228, height: 10)
+        )
+        background.name = name
         background.zPosition = 9
         addChild(background)
         bar.zPosition = 10
@@ -314,10 +333,14 @@ final class CombatScene: SKScene {
 
         childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
         childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
+        childNode(withName: "playerStaminaBackground")?.position = CGPoint(x: left + 110, y: top - 18)
+        childNode(withName: "cpuStaminaBackground")?.position = CGPoint(x: right - 110, y: top - 18)
         playerHealthBar.position = CGPoint(x: left, y: top)
         cpuHealthBar.position = CGPoint(x: right, y: top)
-        playerName.position = CGPoint(x: left, y: top - 23)
-        cpuName.position = CGPoint(x: right, y: top - 23)
+        playerStaminaBar.position = CGPoint(x: left, y: top - 18)
+        cpuStaminaBar.position = CGPoint(x: right, y: top - 18)
+        playerName.position = CGPoint(x: left, y: top - 34)
+        cpuName.position = CGPoint(x: right, y: top - 34)
         roundLabel.position = CGPoint(x: size.width / 2, y: top + 1)
         if engine.winner == nil {
             statusLabel.position = CGPoint(x: size.width / 2, y: top - 31)
@@ -648,7 +671,14 @@ final class CombatScene: SKScene {
         case .counter:
             motionReachScale = CombatTuning.counterPunchReachScale
         }
-        return visibleFighterDistance() <= baseVisiblePunchReach(for: attacker) * motionReachScale
+        let techniqueReachScale: CGFloat
+        switch profile.technique {
+        case .straight: techniqueReachScale = 1
+        case .hook: techniqueReachScale = CombatTuning.hookReachScale
+        case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
+        }
+        return visibleFighterDistance()
+            <= baseVisiblePunchReach(for: attacker) * motionReachScale * techniqueReachScale
     }
 
     private func visibleFighterDistance() -> CGFloat {
@@ -721,7 +751,8 @@ final class CombatScene: SKScene {
         }
         let playerState = engine.state(for: .player)
         let canTransitionFromSway = playerState.phase == .swaying
-            && time >= playerState.swayStartedAt + CombatTuning.swayPunchCancelDelay
+            && (playerState.swayWasSuccessful
+                || time >= playerState.swayStartedAt + CombatTuning.swayPunchCancelDelay)
         guard playerState.phase == .idle || canTransitionFromSway else { return }
 
         bufferedPlayerPunch = nil
@@ -748,10 +779,11 @@ final class CombatScene: SKScene {
                 node(for: fighter).show(phase: phase)
             case let .punchStarted(fighter, hand, profile):
                 node(for: fighter).preparePunch(hand, profile: profile)
-            case let .swayStarted(fighter, direction, screenDirection):
+            case let .swayStarted(fighter, direction, screenDirection, performance):
                 node(for: fighter).prepareSway(
                     direction,
-                    screenDirection: screenDirection
+                    screenDirection: screenDirection,
+                    performance: performance
                 )
             case let .hit(_, defender, kind, _):
                 if defender == .player {
@@ -764,6 +796,14 @@ final class CombatScene: SKScene {
                 if kind == .counter { playCounterFeedback() }
             case .swayed(let defender):
                 if defender == .player {
+                    if bufferedPlayerPunch != nil {
+                        // A late successful evade must not lose a follow-up
+                        // that was pressed during the sway's loading motion.
+                        bufferedPunchExpiresAt = max(
+                            bufferedPunchExpiresAt,
+                            gameTime + CombatTuning.counterWindow
+                        )
+                    }
                     statusLabel.text = "COUNTER READY"
                     statusLabel.fontColor = .systemYellow
                     statusLabel.run(.sequence([
@@ -775,6 +815,8 @@ final class CombatScene: SKScene {
                 }
             case let .healthChanged(fighter, health):
                 updateHealth(fighter, health: health)
+            case let .staminaChanged(fighter, stamina):
+                updateStamina(fighter, stamina: stamina)
             case let .roundEnded(winner):
                 statusLabel.removeAllActions()
                 statusLabel.alpha = 1
@@ -805,6 +847,19 @@ final class CombatScene: SKScene {
         let action = SKAction.scaleX(to: fraction, duration: CombatTuning.healthBarAnimationDuration)
         action.timingMode = .easeOut
         bar.run(action)
+    }
+
+    private func updateStamina(_ fighter: FighterID, stamina: Double) {
+        let fraction = CGFloat(stamina / CombatTuning.maximumStamina)
+        let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
+        bar.xScale = fraction
+        if stamina <= CombatTuning.lowStaminaThreshold {
+            bar.color = .systemRed
+        } else if stamina <= CombatTuning.maximumStamina * 0.50 {
+            bar.color = .systemYellow
+        } else {
+            bar.color = .systemGreen
+        }
     }
 
     private func showImpact(_ kind: HitKind) {
@@ -886,6 +941,10 @@ final class CombatScene: SKScene {
         controls.alpha = 1
         playerHealthBar.xScale = 1
         cpuHealthBar.xScale = 1
+        playerStaminaBar.xScale = 1
+        cpuStaminaBar.xScale = 1
+        playerStaminaBar.color = .systemGreen
+        cpuStaminaBar.color = .systemGreen
         layoutScene()
         haptics.prepare()
     }

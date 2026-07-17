@@ -8,6 +8,7 @@ final class FighterNode: SKNode {
     private var activePunchAimDirection = CGVector(dx: 1, dy: 0)
     private var activeSwayDirection: SwayDirection = .back
     private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
+    private var activeSwayPerformance: CGFloat = 1
     private var locomotion = FighterLocomotionController()
     private var orientation: FighterOrientationController
     private var opponentDirection = CGVector(dx: 1, dy: 0)
@@ -81,7 +82,8 @@ final class FighterNode: SKNode {
                 to: FighterPoseResolver.sway(
                     activeSwayDirection,
                     screenDirection: activeSwayScreenDirection,
-                    facing: facing
+                    facing: facing,
+                    performance: activeSwayPerformance
                 ),
                 duration: CombatTuning.swayDuration * 0.34,
                 style: .evasive
@@ -102,9 +104,14 @@ final class FighterNode: SKNode {
         activePunchAimDirection = opponentDirection
     }
 
-    func prepareSway(_ direction: SwayDirection, screenDirection: CGVector) {
+    func prepareSway(
+        _ direction: SwayDirection,
+        screenDirection: CGVector,
+        performance: Double
+    ) {
         activeSwayDirection = direction
         activeSwayScreenDirection = screenDirection
+        activeSwayPerformance = CGFloat(performance)
     }
 
     private func applyOrientation(_ frame: FighterOrientationFrame) {
@@ -418,15 +425,17 @@ final class FighterNode: SKNode {
 
         // Limb geometry points down at angle zero. Convert the opponent's
         // projected screen direction into that local angular convention.
-        let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
-        let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
-        let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
-        let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
-        let projectedAngle = baseArmAngle + aimDelta * armProjectionBlend
-        if activePunchHand == .lead {
-            pose.frontUpper += projectedAngle - baseArmAngle
-        } else {
-            pose.backUpper += projectedAngle - baseArmAngle
+        if activePunchProfile.technique == .straight {
+            let projectedArmAngle = atan2(normalized.dx, -normalized.dy)
+            let baseArmAngle: CGFloat = activePunchHand == .lead ? 1.48 : 1.52
+            let armProjectionBlend: CGFloat = isActive ? 1.0 : 0.34
+            let aimDelta = shortestAngleDelta(from: baseArmAngle, to: projectedArmAngle)
+            let projectedAngle = baseArmAngle + aimDelta * armProjectionBlend
+            if activePunchHand == .lead {
+                pose.frontUpper += projectedAngle - baseArmAngle
+            } else {
+                pose.backUpper += projectedAngle - baseArmAngle
+            }
         }
 
         let bodyTravel = pose.bodyX
