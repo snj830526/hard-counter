@@ -488,7 +488,8 @@ final class CombatScene: SKScene {
         let stamina = engine.state(for: fighter).stamina
         guard stamina < CombatTuning.lowStaminaThreshold else { return 1 }
         let fraction = max(stamina / CombatTuning.lowStaminaThreshold, 0)
-        return CGFloat(0.62 + fraction * 0.38)
+        let minimum = CombatTuning.minimumExhaustedFootwork
+        return minimum + CGFloat(fraction) * (1 - minimum)
     }
 
     private func directionalFootworkMultiplier(for movement: CGVector) -> CGFloat {

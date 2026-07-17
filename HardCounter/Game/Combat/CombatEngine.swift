@@ -370,8 +370,8 @@ struct CombatEngine {
             )
         let performance = staminaPerformance(for: state)
         let powerScale = basePowerScale * performance
-        let fatigueRecoveryScale = 1 + (1 - performance) * 1.15
-        let fatigueStartupScale = 1 + (1 - performance) * 0.32
+        let fatigueRecoveryScale = 1 + (1 - performance) * 1.65
+        let fatigueStartupScale = 1 + (1 - performance) * 0.65
         let techniqueStartupScale: Double
         let techniqueActiveScale: Double
         let techniqueRecoveryScale: Double
@@ -458,7 +458,8 @@ struct CombatEngine {
     private func staminaPerformance(for state: FighterCombatState) -> Double {
         guard state.stamina < CombatTuning.lowStaminaThreshold else { return 1 }
         let fraction = max(state.stamina / CombatTuning.lowStaminaThreshold, 0)
-        return 0.45 + fraction * 0.55
+        let minimum = CombatTuning.minimumExhaustedPerformance
+        return minimum + fraction * (1 - minimum)
     }
 
     private mutating func spendStamina(
@@ -468,7 +469,10 @@ struct CombatEngine {
     ) -> CombatEvent {
         let remaining = max(state(for: fighter).stamina - amount, 0)
         states[fighter]?.stamina = remaining
-        states[fighter]?.staminaRecoveryBlockedUntil = time + CombatTuning.staminaRecoveryDelay
+        let recoveryDelay = remaining == 0
+            ? CombatTuning.exhaustedStaminaRecoveryDelay
+            : CombatTuning.staminaRecoveryDelay
+        states[fighter]?.staminaRecoveryBlockedUntil = time + recoveryDelay
         states[fighter]?.lastStaminaUpdateAt = time
         return .staminaChanged(fighter, remaining)
     }
