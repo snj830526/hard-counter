@@ -41,28 +41,39 @@ enum FighterProfile: String, CaseIterable, Identifiable {
     }
 
     var healthPreview: Double {
-        switch self {
-        case .allRounder: 0.78
-        case .pressure: 0.96
-        case .outBoxer: 0.64
-        }
+        min(Double(stats.maximumHealth) / 125, 1)
     }
 
     var staminaPreview: Double {
-        switch self {
-        case .allRounder: 0.78
-        case .pressure: 0.66
-        case .outBoxer: 0.92
-        }
+        min(stats.maximumStamina / 75, 1)
     }
 
     var speedPreview: Double {
-        switch self {
-        case .allRounder: 0.76
-        case .pressure: 0.62
-        case .outBoxer: 0.96
-        }
+        min(Double(stats.movementSpeedMultiplier) / 1.18, 1)
     }
 
     var swiftUIColor: Color { Color(uiColor: color) }
+
+    var stats: FighterStats {
+        switch self {
+        case .allRounder:
+            FighterStats(
+                maximumHealth: 100,
+                maximumStamina: 60,
+                movementSpeedMultiplier: 1
+            )
+        case .pressure:
+            FighterStats(
+                maximumHealth: 118,
+                maximumStamina: 52,
+                movementSpeedMultiplier: 0.90
+            )
+        case .outBoxer:
+            FighterStats(
+                maximumHealth: 88,
+                maximumStamina: 72,
+                movementSpeedMultiplier: 1.13
+            )
+        }
+    }
 }

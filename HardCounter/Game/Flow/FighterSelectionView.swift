@@ -79,9 +79,24 @@ struct FighterSelectionView: View {
                     .background(.white.opacity(0.08), in: Capsule())
 
                 VStack(spacing: 5) {
-                    statRow("체력", value: fighter.healthPreview, color: .red)
-                    statRow("스태미너", value: fighter.staminaPreview, color: .green)
-                    statRow("스피드", value: fighter.speedPreview, color: .cyan)
+                    statRow(
+                        "체력",
+                        value: fighter.healthPreview,
+                        valueText: "\(fighter.stats.maximumHealth)",
+                        color: .red
+                    )
+                    statRow(
+                        "스태미너",
+                        value: fighter.staminaPreview,
+                        valueText: "\(Int(fighter.stats.maximumStamina))",
+                        color: .green
+                    )
+                    statRow(
+                        "스피드",
+                        value: fighter.speedPreview,
+                        valueText: "\(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))",
+                        color: .cyan
+                    )
                 }
             }
             .padding(12)
@@ -104,7 +119,12 @@ struct FighterSelectionView: View {
         .animation(.spring(response: 0.25, dampingFraction: 0.78), value: isSelected)
     }
 
-    private func statRow(_ title: String, value: Double, color: Color) -> some View {
+    private func statRow(
+        _ title: String,
+        value: Double,
+        valueText: String,
+        color: Color
+    ) -> some View {
         HStack(spacing: 7) {
             Text(title)
                 .font(.system(size: 9, weight: .bold))
@@ -117,12 +137,16 @@ struct FighterSelectionView: View {
                 }
             }
             .frame(height: 5)
+            Text(valueText)
+                .font(.system(size: 8, weight: .black, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(width: 22, alignment: .trailing)
         }
     }
 
     private var footer: some View {
         HStack {
-            Text("능력치는 다음 밸런스 작업부터 실제 경기에 적용됩니다")
+            Text("선택한 선수의 체력·스태미너·스피드가 실제 경기에 적용됩니다")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()
