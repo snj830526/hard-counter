@@ -99,6 +99,12 @@ final class CombatScene: SKScene {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        if lastUpdateTime == nil {
+            cpuController.reset(at: currentTime)
+#if DEBUG
+            motionShowcaseController.reset(at: currentTime)
+#endif
+        }
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
         lastUpdateTime = currentTime
         gameTime = currentTime
@@ -114,13 +120,11 @@ final class CombatScene: SKScene {
 #if DEBUG
         if motionShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
-        } else if cpuController.shouldPunch(at: currentTime, state: engine.state(for: .cpu)) {
-            handle(engine.request(.punch(.neutral), by: .cpu, at: currentTime))
+        } else {
+            updateCPUCombat(at: currentTime)
         }
 #else
-        if cpuController.shouldPunch(at: currentTime, state: engine.state(for: .cpu)) {
-            handle(engine.request(.punch(.neutral), by: .cpu, at: currentTime))
-        }
+        updateCPUCombat(at: currentTime)
 #endif
     }
 
@@ -409,13 +413,7 @@ final class CombatScene: SKScene {
         let cpuCanMove = engine.state(for: .cpu).phase == .idle && !isMotionShowcaseEnabled
         var cpuTargetMovement = CGVector.zero
         if cpuCanMove {
-            cpuTargetMovement = cpuController.movement(
-                at: gameTime,
-                playerPosition: playerArenaPosition,
-                cpuPosition: cpuArenaPosition,
-                visibleDistance: visibleFighterDistance(),
-                preferredPunchRange: baseVisiblePunchReach(for: .cpu)
-            )
+            cpuTargetMovement = cpuController.movement(for: cpuPerception(at: gameTime))
         }
         let cpuMovement = cpuMovementSmoother.update(
             toward: cpuTargetMovement,
@@ -776,6 +774,36 @@ final class CombatScene: SKScene {
 #else
         false
 #endif
+    }
+
+    private func cpuPerception(at time: TimeInterval) -> CPUPerception {
+        CPUPerception(
+            time: time,
+            selfState: engine.state(for: .cpu),
+            opponentState: engine.state(for: .player),
+            towardOpponent: CGVector(
+                dx: playerArenaPosition.x - cpuArenaPosition.x,
+                dy: playerArenaPosition.y - cpuArenaPosition.y
+            ),
+            screenTowardOpponent: CGVector(
+                dx: -playerToCPUScreenDirection.dx,
+                dy: -playerToCPUScreenDirection.dy
+            ),
+            visibleDistance: visibleFighterDistance(),
+            preferredPunchRange: baseVisiblePunchReach(for: .cpu)
+        )
+    }
+
+    private func updateCPUCombat(at time: TimeInterval) {
+        guard let action = cpuController.combatAction(for: cpuPerception(at: time)) else {
+            return
+        }
+        switch action {
+        case let .punch(intent):
+            handle(engine.request(.punch(intent), by: .cpu, at: time))
+        case let .sway(intent):
+            handle(engine.request(.sway(intent), by: .cpu, at: time))
+        }
     }
 
 #if DEBUG

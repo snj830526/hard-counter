@@ -34,7 +34,6 @@ enum CombatTuning {
     static let counterHitReaction: TimeInterval = 0.48
 
     static let cpuInitialDelay: TimeInterval = 1.2
-    static let cpuAttackInterval: ClosedRange<TimeInterval> = 1.35...2.15
 
     static let hudTopPadding: CGFloat = 20
     static let hudHorizontalPadding: CGFloat = 24
@@ -69,7 +68,6 @@ enum CombatTuning {
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
     static let cpuMoveSpeed: CGFloat = 72
-    static let cpuMovementDecisionInterval: ClosedRange<TimeInterval> = 0.72...1.18
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
