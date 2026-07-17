@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var destination: GameDestination = .modeSelection
+    @StateObject private var nearbyService = NearbyLobbyService()
 
     var body: some View {
         ZStack {
@@ -19,10 +20,18 @@ struct ContentView: View {
                 )
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             case .nearbyLobby:
-                NearbyLobbyView {
+                NearbyLobbyView(
+                    onBack: { destination = .modeSelection },
+                    onStart: { configuration in destination = .nearbyCombat(configuration) },
+                    service: nearbyService
+                )
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            case let .nearbyCombat(configuration):
+                NetworkCombatContainerView(configuration: configuration, service: nearbyService) {
+                    nearbyService.stop()
                     destination = .modeSelection
                 }
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                .transition(.opacity)
             case let .combat(fighter):
                 CombatContainerView(fighter: fighter) {
                     destination = .modeSelection
@@ -53,6 +62,7 @@ private enum GameDestination: Equatable {
     case modeSelection
     case fighterSelection
     case nearbyLobby
+    case nearbyCombat(NearbyMatchConfiguration)
     case combat(FighterProfile)
 }
 

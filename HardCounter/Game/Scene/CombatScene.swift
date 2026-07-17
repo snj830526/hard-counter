@@ -3,6 +3,9 @@ import UIKit
 
 final class CombatScene: SKScene {
     private let fighterProfile: FighterProfile
+    private let opponentProfile: FighterProfile?
+    private let networkConfiguration: NearbyMatchConfiguration?
+    private weak var nearbyService: NearbyLobbyService?
     private let cameraRig = SKNode()
     private let arenaNode = SKNode()
     private let ringNode = BoxingRingNode()
@@ -10,11 +13,17 @@ final class CombatScene: SKScene {
         facingRight: true,
         appearance: fighterProfile.appearance
     )
-    private let cpu = FighterNode(facingRight: false, appearance: .cpuRival)
+    private lazy var cpu = FighterNode(
+        facingRight: false,
+        appearance: opponentProfile?.appearance ?? .cpuRival
+    )
     private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
-    private let cpuHealthBar = SKSpriteNode(color: .systemOrange, size: CGSize(width: 220, height: 14))
+    private lazy var cpuHealthBar = SKSpriteNode(
+        color: opponentProfile?.color ?? .systemOrange,
+        size: CGSize(width: 220, height: 14)
+    )
     private let playerStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
     private let cpuStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
     private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
@@ -27,10 +36,22 @@ final class CombatScene: SKScene {
     private let controls = CombatControlsNode()
     private let haptics = HapticController()
 
-    private lazy var engine = CombatEngine(playerStats: fighterProfile.stats)
-    private let localInputSource = LocalInputSource()
+    private lazy var engine = CombatEngine(
+        playerStats: fighterProfile.stats,
+        cpuStats: opponentProfile?.stats ?? .standard
+    )
+    private lazy var localInputSource = LocalInputSource(
+        fighter: networkConfiguration?.localFighterID ?? .player
+    )
     private var cpuInputSource = CPUInputSource()
     private var gameTime: TimeInterval = 0
+    private var remoteMovement = CGVector.zero
+    private var lastRemoteInputSequence: UInt64 = 0
+    private var networkStateSequence: UInt64 = 0
+    private var lastNetworkMovementSentAt: TimeInterval = -.infinity
+    private var lastNetworkStateSentAt: TimeInterval = -.infinity
+    private var countdownEndsAt: TimeInterval?
+    private var hasCompletedCountdown = false
     private var safeInsets = UIEdgeInsets.zero
     private var ringProjection = QuarterViewProjection(
         size: CGSize(width: 844, height: 390),
@@ -63,6 +84,23 @@ final class CombatScene: SKScene {
 
     init(size: CGSize, fighter: FighterProfile) {
         fighterProfile = fighter
+        opponentProfile = nil
+        networkConfiguration = nil
+        nearbyService = nil
+        super.init(size: size)
+        scaleMode = .resizeFill
+        backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
+    }
+
+    init(
+        size: CGSize = CGSize(width: 844, height: 390),
+        networkConfiguration: NearbyMatchConfiguration,
+        service: NearbyLobbyService
+    ) {
+        fighterProfile = networkConfiguration.hostFighter
+        opponentProfile = networkConfiguration.guestFighter
+        self.networkConfiguration = networkConfiguration
+        nearbyService = service
         super.init(size: size)
         scaleMode = .resizeFill
         backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
@@ -88,6 +126,7 @@ final class CombatScene: SKScene {
         didSetUp = true
         view.isMultipleTouchEnabled = true
         buildScene()
+        attachNetworkHandlers()
         cpuInputSource.reset(at: gameTime)
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
@@ -116,37 +155,65 @@ final class CombatScene: SKScene {
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
         lastUpdateTime = currentTime
         gameTime = currentTime
+        if networkConfiguration != nil {
+            if !hasCompletedCountdown, countdownEndsAt == nil { countdownEndsAt = currentTime + 3 }
+            if let countdownEndsAt, currentTime < countdownEndsAt {
+                showCountdown(remaining: countdownEndsAt - currentTime)
+                return
+            }
+            if countdownEndsAt != nil {
+                self.countdownEndsAt = nil
+                hasCompletedCountdown = true
+                controls.alpha = 1
+                statusLabel.text = "FIGHT!"
+                statusLabel.fontColor = .systemYellow
+                statusLabel.run(.sequence([.wait(forDuration: 0.45), .fadeOut(withDuration: 0.2)]))
+            }
+        }
         updateMovement(deltaTime: deltaTime)
 
-        let playerCanHit = isWithinPunchRange(for: .player)
-        let cpuCanHit = isWithinPunchRange(for: .cpu)
+        let canResolveDamage = networkConfiguration?.role != .guest
+        let playerCanHit = canResolveDamage && isWithinPunchRange(for: .player)
+        let cpuCanHit = canResolveDamage && isWithinPunchRange(for: .cpu)
         handle(engine.update(at: currentTime, canHit: { fighter in
             fighter == .player ? playerCanHit : cpuCanHit
         }))
         processBufferedPunch(at: currentTime)
 
 #if DEBUG
-        if motionShowcaseEnabled {
+        if networkConfiguration != nil {
+            updateNetworkCombat(at: currentTime)
+        } else if motionShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
         } else {
             updateCPUCombat(at: currentTime)
         }
 #else
-        updateCPUCombat(at: currentTime)
+        if networkConfiguration != nil {
+            updateNetworkCombat(at: currentTime)
+        } else {
+            updateCPUCombat(at: currentTime)
+        }
 #endif
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if engine.winner != nil {
             guard touches.contains(where: { restartButton.frame.contains($0.location(in: self)) }) else { return }
+            if let networkConfiguration, networkConfiguration.role != .host { return }
             restartButton.removeAction(forKey: "press")
             restartButton.run(.sequence([
                 .scale(to: 0.94, duration: 0.045),
                 .scale(to: 1, duration: 0.08),
-                .run { [weak self] in self?.resetRound() }
+                .run { [weak self] in
+                    guard let self else { return }
+                    if self.networkConfiguration != nil { self.nearbyService?.sendRestartRound() }
+                    self.resetRound()
+                }
             ]), withKey: "press")
             return
         }
+        guard countdownEndsAt == nil else { return }
 
         // UIKit delivers simultaneous touches as a Set. Resolve SWAY before
         // PUNCH so a near-simultaneous two-button chain is deterministic and
@@ -172,13 +239,13 @@ final class CombatScene: SKScene {
                 refreshMovementIndicator()
             case .punch:
                 controls.flash(input)
-                execute(localInputSource.actionCommand(
+                executeLocal(localInputSource.actionCommand(
                     .punch(playerPunchIntent()),
                     at: gameTime
                 ))
             case .sway:
                 controls.flash(input)
-                execute(localInputSource.actionCommand(
+                executeLocal(localInputSource.actionCommand(
                     .sway(selectedSwayIntent()),
                     at: gameTime
                 ))
@@ -250,9 +317,19 @@ final class CombatScene: SKScene {
         statusLabel.zPosition = 20
         addChild(statusLabel)
 
-        configureNameLabel(playerName, text: fighterProfile.name, alignment: .left, color: fighterProfile.color)
-        configureNameLabel(cpuName, text: "CPU RIVAL", alignment: .right, color: .systemOrange)
-        roundLabel.text = "ROUND 1"
+        configureNameLabel(
+            playerName,
+            text: networkConfiguration?.hostName ?? fighterProfile.name,
+            alignment: .left,
+            color: fighterProfile.color
+        )
+        configureNameLabel(
+            cpuName,
+            text: networkConfiguration?.guestName ?? "CPU RIVAL",
+            alignment: .right,
+            color: opponentProfile?.color ?? .systemOrange
+        )
+        roundLabel.text = networkConfiguration == nil ? "ROUND 1" : "NEARBY · ROUND 1"
         roundLabel.fontSize = 11
         roundLabel.fontColor = SKColor.white.withAlphaComponent(0.66)
         roundLabel.horizontalAlignmentMode = .center
@@ -390,9 +467,14 @@ final class CombatScene: SKScene {
         let previousPlayerScreenPosition = player.position
         let previousCPUScreenPosition = cpu.position
 
-        let phaseMultiplier = playerFootworkMultiplier()
-        let targetMovement = localInputSource.movementCommand(at: gameTime)
-            .movementVector ?? .zero
+        let localMovement = localInputSource.movementCommand(at: gameTime).movementVector ?? .zero
+        let targetMovement: CGVector
+        if let networkConfiguration {
+            targetMovement = networkConfiguration.localFighterID == .player ? localMovement : remoteMovement
+        } else {
+            targetMovement = localMovement
+        }
+        let phaseMultiplier = footworkMultiplier(for: .player)
         let screenMovement = playerMovementSmoother.update(
             toward: targetMovement,
             deltaTime: deltaTime
@@ -409,9 +491,13 @@ final class CombatScene: SKScene {
             playerArenaPosition.y += worldMovement.dy * CombatTuning.playerDepthMoveSpeed * movementMultiplier * deltaTime
         }
 
-        let cpuCanMove = engine.state(for: .cpu).phase == .idle && !isMotionShowcaseEnabled
+        let cpuCanMove = networkConfiguration != nil
+            ? footworkMultiplier(for: .cpu) > 0
+            : engine.state(for: .cpu).phase == .idle && !isMotionShowcaseEnabled
         var cpuTargetMovement = CGVector.zero
-        if cpuCanMove {
+        if let networkConfiguration {
+            cpuTargetMovement = networkConfiguration.localFighterID == .cpu ? localMovement : remoteMovement
+        } else if cpuCanMove {
             cpuTargetMovement = cpuInputSource
                 .movementCommand(for: cpuPerception(at: gameTime))
                 .movementVector ?? .zero
@@ -422,10 +508,20 @@ final class CombatScene: SKScene {
         )
         if cpuCanMove {
             let staminaMultiplier = staminaFootworkMultiplier(for: .cpu)
-            cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed
-                * staminaMultiplier * deltaTime
-            cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed
-                * staminaMultiplier * deltaTime
+            if networkConfiguration != nil {
+                let cpuWorldMovement = ringProjection.worldDirection(forScreenVector: cpuMovement)
+                let multiplier = footworkMultiplier(for: .cpu)
+                    * directionalFootworkMultiplier(for: cpuWorldMovement, fighter: .cpu)
+                    * staminaMultiplier
+                    * (opponentProfile?.stats.movementSpeedMultiplier ?? 1)
+                cpuArenaPosition.x += cpuWorldMovement.dx * CombatTuning.playerMoveSpeed * multiplier * deltaTime
+                cpuArenaPosition.y += cpuWorldMovement.dy * CombatTuning.playerDepthMoveSpeed * multiplier * deltaTime
+            } else {
+                cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed
+                    * staminaMultiplier * deltaTime
+                cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed
+                    * staminaMultiplier * deltaTime
+            }
         }
 
         clampAndRenderFighters()
@@ -436,7 +532,9 @@ final class CombatScene: SKScene {
                 dy: screenMovement.dy * movementMultiplier
             ),
             cpuMovement: cpuCanMove
-                ? ringProjection.screenVector(forWorldVector: cpuMovement) : .zero,
+                ? (networkConfiguration == nil
+                    ? ringProjection.screenVector(forWorldVector: cpuMovement)
+                    : cpuMovement) : .zero,
             previousPlayerPosition: previousPlayerScreenPosition,
             previousCPUPosition: previousCPUScreenPosition,
             deltaTime: deltaTime
@@ -477,8 +575,8 @@ final class CombatScene: SKScene {
         )
     }
 
-    private func playerFootworkMultiplier() -> CGFloat {
-        switch engine.state(for: .player).phase {
+    private func footworkMultiplier(for fighter: FighterID) -> CGFloat {
+        switch engine.state(for: fighter).phase {
         case .idle:
             return 1
         case .punchStartup:
@@ -502,14 +600,16 @@ final class CombatScene: SKScene {
         return minimum + CGFloat(fraction) * (1 - minimum)
     }
 
-    private func directionalFootworkMultiplier(for movement: CGVector) -> CGFloat {
+    private func directionalFootworkMultiplier(
+        for movement: CGVector,
+        fighter: FighterID = .player
+    ) -> CGFloat {
         let movementLength = hypot(movement.dx, movement.dy)
         guard movementLength > 0.001 else { return 1 }
 
-        let towardOpponent = CGVector(
-            dx: cpuArenaPosition.x - playerArenaPosition.x,
-            dy: cpuArenaPosition.y - playerArenaPosition.y
-        )
+        let towardOpponent = fighter == .player
+            ? CGVector(dx: cpuArenaPosition.x - playerArenaPosition.x, dy: cpuArenaPosition.y - playerArenaPosition.y)
+            : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
         let opponentDistance = hypot(towardOpponent.dx, towardOpponent.dy)
         guard opponentDistance > 0.001 else { return 1 }
 
@@ -728,27 +828,29 @@ final class CombatScene: SKScene {
     }
 
     private func selectedSwayIntent() -> SwayIntent {
-        localInputSource.swayIntent(
+        let localFighter = networkConfiguration?.localFighterID ?? .player
+        let towardOpponent = localFighter == .player
+            ? CGVector(dx: cpuArenaPosition.x - playerArenaPosition.x, dy: cpuArenaPosition.y - playerArenaPosition.y)
+            : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
+        return localInputSource.swayIntent(
             at: gameTime,
-            towardOpponent: ringProjection.screenVector(forWorldVector: CGVector(
-                dx: cpuArenaPosition.x - playerArenaPosition.x,
-                dy: cpuArenaPosition.y - playerArenaPosition.y
-            ))
+            towardOpponent: ringProjection.screenVector(forWorldVector: towardOpponent)
         )
     }
 
     private func playerPunchIntent() -> PunchIntent {
+        let localFighter = networkConfiguration?.localFighterID ?? .player
         let rawMovement = localInputSource.movementCommand(at: gameTime)
             .movementVector ?? .zero
+        let smoother = localFighter == .player ? playerMovementSmoother.value : cpuMovementSmoother.value
         let effectiveMovement = CGVector(
-            dx: playerMovementSmoother.value.dx * 0.70 + rawMovement.dx * 0.30,
-            dy: playerMovementSmoother.value.dy * 0.70 + rawMovement.dy * 0.30
+            dx: smoother.dx * 0.70 + rawMovement.dx * 0.30,
+            dy: smoother.dy * 0.70 + rawMovement.dy * 0.30
         )
         let worldMovement = ringProjection.worldDirection(forScreenVector: effectiveMovement)
-        let opponentVector = CGVector(
-            dx: cpuArenaPosition.x - playerArenaPosition.x,
-            dy: cpuArenaPosition.y - playerArenaPosition.y
-        )
+        let opponentVector = localFighter == .player
+            ? CGVector(dx: cpuArenaPosition.x - playerArenaPosition.x, dy: cpuArenaPosition.y - playerArenaPosition.y)
+            : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
         let opponentDistance = hypot(opponentVector.dx, opponentVector.dy)
         guard opponentDistance > 0.001 else { return .neutral }
 
@@ -796,6 +898,154 @@ final class CombatScene: SKScene {
         execute(command)
     }
 
+    private func attachNetworkHandlers() {
+        guard networkConfiguration != nil, let nearbyService else { return }
+        nearbyService.onCombatInput = { [weak self] input in self?.receive(input) }
+        nearbyService.onCombatState = { [weak self] state in self?.apply(state) }
+        nearbyService.onRestartRound = { [weak self] in self?.resetRound() }
+    }
+
+    private func showCountdown(remaining: TimeInterval) {
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = .white
+        statusLabel.text = String(max(Int(ceil(remaining)), 1))
+        controls.alpha = 0.35
+    }
+
+    private func updateNetworkCombat(at time: TimeInterval) {
+        guard let configuration = networkConfiguration, let nearbyService else { return }
+        if time - lastNetworkMovementSentAt >= 1.0 / 30.0 {
+            lastNetworkMovementSentAt = time
+            let movement = localInputSource.movementCommand(at: time).movementVector ?? .zero
+            nearbyService.sendCombatInput(NearbyCombatInput(
+                sequence: nearbyService.nextCombatInputSequence(),
+                kind: .movement,
+                x: Double(movement.dx),
+                y: Double(movement.dy)
+            ))
+        }
+        if configuration.role == .host, time - lastNetworkStateSentAt >= 1.0 / 15.0 {
+            lastNetworkStateSentAt = time
+            networkStateSequence &+= 1
+            nearbyService.sendCombatState(NearbyCombatState(
+                sequence: networkStateSequence,
+                playerX: Double(playerArenaPosition.x),
+                playerY: Double(playerArenaPosition.y),
+                cpuX: Double(cpuArenaPosition.x),
+                cpuY: Double(cpuArenaPosition.y),
+                playerHealth: engine.state(for: .player).health,
+                cpuHealth: engine.state(for: .cpu).health,
+                playerStamina: engine.state(for: .player).stamina,
+                cpuStamina: engine.state(for: .cpu).stamina,
+                winner: engine.winner.map { $0 == .player ? "player" : "cpu" }
+            ))
+        }
+    }
+
+    private func networkInput(for action: CombatAction) -> NearbyCombatInput {
+        let sequence = nearbyService?.nextCombatInputSequence() ?? 0
+        switch action {
+        case let .punch(intent):
+            return NearbyCombatInput(
+                sequence: sequence,
+                kind: .punch,
+                forwardDrive: intent.forwardDrive,
+                lateralDrive: intent.lateralDrive,
+                movementIntensity: intent.movementIntensity
+            )
+        case let .sway(intent):
+            return NearbyCombatInput(
+                sequence: sequence,
+                kind: .sway,
+                x: Double(intent.screenDirection.dx),
+                y: Double(intent.screenDirection.dy),
+                swayDirection: networkName(for: intent.direction),
+                isTowardOpponent: intent.isTowardOpponent
+            )
+        }
+    }
+
+    private func receive(_ input: NearbyCombatInput) {
+        guard input.sequence > lastRemoteInputSequence,
+              let remoteFighter = networkConfiguration?.remoteFighterID else { return }
+        lastRemoteInputSequence = input.sequence
+        switch input.kind {
+        case .movement:
+            remoteMovement = CGVector(dx: input.x, dy: input.y)
+        case .punch:
+            execute(FighterCommand(
+                fighter: remoteFighter,
+                payload: .action(.punch(PunchIntent(
+                    forwardDrive: input.forwardDrive,
+                    lateralDrive: input.lateralDrive,
+                    movementIntensity: input.movementIntensity
+                ))),
+                issuedAt: gameTime
+            ))
+        case .sway:
+            guard let name = input.swayDirection, let direction = swayDirection(named: name) else { return }
+            execute(FighterCommand(
+                fighter: remoteFighter,
+                payload: .action(.sway(SwayIntent(
+                    direction: direction,
+                    isTowardOpponent: input.isTowardOpponent,
+                    screenDirection: CGVector(dx: input.x, dy: input.y)
+                ))),
+                issuedAt: gameTime
+            ))
+        }
+    }
+
+    private func apply(_ state: NearbyCombatState) {
+        guard state.sequence > networkStateSequence else { return }
+        networkStateSequence = state.sequence
+        let previousPlayerHealth = engine.state(for: .player).health
+        let previousCPUHealth = engine.state(for: .cpu).health
+        let blend: CGFloat = 0.38
+        playerArenaPosition.x += (CGFloat(state.playerX) - playerArenaPosition.x) * blend
+        playerArenaPosition.y += (CGFloat(state.playerY) - playerArenaPosition.y) * blend
+        cpuArenaPosition.x += (CGFloat(state.cpuX) - cpuArenaPosition.x) * blend
+        cpuArenaPosition.y += (CGFloat(state.cpuY) - cpuArenaPosition.y) * blend
+        let winner: FighterID? = state.winner == "player" ? .player : (state.winner == "cpu" ? .cpu : nil)
+        handle(engine.applyAuthoritativeState(
+            playerHealth: state.playerHealth,
+            cpuHealth: state.cpuHealth,
+            playerStamina: state.playerStamina,
+            cpuStamina: state.cpuStamina,
+            winner: winner
+        ))
+        if state.playerHealth < previousPlayerHealth {
+            player.playHit(.normal)
+            showImpact(.normal)
+            if networkConfiguration?.localFighterID == .player { haptics.playHit(.normal) }
+        }
+        if state.cpuHealth < previousCPUHealth {
+            cpu.playHit(.normal)
+            showImpact(.normal)
+            if networkConfiguration?.localFighterID == .cpu { haptics.playHit(.normal) }
+        }
+    }
+
+    private func networkName(for direction: SwayDirection) -> String {
+        switch direction {
+        case .left: "left"
+        case .right: "right"
+        case .back: "back"
+        case .forward: "forward"
+        }
+    }
+
+    private func swayDirection(named name: String) -> SwayDirection? {
+        switch name {
+        case "left": .left
+        case "right": .right
+        case "back": .back
+        case "forward": .forward
+        default: nil
+        }
+    }
+
 #if DEBUG
     private func updateMotionShowcase(at time: TimeInterval) {
         let towardPlayer = CGVector(
@@ -832,9 +1082,9 @@ final class CombatScene: SKScene {
     private func processBufferedPunch(at time: TimeInterval) {
         guard let command = localInputSource.bufferedPunchCommand(
             at: time,
-            state: engine.state(for: .player)
+            state: engine.state(for: localInputSource.fighter)
         ) else { return }
-        execute(command)
+        executeLocal(command)
     }
 
     private func refreshMovementIndicator() {
@@ -858,7 +1108,7 @@ final class CombatScene: SKScene {
             by: command.fighter,
             at: command.issuedAt
         )
-        if command.fighter == .player, case let .punch(intent) = action {
+        if command.fighter == localInputSource.fighter, case let .punch(intent) = action {
             localInputSource.recordPunchResult(
                 intent: intent,
                 events: events,
@@ -867,6 +1117,12 @@ final class CombatScene: SKScene {
             )
         }
         handle(events)
+    }
+
+    private func executeLocal(_ command: FighterCommand) {
+        execute(command)
+        guard networkConfiguration != nil, case let .action(action) = command.payload else { return }
+        nearbyService?.sendCombatInput(networkInput(for: action))
     }
 
     private func handle(_ events: [CombatEvent]) {
@@ -883,7 +1139,7 @@ final class CombatScene: SKScene {
                     performance: performance
                 )
             case let .hit(_, defender, kind, _):
-                if defender == .player {
+                if defender == localInputSource.fighter {
                     localInputSource.clearBufferedPunch()
                 }
                 node(for: defender).playHit(kind)
@@ -891,7 +1147,7 @@ final class CombatScene: SKScene {
                 haptics.playHit(kind)
                 if kind == .counter { playCounterFeedback() }
             case .swayed(let defender):
-                if defender == .player {
+                if defender == localInputSource.fighter {
                     // A late successful evade must not lose a follow-up that
                     // was pressed during the sway's loading motion.
                     localInputSource.extendBufferedPunch(
@@ -914,10 +1170,12 @@ final class CombatScene: SKScene {
                 statusLabel.removeAllActions()
                 statusLabel.alpha = 1
                 statusLabel.fontColor = .white
-                statusLabel.text = winner == .player ? "KO!" : "DOWN!"
+                let localFighter = networkConfiguration?.localFighterID ?? .player
+                statusLabel.text = winner == localFighter ? "YOU WIN!" : "YOU LOSE"
                 statusLabel.zPosition = 161
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
+                restartLabel.text = networkConfiguration?.role == .guest ? "호스트 재시작 대기" : "다시 하기"
                 controls.alpha = 0.35
                 localInputSource.reset(at: gameTime)
                 controls.endMovement()
@@ -1031,6 +1289,11 @@ final class CombatScene: SKScene {
         roundEndOverlay.isHidden = true
         restartButton.isHidden = true
         controls.alpha = 1
+        if networkConfiguration != nil {
+            hasCompletedCountdown = false
+            countdownEndsAt = gameTime + 3
+            controls.alpha = 0.35
+        }
         playerHealthBar.xScale = 1
         cpuHealthBar.xScale = 1
         playerStaminaBar.xScale = 1

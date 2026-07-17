@@ -142,6 +142,37 @@ struct CombatEngine {
         states[fighter] ?? FighterCombatState(stats: fighterStats[fighter] ?? .standard)
     }
 
+    mutating func applyAuthoritativeState(
+        playerHealth: Int,
+        cpuHealth: Int,
+        playerStamina: Double,
+        cpuStamina: Double,
+        winner newWinner: FighterID?
+    ) -> [CombatEvent] {
+        var events: [CombatEvent] = []
+        let values: [(FighterID, Int, Double)] = [
+            (.player, playerHealth, playerStamina),
+            (.cpu, cpuHealth, cpuStamina)
+        ]
+        for (fighter, health, stamina) in values {
+            if state(for: fighter).health != health {
+                states[fighter]?.health = health
+                events.append(.healthChanged(fighter, health))
+            }
+            if abs(state(for: fighter).stamina - stamina) > 0.05 {
+                states[fighter]?.stamina = stamina
+                events.append(.staminaChanged(fighter, stamina))
+            }
+        }
+        if winner == nil, let newWinner {
+            winner = newWinner
+            states[newWinner.opponent]?.phase = .knockedOut
+            events.append(.phaseChanged(newWinner.opponent, .knockedOut))
+            events.append(.roundEnded(winner: newWinner))
+        }
+        return events
+    }
+
     mutating func request(_ action: CombatAction, by fighter: FighterID, at time: TimeInterval) -> [CombatEvent] {
         guard winner == nil else { return [] }
 

@@ -13,6 +13,7 @@ final class NearbyLobbyService: ObservableObject {
     @Published private(set) var remotePlayerName = "상대 선수"
     @Published private(set) var remoteFighter: FighterProfile = .allRounder
     @Published private(set) var remoteIsReady = false
+    @Published private(set) var matchConfiguration: NearbyMatchConfiguration?
     @Published var localFighter: FighterProfile = .allRounder {
         didSet {
             if localFighter != oldValue {
@@ -31,6 +32,9 @@ final class NearbyLobbyService: ObservableObject {
 
     var isConnected: Bool { phase == .connected }
     var bothPlayersReady: Bool { isConnected && localIsReady && remoteIsReady }
+    var onCombatInput: ((NearbyCombatInput) -> Void)?
+    var onCombatState: ((NearbyCombatState) -> Void)?
+    var onRestartRound: (() -> Void)?
 
     private let networkQueue = DispatchQueue(label: "com.soonispapa.HardCounter.nearby")
     private var listener: NWListener?
@@ -38,6 +42,7 @@ final class NearbyLobbyService: ObservableObject {
     private var connection: NWConnection?
     private var receiveBuffer = Data()
     private var isStopping = false
+    private var combatInputSequence: UInt64 = 0
 
     deinit {
         listener?.cancel()
@@ -107,6 +112,33 @@ final class NearbyLobbyService: ObservableObject {
     func toggleReady() {
         guard isConnected else { return }
         localIsReady.toggle()
+        tryStartMatchIfHost()
+    }
+
+    func sendCombatInput(_ input: NearbyCombatInput) {
+        guard let matchID = matchConfiguration?.id else { return }
+        send(NearbyLobbyMessage(kind: .combatInput, matchID: matchID, input: input))
+    }
+
+    func nextCombatInputSequence() -> UInt64 {
+        combatInputSequence &+= 1
+        return combatInputSequence
+    }
+
+    func sendCombatState(_ state: NearbyCombatState) {
+        guard role == .host, let matchID = matchConfiguration?.id else { return }
+        send(NearbyLobbyMessage(kind: .combatState, matchID: matchID, state: state))
+    }
+
+    func sendRestartRound() {
+        guard role == .host, let matchID = matchConfiguration?.id else { return }
+        send(NearbyLobbyMessage(kind: .restartRound, matchID: matchID))
+    }
+
+    func detachCombatHandlers() {
+        onCombatInput = nil
+        onCombatState = nil
+        onRestartRound = nil
     }
 
     func retry() {
@@ -133,6 +165,8 @@ final class NearbyLobbyService: ObservableObject {
         rooms = []
         remoteIsReady = false
         localIsReady = false
+        matchConfiguration = nil
+        detachCombatHandlers()
         if resetPhase {
             phase = .idle
             role = nil
@@ -214,14 +248,18 @@ final class NearbyLobbyService: ObservableObject {
     }
 
     private func sendSnapshot() {
+        let message = NearbyLobbyMessage(
+            playerName: localPlayerName,
+            fighter: localFighter,
+            isReady: localIsReady
+        )
+        send(message)
+    }
+
+    private func send(_ message: NearbyLobbyMessage) {
         guard phase == .connected, let connection else { return }
 
         do {
-            let message = NearbyLobbyMessage(
-                playerName: localPlayerName,
-                fighter: localFighter,
-                isReady: localIsReady
-            )
             let payload = try JSONEncoder().encode(message)
             guard payload.count <= 65_536 else { return }
 
@@ -236,7 +274,7 @@ final class NearbyLobbyService: ObservableObject {
                 }
             })
         } catch {
-            fail("로비 정보를 만들 수 없습니다: \(error.localizedDescription)")
+            fail("네트워크 정보를 만들 수 없습니다: \(error.localizedDescription)")
         }
     }
 
@@ -276,19 +314,75 @@ final class NearbyLobbyService: ObservableObject {
 
             do {
                 let message = try JSONDecoder().decode(NearbyLobbyMessage.self, from: payload)
-                guard message.version == NearbyLobbyMessage.protocolVersion,
-                      let fighter = FighterProfile(rawValue: message.fighterID) else {
+                guard message.version == NearbyLobbyMessage.protocolVersion else {
                     fail("서로 다른 버전의 게임은 연결할 수 없습니다.")
                     return
                 }
-                remotePlayerName = message.playerName
-                remoteFighter = fighter
-                remoteIsReady = message.isReady
+                process(message)
             } catch {
                 fail("로비 정보를 해석할 수 없습니다.")
                 return
             }
         }
+    }
+
+    private func process(_ message: NearbyLobbyMessage) {
+        switch message.kind {
+        case .snapshot:
+            guard let playerName = message.playerName,
+                  let fighterID = message.fighterID,
+                  let fighter = FighterProfile(rawValue: fighterID),
+                  let isReady = message.isReady else {
+                fail("호환되지 않는 로비 정보를 받았습니다.")
+                return
+            }
+            remotePlayerName = playerName
+            remoteFighter = fighter
+            remoteIsReady = isReady
+            tryStartMatchIfHost()
+        case .startMatch:
+            guard role == .guest, let matchID = message.matchID else { return }
+            matchConfiguration = makeMatchConfiguration(id: matchID)
+        case .combatInput:
+            guard message.matchID == matchConfiguration?.id, let input = message.combatInput else { return }
+            onCombatInput?(input)
+        case .combatState:
+            guard role == .guest,
+                  message.matchID == matchConfiguration?.id,
+                  let state = message.combatState else { return }
+            onCombatState?(state)
+        case .restartRound:
+            guard role == .guest, message.matchID == matchConfiguration?.id else { return }
+            onRestartRound?()
+        }
+    }
+
+    private func tryStartMatchIfHost() {
+        guard role == .host, bothPlayersReady, matchConfiguration == nil else { return }
+        let matchID = UUID()
+        matchConfiguration = makeMatchConfiguration(id: matchID)
+        send(NearbyLobbyMessage(kind: .startMatch, matchID: matchID))
+    }
+
+    private func makeMatchConfiguration(id: UUID) -> NearbyMatchConfiguration {
+        if role == .host {
+            return NearbyMatchConfiguration(
+                id: id,
+                role: .host,
+                hostName: localPlayerName,
+                guestName: remotePlayerName,
+                hostFighter: localFighter,
+                guestFighter: remoteFighter
+            )
+        }
+        return NearbyMatchConfiguration(
+            id: id,
+            role: .guest,
+            hostName: remotePlayerName,
+            guestName: localPlayerName,
+            hostFighter: remoteFighter,
+            guestFighter: localFighter
+        )
     }
 
     private func fail(_ message: String) {
