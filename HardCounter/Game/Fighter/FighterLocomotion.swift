@@ -100,13 +100,18 @@ struct FighterLocomotionController {
         let frontLift = frontFootInitiates ? launchLift : followLift
         let backLift = frontFootInitiates ? followLift : launchLift
 
+        // The fighters are intentionally small in the quarter view. A linear
+        // one-to-one amplitude disappears at that scale, so decisive stick
+        // input gets a stronger animation curve without increasing move speed.
+        let motionAmplitude = 0.62 + stepIntensity * 0.88
+
         let localDirectionX = stepDirection.dx * facing
         let forwardDrive = stepDirection.dx * opponentDirection.dx
             + stepDirection.dy * opponentDirection.dy
         let horizontalTravel = abs(localDirectionX) > 0.18
             ? sign(localDirectionX)
             : sign(forwardDrive)
-        let travel = horizontalTravel * stepIntensity * 7.4
+        let travel = horizontalTravel * motionAmplitude * 11.5
 
         // The non-initiating foot briefly moves against the root travel. This
         // visually pins it to the canvas while the other foot leaves the floor.
@@ -116,11 +121,11 @@ struct FighterLocomotionController {
         let frontTravel = travel * (frontSlide - frontSupport * 0.42)
         let backTravel = travel * (backSlide - backSupport * 0.42)
 
-        let stanceFlex = 0.035 + displayedIntensity * 0.035
-        let compression = -(preload * 0.75 + landing * 0.42) * stepIntensity
+        let stanceFlex = 0.045 + displayedIntensity * 0.055
+        let compression = -(preload * 1.70 + landing * 1.05) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
-        let weightLoad = supportSign * preload * stepIntensity * 2.15
-        let weightCatch = -supportSign * landing * stepIntensity * 1.10
+        let weightLoad = supportSign * preload * motionAmplitude * 3.45
+        let weightCatch = -supportSign * landing * motionAmplitude * 2.05
         let directionalLean = localDirectionX * displayedIntensity
 
         let idleAmount = isNeutralPose ? max(1 - displayedIntensity * 1.8, 0) : 0
@@ -132,14 +137,14 @@ struct FighterLocomotionController {
             y: compression
         )
         let targetPelvisRotation = supportSign * (preload - landing * 0.55)
-            * stepIntensity * 0.026 - directionalLean * 0.020
+            * motionAmplitude * 0.045 - directionalLean * 0.030
         let targetUpperPosition = CGPoint(
-            x: (weightLoad + weightCatch) * 0.58 + directionalLean * 1.35,
-            y: compression * 0.58 + breath * idleAmount * 0.72
+            x: (weightLoad + weightCatch) * 0.72 + directionalLean * 2.35,
+            y: compression * 0.72 + breath * idleAmount * 0.72
                 + guardPulse * idleAmount * 0.18
         )
         let targetUpperRotation = -supportSign * (preload - landing * 0.45)
-            * stepIntensity * 0.020 - directionalLean * 0.030
+            * motionAmplitude * 0.036 - directionalLean * 0.046
             + breath * idleAmount * 0.007
 
         displayedPelvisPosition = damp(
@@ -168,25 +173,25 @@ struct FighterLocomotionController {
         )
 
         return FighterLocomotionFrame(
-            frontHipRotation: (frontSlide - backSlide * 0.20) * stepIntensity * 0.15,
-            backHipRotation: -(backSlide - frontSlide * 0.20) * stepIntensity * 0.15,
+            frontHipRotation: (frontSlide - backSlide * 0.20) * motionAmplitude * 0.22,
+            backHipRotation: -(backSlide - frontSlide * 0.20) * motionAmplitude * 0.22,
             frontHipX: frontTravel,
             backHipX: backTravel,
-            frontHipLift: frontLift * stepIntensity * 3.3,
-            backHipLift: backLift * stepIntensity * 3.3,
+            frontHipLift: frontLift * motionAmplitude * 5.4,
+            backHipLift: backLift * motionAmplitude * 5.4,
             frontKneeRotation: -(stanceFlex
-                + frontLift * stepIntensity * 0.27
-                + backLift * stepIntensity * 0.025),
+                + frontLift * motionAmplitude * 0.36
+                + backLift * motionAmplitude * 0.035),
             backKneeRotation: stanceFlex
-                + backLift * stepIntensity * 0.27
-                + frontLift * stepIntensity * 0.025,
+                + backLift * motionAmplitude * 0.36
+                + frontLift * motionAmplitude * 0.035,
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
             pelvisRotation: displayedPelvisRotation,
             upperBodyPosition: displayedUpperPosition,
             upperBodyRotation: displayedUpperRotation,
-            frontAnkleLift: frontLift * stepIntensity * 0.045,
-            backAnkleLift: backLift * stepIntensity * 0.045
+            frontAnkleLift: frontLift * motionAmplitude * 0.075,
+            backAnkleLift: backLift * motionAmplitude * 0.075
         )
     }
 
