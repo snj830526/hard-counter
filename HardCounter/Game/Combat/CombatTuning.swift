@@ -40,7 +40,10 @@ enum CombatTuning {
 
     static let normalKnockback: CGFloat = 18
     static let counterKnockback: CGFloat = 52
+    static let normalHitStop: TimeInterval = 0.032
+    static let heavyHitStop: TimeInterval = 0.048
     static let cameraShakeDistance: CGFloat = 7
+    static let normalCameraShakeDistance: CGFloat = 2.8
     static let cameraShakeDuration: TimeInterval = 0.20
     static let counterHitStop: TimeInterval = 0.075
 

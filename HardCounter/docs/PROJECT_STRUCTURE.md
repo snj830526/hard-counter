@@ -125,7 +125,7 @@ idle → swaying → idle
 - `LocalInputSource.swift`: 이동 터치, 최근 스웨이 방향, 스웨이–펀치 버퍼를 소유하고 플레이어 명령을 만든다.
 - `CPUInputSource.swift`: CPU 판단 결과를 로컬 입력과 같은 `FighterCommand`로 변환한다. 근거리 대전에서는 동일한 자리에 원격 입력 소스를 연결한다.
 - `SwayInputResolver.swift`: 버튼을 누른 순간의 스틱 입력을 상대 축 기준의 좌우 슬립, 풀백, 전진 실패로 변환한다.
-- `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
+- `HapticController.swift`: 스트레이트·스매시·어퍼컷의 일반 타격, 강한 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
 
 ### 근거리 네트워크 계층

@@ -82,6 +82,7 @@ final class CombatScene: SKScene {
 #if DEBUG
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
+    private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
 #endif
@@ -191,7 +192,7 @@ final class CombatScene: SKScene {
             updateNetworkCombat(at: currentTime)
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
-        } else if motionShowcaseEnabled {
+        } else if motionShowcaseEnabled || impactShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
         } else {
             updateCPUCombat(at: currentTime)
@@ -421,8 +422,18 @@ final class CombatScene: SKScene {
         ringNode.rebuild(in: size, projection: ringProjection)
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
+#if DEBUG
+            if impactShowcaseEnabled {
+                playerArenaPosition = CGPoint(x: -22, y: 0)
+                cpuArenaPosition = CGPoint(x: 22, y: 0)
+            } else {
+                playerArenaPosition = CGPoint(x: -210, y: -40)
+                cpuArenaPosition = CGPoint(x: 210, y: 40)
+            }
+#else
             playerArenaPosition = CGPoint(x: -210, y: -40)
             cpuArenaPosition = CGPoint(x: 210, y: 40)
+#endif
         }
         clampAndRenderFighters()
         updateFighterMotion(
@@ -877,7 +888,7 @@ final class CombatScene: SKScene {
 
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
-        motionShowcaseEnabled || swayShowcaseEnabled
+        motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
 #else
         false
 #endif
@@ -1028,15 +1039,42 @@ final class CombatScene: SKScene {
             cpuStamina: state.cpuStamina,
             winner: winner
         ))
+        let fallbackProfile = PunchProfile()
         if state.playerHealth < previousPlayerHealth {
-            player.playHit(.normal)
-            showImpact(.normal)
-            if networkConfiguration?.localFighterID == .player { haptics.playHit(.normal) }
+            player.playHit(.normal, profile: fallbackProfile)
+            showImpact(
+                .normal,
+                profile: fallbackProfile,
+                attacker: .cpu,
+                defender: .player
+            )
+            playImpactFeedback(
+                .normal,
+                profile: fallbackProfile,
+                attacker: .cpu,
+                defender: .player
+            )
+            if networkConfiguration?.localFighterID == .player {
+                haptics.playHit(.normal)
+            }
         }
         if state.cpuHealth < previousCPUHealth {
-            cpu.playHit(.normal)
-            showImpact(.normal)
-            if networkConfiguration?.localFighterID == .cpu { haptics.playHit(.normal) }
+            cpu.playHit(.normal, profile: fallbackProfile)
+            showImpact(
+                .normal,
+                profile: fallbackProfile,
+                attacker: .player,
+                defender: .cpu
+            )
+            playImpactFeedback(
+                .normal,
+                profile: fallbackProfile,
+                attacker: .player,
+                defender: .cpu
+            )
+            if networkConfiguration?.localFighterID == .cpu {
+                haptics.playHit(.normal)
+            }
         }
     }
 
@@ -1166,20 +1204,33 @@ final class CombatScene: SKScene {
                 node(for: fighter).show(phase: phase)
             case let .punchStarted(fighter, hand, profile):
                 node(for: fighter).preparePunch(hand, profile: profile)
+            case let .punchMissed(fighter, profile):
+                node(for: fighter).playWhiff(profile)
             case let .swayStarted(fighter, direction, screenDirection, performance):
                 node(for: fighter).prepareSway(
                     direction,
                     screenDirection: screenDirection,
                     performance: performance
                 )
-            case let .hit(_, defender, kind, _):
+            case let .hit(attacker, defender, kind, _, profile):
                 if defender == localInputSource.fighter {
                     localInputSource.clearBufferedPunch()
                 }
-                node(for: defender).playHit(kind)
-                showImpact(kind)
-                haptics.playHit(kind)
-                if kind == .counter { playCounterFeedback() }
+                node(for: attacker).playHitConfirm(profile)
+                node(for: defender).playHit(kind, profile: profile)
+                showImpact(
+                    kind,
+                    profile: profile,
+                    attacker: attacker,
+                    defender: defender
+                )
+                playImpactFeedback(
+                    kind,
+                    profile: profile,
+                    attacker: attacker,
+                    defender: defender
+                )
+                haptics.playHit(kind, technique: profile.technique)
             case .swayed(let defender):
                 if defender == localInputSource.fighter {
                     // A late successful evade must not lose a follow-up that
@@ -1251,18 +1302,42 @@ final class CombatScene: SKScene {
         }
     }
 
-    private func showImpact(_ kind: HitKind) {
-        let radius: CGFloat = kind == .counter ? 42 : 24
+    private func showImpact(
+        _ kind: HitKind,
+        profile: PunchProfile,
+        attacker: FighterID,
+        defender: FighterID
+    ) {
+        let techniqueRadius: CGFloat
+        switch profile.technique {
+        case .straight: techniqueRadius = 22
+        case .smash: techniqueRadius = 29
+        case .uppercut: techniqueRadius = 27
+        }
+        let radius: CGFloat = kind == .counter ? 42 : techniqueRadius
         let impact = SKShapeNode(circleOfRadius: radius)
-        let averageScale = (player.xScale + cpu.xScale) / 2
+        let attackerNode = node(for: attacker)
+        let defenderNode = node(for: defender)
+        let averageScale = (attackerNode.xScale + defenderNode.xScale) / 2
         impact.position = CGPoint(
-            x: (player.position.x + cpu.position.x) / 2,
-            y: (player.position.y + cpu.position.y) / 2 + 66 * averageScale
+            x: attackerNode.position.x * 0.28 + defenderNode.position.x * 0.72,
+            y: attackerNode.position.y * 0.22 + defenderNode.position.y * 0.78
+                + 70 * averageScale
         )
-        impact.strokeColor = kind == .counter ? .systemYellow : .white
+        switch (kind, profile.technique) {
+        case (.counter, _): impact.strokeColor = .systemYellow
+        case (_, .straight): impact.strokeColor = .white
+        case (_, .smash): impact.strokeColor = .systemOrange
+        case (_, .uppercut): impact.strokeColor = .systemCyan
+        }
         impact.lineWidth = kind == .counter ? 8 : 4
         impact.zPosition = 30
         impact.setScale(0.25 / arenaZoom)
+        let core = SKShapeNode(circleOfRadius: radius * 0.28)
+        core.fillColor = impact.strokeColor.withAlphaComponent(0.88)
+        core.strokeColor = .clear
+        core.zPosition = 1
+        impact.addChild(core)
         arenaNode.addChild(impact)
         impact.run(.sequence([
             .group([
@@ -1273,7 +1348,59 @@ final class CombatScene: SKScene {
         ]))
     }
 
-    private func playCounterFeedback() {
+    private func playImpactFeedback(
+        _ kind: HitKind,
+        profile: PunchProfile,
+        attacker: FighterID,
+        defender: FighterID
+    ) {
+        if kind == .counter { showCounterTitle() }
+
+        let hitStopDuration: TimeInterval
+        if kind == .counter {
+            hitStopDuration = CombatTuning.counterHitStop
+        } else {
+            switch profile.technique {
+            case .straight: hitStopDuration = CombatTuning.normalHitStop
+            case .smash, .uppercut: hitStopDuration = CombatTuning.heavyHitStop
+            }
+        }
+        removeAction(forKey: "hitStop")
+        arenaNode.speed = 0
+        run(.sequence([
+            .wait(forDuration: hitStopDuration),
+            .run { [weak self] in self?.arenaNode.speed = 1 }
+        ]), withKey: "hitStop")
+
+        let attackerPosition = node(for: attacker).position
+        let defenderPosition = node(for: defender).position
+        let direction = CGVector(
+            dx: defenderPosition.x - attackerPosition.x,
+            dy: defenderPosition.y - attackerPosition.y
+        )
+        let length = max(hypot(direction.dx, direction.dy), 0.001)
+        let baseDistance = kind == .counter
+            ? CombatTuning.cameraShakeDistance
+            : CombatTuning.normalCameraShakeDistance
+        let techniqueScale: CGFloat
+        switch profile.technique {
+        case .straight: techniqueScale = 1
+        case .smash: techniqueScale = 1.22
+        case .uppercut: techniqueScale = 1.12
+        }
+        let distance = baseDistance * techniqueScale / arenaZoom
+        let dx = direction.dx / length * distance
+        let dy = direction.dy / length * distance + (profile.technique == .uppercut ? distance * 0.45 : 0)
+        arenaNode.removeAction(forKey: "shake")
+        arenaNode.run(.sequence([
+            .moveBy(x: dx, y: dy, duration: CombatTuning.cameraShakeDuration * 0.16),
+            .moveBy(x: -dx * 1.75, y: -dy * 1.75, duration: CombatTuning.cameraShakeDuration * 0.23),
+            .moveBy(x: dx * 1.20, y: dy * 1.20, duration: CombatTuning.cameraShakeDuration * 0.21),
+            .move(to: .zero, duration: CombatTuning.cameraShakeDuration * 0.40)
+        ]), withKey: "shake")
+    }
+
+    private func showCounterTitle() {
         statusLabel.removeAllActions()
         statusLabel.alpha = 1
         statusLabel.fontColor = .systemYellow
@@ -1285,20 +1412,6 @@ final class CombatScene: SKScene {
             .fadeOut(withDuration: CombatTuning.counterTitleOutDuration)
         ]))
 
-        arenaNode.speed = 0
-        run(.sequence([
-            .wait(forDuration: CombatTuning.counterHitStop),
-            .run { [weak self] in self?.arenaNode.speed = 1 }
-        ]), withKey: "hitStop")
-
-        let distance = CombatTuning.cameraShakeDistance / arenaZoom
-        let verticalDistance: CGFloat = 2 / arenaZoom
-        arenaNode.run(.sequence([
-            .moveBy(x: distance, y: verticalDistance, duration: CombatTuning.cameraShakeDuration * 0.175),
-            .moveBy(x: -distance * 2, y: -verticalDistance * 2, duration: CombatTuning.cameraShakeDuration * 0.25),
-            .moveBy(x: distance * 1.5, y: verticalDistance * 1.5, duration: CombatTuning.cameraShakeDuration * 0.225),
-            .move(to: .zero, duration: CombatTuning.cameraShakeDuration * 0.35)
-        ]), withKey: "shake")
     }
 
     private func updateRematchUI(local: Bool, remote: Bool) {
