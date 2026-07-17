@@ -46,7 +46,7 @@ enum CombatTuning {
     static let punchStartupFootworkMultiplier: CGFloat = 0.72
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
-    static let swayFootworkMultiplier: CGFloat = 0.28
+    static let swayFootworkMultiplier: CGFloat = 0
     static let movementAcceleration: CGFloat = 6.5
     static let movementTurnAcceleration: CGFloat = 9.5
     static let movementDeceleration: CGFloat = 8

@@ -2,6 +2,7 @@ import SpriteKit
 import UIKit
 
 final class CombatScene: SKScene {
+    private let cameraRig = SKNode()
     private let arenaNode = SKNode()
     private let ringNode = BoxingRingNode()
     private let player = FighterNode(facingRight: true, color: .systemCyan)
@@ -36,7 +37,8 @@ final class CombatScene: SKScene {
     private var smoothedPlayerMovement = CGVector.zero
     private var bufferedPlayerPunch: PunchIntent?
     private var bufferedPunchExpiresAt: TimeInterval = 0
-    private var pendingPlayerSway = false
+    private var pendingPlayerSway: SwayIntent?
+    private let arenaZoom: CGFloat = 1.27
 
     override init(size: CGSize) {
         super.init(size: size)
@@ -77,9 +79,9 @@ final class CombatScene: SKScene {
         gameTime = currentTime
         updateMovement(deltaTime: deltaTime)
 
-        if pendingPlayerSway {
-            pendingPlayerSway = false
-            handle(engine.request(.sway(selectedSwayIntent()), by: .player, at: currentTime))
+        if let swayIntent = pendingPlayerSway {
+            pendingPlayerSway = nil
+            handle(engine.request(.sway(swayIntent), by: .player, at: currentTime))
         }
 
         let fightersAreInRange = isWithinPunchRange()
@@ -122,7 +124,7 @@ final class CombatScene: SKScene {
                 handle(events)
             case .sway:
                 controls.flash(input)
-                pendingPlayerSway = true
+                pendingPlayerSway = selectedSwayIntent()
             case .none:
                 break
             }
@@ -147,7 +149,8 @@ final class CombatScene: SKScene {
     }
 
     private func buildScene() {
-        addChild(arenaNode)
+        addChild(cameraRig)
+        cameraRig.addChild(arenaNode)
         arenaNode.addChild(ringNode)
         configureShadow(playerShadow)
         configureShadow(cpuShadow)
@@ -248,6 +251,7 @@ final class CombatScene: SKScene {
             cpuArenaPosition = CGPoint(x: 210, y: 40)
         }
         clampAndRenderFighters()
+        positionCameraImmediately()
 
         childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
         childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
@@ -303,6 +307,7 @@ final class CombatScene: SKScene {
 
         separateFighters()
         clampAndRenderFighters()
+        updateCamera(deltaTime: deltaTime)
         player.updateLocomotion(
             movement: CGVector(dx: screenMovement.dx * movementMultiplier, dy: screenMovement.dy * movementMultiplier),
             deltaTime: deltaTime
@@ -427,6 +432,57 @@ final class CombatScene: SKScene {
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {
         ringProjection.clamped(position)
+    }
+
+    private func cameraFocusPoint() -> CGPoint {
+        CGPoint(
+            x: player.position.x * 0.65 + cpu.position.x * 0.35,
+            y: player.position.y * 0.65 + cpu.position.y * 0.35
+        )
+    }
+
+    private func positionCameraImmediately() {
+        cameraRig.setScale(arenaZoom)
+        let focus = cameraFocusPoint()
+        let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
+        cameraRig.position = clampedCameraPosition(CGPoint(
+            x: target.x - focus.x * arenaZoom,
+            y: target.y - focus.y * arenaZoom
+        ))
+    }
+
+    private func updateCamera(deltaTime: TimeInterval) {
+        guard deltaTime > 0 else { return }
+        let focus = cameraFocusPoint()
+        let focusOnScreen = CGPoint(
+            x: focus.x * arenaZoom + cameraRig.position.x,
+            y: focus.y * arenaZoom + cameraRig.position.y
+        )
+        let center = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
+        let deadZone = CGSize(width: size.width * 0.15, height: size.height * 0.13)
+        var correction = CGVector.zero
+        if focusOnScreen.x < center.x - deadZone.width { correction.dx = center.x - deadZone.width - focusOnScreen.x }
+        if focusOnScreen.x > center.x + deadZone.width { correction.dx = center.x + deadZone.width - focusOnScreen.x }
+        if focusOnScreen.y < center.y - deadZone.height { correction.dy = center.y - deadZone.height - focusOnScreen.y }
+        if focusOnScreen.y > center.y + deadZone.height { correction.dy = center.y + deadZone.height - focusOnScreen.y }
+        guard correction != .zero else { return }
+
+        let target = clampedCameraPosition(CGPoint(
+            x: cameraRig.position.x + correction.dx,
+            y: cameraRig.position.y + correction.dy
+        ))
+        let blend = 1 - CGFloat(exp(-3.2 * deltaTime))
+        cameraRig.position = CGPoint(
+            x: cameraRig.position.x + (target.x - cameraRig.position.x) * blend,
+            y: cameraRig.position.y + (target.y - cameraRig.position.y) * blend
+        )
+    }
+
+    private func clampedCameraPosition(_ position: CGPoint) -> CGPoint {
+        CGPoint(
+            x: min(max(position.x, -size.width * 0.20), size.width * 0.16),
+            y: min(max(position.y, -size.height * 0.20), size.height * 0.14)
+        )
     }
 
     private func applyPerspective(
@@ -583,7 +639,7 @@ final class CombatScene: SKScene {
         impact.lineWidth = kind == .counter ? 8 : 4
         impact.zPosition = 30
         impact.setScale(0.25)
-        addChild(impact)
+        arenaNode.addChild(impact)
         impact.run(.sequence([
             .group([
                 .scale(to: 1.45, duration: CombatTuning.impactAnimationDuration),
@@ -632,7 +688,7 @@ final class CombatScene: SKScene {
         smoothedPlayerMovement = .zero
         bufferedPlayerPunch = nil
         bufferedPunchExpiresAt = 0
-        pendingPlayerSway = false
+        pendingPlayerSway = nil
         controls.showMovement(nil)
         handle(engine.reset())
         cpuController.reset(at: gameTime)

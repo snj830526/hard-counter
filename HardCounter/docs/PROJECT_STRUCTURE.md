@@ -60,7 +60,7 @@ HardCounter/
 
 ### 장면 계층
 
-- `CombatScene.swift`: 게임 루프와 객체 조정자다. 터치 입력, 이동, 원근, 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다.
+- `CombatScene.swift`: 게임 루프와 객체 조정자다. 터치 입력, 이동, 원근, 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
 - `BoxingRingNode.swift`: 링 바닥, 로프, 포스트, 관중과 배경을 생성한다.
 - `QuarterViewProjection.swift`: 정사각형 링 내부 좌표를 대각선 쿼터 뷰 화면 좌표로 변환하고, 화면 입력을 다시 링 이동 방향으로 역변환한다.
 
@@ -82,7 +82,7 @@ idle → swaying → idle
 
 - `FighterNode.swift`: 폴리곤 선수 리그, 독립적인 상·하체 풋워크, 가드/펀치/스웨이/피격/KO 포즈, 상대 방향에 따른 2.5D 자세를 표현한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다.
-- `SwayInputResolver.swift`: 스틱의 화면상 4방향 모션과 상대 방향 기준 회피 성공 여부를 서로 분리해 계산한다.
+- `SwayInputResolver.swift`: 버튼을 누른 순간의 스틱 입력을 상대 축 기준의 좌우 슬립, 풀백, 전진 실패로 변환한다.
 - `HapticController.swift`: 일반 타격, 카운터, 스웨이 성공의 햅틱을 구분한다.
 - `CPUController.swift`: 거리별 접근, 후퇴, 선회, 대기와 공격 시점을 결정한다.
 
