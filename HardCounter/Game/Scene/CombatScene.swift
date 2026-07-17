@@ -33,10 +33,23 @@ final class CombatScene: SKScene {
     private var lastUpdateTime: TimeInterval?
     private var playerArenaPosition = CGPoint.zero
     private var cpuArenaPosition = CGPoint.zero
+    private var playerToCPUScreenDirection = CGVector(dx: 1, dy: 0)
     private var movementTouchID: ObjectIdentifier?
     private var movementVector = CGVector.zero
-    private var smoothedPlayerMovement = CGVector.zero
-    private var smoothedCPUMovement = CGVector.zero
+    private var playerMovementSmoother = MovementSmoother(
+        acceleration: CombatTuning.movementAcceleration,
+        turnAcceleration: CombatTuning.movementTurnAcceleration,
+        deceleration: CombatTuning.movementDeceleration,
+        turnDotThreshold: -0.15,
+        idleThreshold: 0.015
+    )
+    private var cpuMovementSmoother = MovementSmoother(
+        acceleration: CombatTuning.cpuMovementAcceleration,
+        turnAcceleration: CombatTuning.cpuMovementTurnAcceleration,
+        deceleration: CombatTuning.cpuMovementDeceleration,
+        turnDotThreshold: -0.12,
+        idleThreshold: 0.012
+    )
     private var rememberedSwayMovement = CGVector.zero
     private var rememberedSwayMovementAt: TimeInterval = -.infinity
     private var bufferedPlayerPunch: PunchIntent?
@@ -290,6 +303,13 @@ final class CombatScene: SKScene {
             cpuArenaPosition = CGPoint(x: 210, y: 40)
         }
         clampAndRenderFighters()
+        updateFighterMotion(
+            playerMovement: .zero,
+            cpuMovement: .zero,
+            previousPlayerPosition: player.position,
+            previousCPUPosition: cpu.position,
+            deltaTime: 0
+        )
         positionCameraImmediately()
 
         childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
@@ -314,14 +334,15 @@ final class CombatScene: SKScene {
 
     private func updateMovement(deltaTime: TimeInterval) {
         guard engine.winner == nil, deltaTime > 0 else {
-            player.updateLocomotion(
-                movement: .zero,
-                screenDisplacement: .zero,
+            player.updateMotion(
+                .stationary(towardOpponent: playerToCPUScreenDirection),
                 deltaTime: deltaTime
             )
-            cpu.updateLocomotion(
-                movement: .zero,
-                screenDisplacement: .zero,
+            cpu.updateMotion(
+                .stationary(towardOpponent: CGVector(
+                    dx: -playerToCPUScreenDirection.dx,
+                    dy: -playerToCPUScreenDirection.dy
+                )),
                 deltaTime: deltaTime
             )
             return
@@ -332,7 +353,10 @@ final class CombatScene: SKScene {
 
         let phaseMultiplier = playerFootworkMultiplier()
         let targetMovement = combinedMovementVector()
-        let screenMovement = smoothMovement(toward: targetMovement, deltaTime: deltaTime)
+        let screenMovement = playerMovementSmoother.update(
+            toward: targetMovement,
+            deltaTime: deltaTime
+        )
         let worldMovement = ringProjection.worldDirection(forScreenVector: screenMovement)
         let directionMultiplier = directionalFootworkMultiplier(for: worldMovement)
         let movementMultiplier = phaseMultiplier * directionMultiplier
@@ -354,7 +378,7 @@ final class CombatScene: SKScene {
                 preferredPunchRange: baseVisiblePunchReach(for: .cpu)
             )
         }
-        let cpuMovement = smoothCPUMovement(
+        let cpuMovement = cpuMovementSmoother.update(
             toward: cpuTargetMovement,
             deltaTime: deltaTime
         )
@@ -365,20 +389,48 @@ final class CombatScene: SKScene {
 
         clampAndRenderFighters()
         updateCamera(deltaTime: deltaTime)
-        player.updateLocomotion(
-            movement: CGVector(dx: screenMovement.dx * movementMultiplier, dy: screenMovement.dy * movementMultiplier),
-            screenDisplacement: CGVector(
-                dx: player.position.x - previousPlayerScreenPosition.x,
-                dy: player.position.y - previousPlayerScreenPosition.y
+        updateFighterMotion(
+            playerMovement: CGVector(
+                dx: screenMovement.dx * movementMultiplier,
+                dy: screenMovement.dy * movementMultiplier
+            ),
+            cpuMovement: cpuCanMove
+                ? ringProjection.screenVector(forWorldVector: cpuMovement) : .zero,
+            previousPlayerPosition: previousPlayerScreenPosition,
+            previousCPUPosition: previousCPUScreenPosition,
+            deltaTime: deltaTime
+        )
+    }
+
+    private func updateFighterMotion(
+        playerMovement: CGVector,
+        cpuMovement: CGVector,
+        previousPlayerPosition: CGPoint,
+        previousCPUPosition: CGPoint,
+        deltaTime: TimeInterval
+    ) {
+        player.updateMotion(
+            FighterMovementState(
+                screenMovement: playerMovement,
+                screenDisplacement: CGVector(
+                    dx: player.position.x - previousPlayerPosition.x,
+                    dy: player.position.y - previousPlayerPosition.y
+                ),
+                towardOpponent: playerToCPUScreenDirection
             ),
             deltaTime: deltaTime
         )
-        cpu.updateLocomotion(
-            movement: cpuCanMove
-                ? ringProjection.screenVector(forWorldVector: cpuMovement) : .zero,
-            screenDisplacement: CGVector(
-                dx: cpu.position.x - previousCPUScreenPosition.x,
-                dy: cpu.position.y - previousCPUScreenPosition.y
+        cpu.updateMotion(
+            FighterMovementState(
+                screenMovement: cpuMovement,
+                screenDisplacement: CGVector(
+                    dx: cpu.position.x - previousCPUPosition.x,
+                    dy: cpu.position.y - previousCPUPosition.y
+                ),
+                towardOpponent: CGVector(
+                    dx: -playerToCPUScreenDirection.dx,
+                    dy: -playerToCPUScreenDirection.dy
+                )
             ),
             deltaTime: deltaTime
         )
@@ -386,54 +438,6 @@ final class CombatScene: SKScene {
 
     private func combinedMovementVector() -> CGVector {
         movementVector
-    }
-
-    private func smoothMovement(toward target: CGVector, deltaTime: TimeInterval) -> CGVector {
-        let current = smoothedPlayerMovement
-        let targetIsIdle = hypot(target.dx, target.dy) < 0.001
-        let dot = current.dx * target.dx + current.dy * target.dy
-        let response: CGFloat
-        if targetIsIdle {
-            response = CombatTuning.movementDeceleration
-        } else if dot < -0.15 {
-            response = CombatTuning.movementTurnAcceleration
-        } else {
-            response = CombatTuning.movementAcceleration
-        }
-
-        let blend = 1 - CGFloat(exp(-Double(response) * deltaTime))
-        smoothedPlayerMovement = CGVector(
-            dx: current.dx + (target.dx - current.dx) * blend,
-            dy: current.dy + (target.dy - current.dy) * blend
-        )
-        if targetIsIdle, hypot(smoothedPlayerMovement.dx, smoothedPlayerMovement.dy) < 0.015 {
-            smoothedPlayerMovement = .zero
-        }
-        return smoothedPlayerMovement
-    }
-
-    private func smoothCPUMovement(toward target: CGVector, deltaTime: TimeInterval) -> CGVector {
-        let current = smoothedCPUMovement
-        let targetIsIdle = hypot(target.dx, target.dy) < 0.001
-        let dot = current.dx * target.dx + current.dy * target.dy
-        let response: CGFloat
-        if targetIsIdle {
-            response = CombatTuning.cpuMovementDeceleration
-        } else if dot < -0.12 {
-            response = CombatTuning.cpuMovementTurnAcceleration
-        } else {
-            response = CombatTuning.cpuMovementAcceleration
-        }
-
-        let blend = 1 - CGFloat(exp(-Double(response) * deltaTime))
-        smoothedCPUMovement = CGVector(
-            dx: current.dx + (target.dx - current.dx) * blend,
-            dy: current.dy + (target.dy - current.dy) * blend
-        )
-        if targetIsIdle, hypot(smoothedCPUMovement.dx, smoothedCPUMovement.dy) < 0.012 {
-            smoothedCPUMovement = .zero
-        }
-        return smoothedCPUMovement
     }
 
     private func playerFootworkMultiplier() -> CGFloat {
@@ -547,15 +551,13 @@ final class CombatScene: SKScene {
 
         let playerScreenPosition = ringProjection.project(playerArenaPosition)
         let cpuScreenPosition = ringProjection.project(cpuArenaPosition)
-        let playerToCPU = ringProjection.screenVector(forWorldVector: CGVector(
+        playerToCPUScreenDirection = ringProjection.screenVector(forWorldVector: CGVector(
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         ))
 
         player.position = playerScreenPosition
         cpu.position = cpuScreenPosition
-        player.orient(toward: playerToCPU)
-        cpu.orient(toward: CGVector(dx: -playerToCPU.dx, dy: -playerToCPU.dy))
 
         applyPerspective(to: player, shadow: playerShadow, worldPosition: playerArenaPosition, screenPosition: playerScreenPosition)
         applyPerspective(to: cpu, shadow: cpuShadow, worldPosition: cpuArenaPosition, screenPosition: cpuScreenPosition)
@@ -689,8 +691,8 @@ final class CombatScene: SKScene {
     private func playerPunchIntent() -> PunchIntent {
         let rawMovement = combinedMovementVector()
         let effectiveMovement = CGVector(
-            dx: smoothedPlayerMovement.dx * 0.70 + rawMovement.dx * 0.30,
-            dy: smoothedPlayerMovement.dy * 0.70 + rawMovement.dy * 0.30
+            dx: playerMovementSmoother.value.dx * 0.70 + rawMovement.dx * 0.30,
+            dy: playerMovementSmoother.value.dy * 0.70 + rawMovement.dy * 0.30
         )
         let worldMovement = ringProjection.worldDirection(forScreenVector: effectiveMovement)
         let opponentVector = CGVector(
@@ -785,7 +787,8 @@ final class CombatScene: SKScene {
                 movementTouchID = nil
                 movementVector = .zero
                 controls.endMovement()
-                smoothedPlayerMovement = .zero
+                playerMovementSmoother.reset()
+                cpuMovementSmoother.reset()
                 controls.showMovement(nil)
                 layoutScene()
             }
@@ -865,8 +868,8 @@ final class CombatScene: SKScene {
         movementTouchID = nil
         movementVector = .zero
         controls.endMovement()
-        smoothedPlayerMovement = .zero
-        smoothedCPUMovement = .zero
+        playerMovementSmoother.reset()
+        cpuMovementSmoother.reset()
         rememberedSwayMovement = .zero
         rememberedSwayMovementAt = -.infinity
         bufferedPlayerPunch = nil
