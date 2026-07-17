@@ -1,157 +1,48 @@
 import SpriteKit
 
 final class FighterNode: SKNode {
-    private static let skinColor = SKColor(red: 0.73, green: 0.47, blue: 0.30, alpha: 1)
-    private static let upperArmLength: CGFloat = 37
-    private static let lowerArmLength: CGFloat = 35
-    private static let upperLegLength: CGFloat = 35
-    private static let lowerLegLength: CGFloat = 35
-    private enum TransitionStyle {
-        case settle
-        case anticipation
-        case strike
-        case evasive
-    }
-
-    private struct Pose {
-        var bodyX: CGFloat = 0
-        var bodyY: CGFloat = 0
-        var bodyRotation: CGFloat = 0
-        var pelvisRotation: CGFloat = 0
-        var frontUpper: CGFloat
-        var frontLower: CGFloat
-        var backUpper: CGFloat
-        var backLower: CGFloat
-        var frontLeg: CGFloat
-        var backLeg: CGFloat
-        var frontKnee: CGFloat = -0.12
-        var backKnee: CGFloat = 0.14
-
-        static let guardPose = Pose(
-            frontUpper: 0.90, frontLower: 2.45,
-            backUpper: 0.45, backLower: 2.60,
-            frontLeg: 0.18, backLeg: -0.26,
-            frontKnee: -0.16, backKnee: 0.18
-        )
-
-        static let leadWindUp = Pose(
-            bodyX: -5, bodyRotation: -0.08, pelvisRotation: -0.025,
-            frontUpper: 0.42, frontLower: 2.58,
-            backUpper: 0.45, backLower: 2.60,
-            frontLeg: 0.22, backLeg: -0.32,
-            frontKnee: -0.18, backKnee: 0.20
-        )
-
-        static let leadPunch = Pose(
-            bodyX: 12, bodyRotation: 0.09, pelvisRotation: 0.035,
-            frontUpper: 1.48, frontLower: 0.02,
-            backUpper: 0.45, backLower: 2.60,
-            frontLeg: 0.10, backLeg: -0.36,
-            frontKnee: -0.10, backKnee: 0.20
-        )
-
-        static let rearWindUp = Pose(
-            bodyX: -8, bodyRotation: -0.18, pelvisRotation: -0.11,
-            frontUpper: 0.90, frontLower: 2.45,
-            backUpper: -0.18, backLower: 2.82,
-            frontLeg: 0.23, backLeg: -0.36,
-            frontKnee: -0.18, backKnee: 0.23
-        )
-
-        static let rearPunch = Pose(
-            bodyX: 16, bodyRotation: 0.16, pelvisRotation: 0.14,
-            frontUpper: 0.72, frontLower: 2.58,
-            backUpper: 1.52, backLower: 0.04,
-            frontLeg: 0.08, backLeg: -0.42,
-            frontKnee: -0.10, backKnee: 0.24
-        )
-
-        static let swayBack = Pose(
-            bodyX: -20, bodyRotation: -0.20, pelvisRotation: 0.055,
-            frontUpper: 0.82, frontLower: 2.50,
-            backUpper: 0.39, backLower: 2.66,
-            frontLeg: 0.23, backLeg: -0.34,
-            frontKnee: -0.20, backKnee: 0.21
-        )
-
-        static let swayLeft = Pose(
-            bodyX: -12, bodyRotation: 0.24, pelvisRotation: -0.075,
-            frontUpper: 0.84, frontLower: 2.50,
-            backUpper: 0.40, backLower: 2.64,
-            frontLeg: 0.20, backLeg: -0.31,
-            frontKnee: -0.22, backKnee: 0.18
-        )
-
-        static let swayRight = Pose(
-            bodyX: 12, bodyRotation: -0.26, pelvisRotation: 0.08,
-            frontUpper: 0.82, frontLower: 2.56,
-            backUpper: 0.43, backLower: 2.57,
-            frontLeg: 0.12, backLeg: -0.28,
-            frontKnee: -0.14, backKnee: 0.22
-        )
-
-        static let swayForward = Pose(
-            bodyX: 8, bodyRotation: 0.08, pelvisRotation: 0.045,
-            frontUpper: 0.80, frontLower: 2.52,
-            backUpper: 0.38, backLower: 2.66,
-            frontLeg: 0.12, backLeg: -0.33,
-            frontKnee: -0.16, backKnee: 0.20
-        )
-    }
-
     private var facing: CGFloat
-    private let lineColor: SKColor
-    private let animationRoot = SKNode()
-    private let locomotionRoot = SKNode()
-    private let body = SKNode()
-    private let pelvisMotionRoot = SKNode()
-    private let pelvisPoseRoot = SKNode()
-    private let upperBodyMotionRoot = SKNode()
-    private let upperBodyPoseRoot = SKNode()
-    private var torso = SKShapeNode()
-    private var chestFacet = SKShapeNode()
-    private var faceFacet = SKShapeNode()
-    private let frontUpperArm: SKNode
-    private let frontLowerArm: SKNode
-    private let backUpperArm: SKNode
-    private let backLowerArm: SKNode
-    private let frontLeg: SKNode
-    private let backLeg: SKNode
-    private let frontLowerLeg: SKNode
-    private let backLowerLeg: SKNode
-    private let frontLegAnchor = SKNode()
-    private let backLegAnchor = SKNode()
-    private let frontKneeMotionRoot = SKNode()
-    private let backKneeMotionRoot = SKNode()
-    private let frontAnkleMotionRoot = SKNode()
-    private let backAnkleMotionRoot = SKNode()
-    private let headAnchor = SKNode()
-    private let head: SKShapeNode
+    private let rig: FighterRig
     private var activePunchHand: PunchHand = .lead
     private var activePunchProfile = PunchProfile()
     private var activeSwayDirection: SwayDirection = .back
-    private var locomotionClock: TimeInterval = 0
-    private var gaitPhase: CGFloat = 0
-    private var displayedMoveIntensity: CGFloat = 0
-    private var lastMoveDirection = CGVector(dx: 1, dy: 0)
+    private var locomotion = FighterLocomotionController()
     private var opponentDirection = CGVector(dx: 1, dy: 0)
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
 
+    private var animationRoot: SKNode { rig.animationRoot }
+    private var locomotionRoot: SKNode { rig.locomotionRoot }
+    private var body: SKNode { rig.body }
+    private var pelvisMotionRoot: SKNode { rig.pelvisMotionRoot }
+    private var pelvisPoseRoot: SKNode { rig.pelvisPoseRoot }
+    private var upperBodyMotionRoot: SKNode { rig.upperBodyMotionRoot }
+    private var upperBodyPoseRoot: SKNode { rig.upperBodyPoseRoot }
+    private var torso: SKShapeNode { rig.torso }
+    private var chestFacet: SKShapeNode { rig.chestFacet }
+    private var faceFacet: SKShapeNode { rig.faceFacet }
+    private var frontUpperArm: SKNode { rig.frontUpperArm }
+    private var frontLowerArm: SKNode { rig.frontLowerArm }
+    private var backUpperArm: SKNode { rig.backUpperArm }
+    private var backLowerArm: SKNode { rig.backLowerArm }
+    private var frontLeg: SKNode { rig.frontLeg }
+    private var backLeg: SKNode { rig.backLeg }
+    private var frontLowerLeg: SKNode { rig.frontLowerLeg }
+    private var backLowerLeg: SKNode { rig.backLowerLeg }
+    private var frontLegAnchor: SKNode { rig.frontLegAnchor }
+    private var backLegAnchor: SKNode { rig.backLegAnchor }
+    private var frontKneeMotionRoot: SKNode { rig.frontKneeMotionRoot }
+    private var backKneeMotionRoot: SKNode { rig.backKneeMotionRoot }
+    private var frontAnkleMotionRoot: SKNode { rig.frontAnkleMotionRoot }
+    private var backAnkleMotionRoot: SKNode { rig.backAnkleMotionRoot }
+    private var headAnchor: SKNode { rig.headAnchor }
+
     init(facingRight: Bool, color: SKColor) {
         facing = facingRight ? 1 : -1
-        lineColor = color
-        frontUpperArm = Self.makeLimb(length: Self.upperArmLength, topWidth: 12, bottomWidth: 9, color: Self.skinColor)
-        frontLowerArm = Self.makeLimb(length: Self.lowerArmLength, topWidth: 10, bottomWidth: 8, color: Self.skinColor)
-        backUpperArm = Self.makeLimb(length: Self.upperArmLength, topWidth: 11, bottomWidth: 8, color: Self.skinColor.withAlphaComponent(0.82))
-        backLowerArm = Self.makeLimb(length: Self.lowerArmLength, topWidth: 9, bottomWidth: 7, color: Self.skinColor.withAlphaComponent(0.82))
-        frontLeg = Self.makeLimb(length: Self.upperLegLength, topWidth: 16, bottomWidth: 12, color: Self.skinColor)
-        backLeg = Self.makeLimb(length: Self.upperLegLength, topWidth: 15, bottomWidth: 11, color: Self.skinColor.withAlphaComponent(0.82))
-        frontLowerLeg = Self.makeLimb(length: Self.lowerLegLength, topWidth: 12, bottomWidth: 9, color: Self.skinColor)
-        backLowerLeg = Self.makeLimb(length: Self.lowerLegLength, topWidth: 11, bottomWidth: 8, color: Self.skinColor.withAlphaComponent(0.82))
-        head = Self.makePolygon(Self.regularPolygon(radius: 15.5, sides: 8, startAngle: .pi / 2))
+        rig = FighterRig(facing: facing, color: color)
         super.init()
-        buildRig()
+        addChild(rig.animationRoot)
+        apply(.guardPose)
     }
 
     @available(*, unavailable)
@@ -164,14 +55,22 @@ final class FighterNode: SKNode {
             transition(to: .guardPose, duration: CombatTuning.idleReturnDuration, style: .settle)
         case .punchStartup:
             transition(
-                to: punchPose(isActive: false),
+                to: FighterPoseResolver.punch(
+                    hand: activePunchHand,
+                    profile: activePunchProfile,
+                    isActive: false
+                ),
                 duration: CombatTuning.punchStartup * activePunchProfile.startupScale * 0.82,
                 style: .anticipation
             )
         case .punchActive:
             let snapScale: Double = activePunchProfile.motion == .counter ? 0.38 : 0.52
             transition(
-                to: punchPose(isActive: true),
+                to: FighterPoseResolver.punch(
+                    hand: activePunchHand,
+                    profile: activePunchProfile,
+                    isActive: true
+                ),
                 duration: CombatTuning.punchActive * snapScale,
                 style: .strike
             )
@@ -182,14 +81,11 @@ final class FighterNode: SKNode {
                 style: .settle
             )
         case .swaying:
-            let pose: Pose
-            switch activeSwayDirection {
-            case .left: pose = .swayLeft
-            case .right: pose = .swayRight
-            case .back: pose = .swayBack
-            case .forward: pose = .swayForward
-            }
-            transition(to: pose, duration: CombatTuning.swayDuration * 0.46, style: .evasive)
+            transition(
+                to: FighterPoseResolver.sway(activeSwayDirection),
+                duration: CombatTuning.swayDuration * 0.46,
+                style: .evasive
+            )
         case .hit:
             break
         case .knockedOut:
@@ -259,7 +155,7 @@ final class FighterNode: SKNode {
             backLegAnchor.zPosition = -2
         }
 
-        torso.fillColor = lineColor.withAlphaComponent(
+        torso.fillColor = rig.lineColor.withAlphaComponent(
             0.70 + facingCameraAmount * 0.18 - facingAwayAmount * 0.08
         )
         chestFacet.alpha = 0.18 + facingCameraAmount * 0.82
@@ -268,91 +164,36 @@ final class FighterNode: SKNode {
 
     func updateLocomotion(movement: CGVector, deltaTime: TimeInterval) {
         guard deltaTime > 0 else { return }
-
-        locomotionClock += deltaTime
-        let targetIntensity = min(hypot(movement.dx, movement.dy), 1)
-        let visualResponse: CGFloat = targetIntensity > displayedMoveIntensity ? 10.5 : 12.5
-        let blend = 1 - CGFloat(exp(-Double(visualResponse) * deltaTime))
-        displayedMoveIntensity += (targetIntensity - displayedMoveIntensity) * blend
-
-        if targetIntensity > 0.025 {
-            lastMoveDirection = CGVector(
-                dx: movement.dx / targetIntensity,
-                dy: movement.dy / targetIntensity
-            )
-        }
-
-        if displayedMoveIntensity > 0.015 {
-            gaitPhase += CGFloat(deltaTime) * (5.2 + displayedMoveIntensity * 3.2)
-        }
-
-        let localDirectionX = lastMoveDirection.dx * facing
-        let step = sin(gaitPhase)
-        let firstSlide = CGFloat(pow(Double(max(step, 0)), 1.55))
-        let followSlide = CGFloat(pow(Double(max(-step, 0)), 1.55))
-        let forwardDrive = lastMoveDirection.dx * opponentDirection.dx
-            + lastMoveDirection.dy * opponentDirection.dy
-        let lateralDrive = lastMoveDirection.dx * -opponentDirection.dy
-            + lastMoveDirection.dy * opponentDirection.dx
-        let frontFootInitiates = abs(forwardDrive) >= abs(lateralDrive)
-            ? forwardDrive >= 0
-            : lateralDrive * facing >= 0
-        let frontSlide = frontFootInitiates ? firstSlide : followSlide
-        let backSlide = frontFootInitiates ? followSlide : firstSlide
-        let stride = displayedMoveIntensity * 0.20
-        let horizontalTravel = abs(localDirectionX) > 0.18
-            ? (localDirectionX >= 0 ? CGFloat(1) : CGFloat(-1))
-            : (forwardDrive >= 0 ? CGFloat(1) : CGFloat(-1))
-        let rootTravel = horizontalTravel * displayedMoveIntensity * 5.5
-
-        // Boxing footwork is a shuffle: the foot nearest the travel direction
-        // slides first and the other foot restores the stance. Neither leg
-        // swings through like a walking gait.
-        frontLegAnchor.zRotation = (frontSlide - backSlide * 0.28) * stride
-        backLegAnchor.zRotation = -(backSlide - frontSlide * 0.28) * stride
-        frontLegAnchor.position.x += rootTravel * (frontSlide - backSlide * 0.22)
-        backLegAnchor.position.x += rootTravel * (backSlide - frontSlide * 0.22)
-        let stanceFlex = 0.025 + displayedMoveIntensity * 0.035
-        frontKneeMotionRoot.zRotation = -(stanceFlex
-            + frontSlide * displayedMoveIntensity * 0.30
-            + backSlide * displayedMoveIntensity * 0.035)
-        backKneeMotionRoot.zRotation = stanceFlex
-            + backSlide * displayedMoveIntensity * 0.30
-            + frontSlide * displayedMoveIntensity * 0.035
-        let shufflePulse = min(firstSlide + followSlide, 1)
-        let pelvisCompression = -shufflePulse * displayedMoveIntensity * 0.85
-        let plantedLegY = 36 - pelvisPoseRoot.position.y - pelvisCompression
-        frontLegAnchor.position.y = plantedLegY + frontSlide * displayedMoveIntensity * 4.0
-        backLegAnchor.position.y = plantedLegY + backSlide * displayedMoveIntensity * 4.0
-
-        let idleAmount = isInNeutralPose ? 1 - displayedMoveIntensity : 0
-        let breath = sin(CGFloat(locomotionClock) * 2.7)
-        let guardPulse = sin(CGFloat(locomotionClock) * 5.4)
-        let supportBias = frontSlide - backSlide
-        let weightTransfer = -supportBias * displayedMoveIntensity * 1.55
-        let directionalLean = localDirectionX * displayedMoveIntensity
-
-        pelvisMotionRoot.position = CGPoint(x: weightTransfer, y: pelvisCompression)
-        pelvisMotionRoot.zRotation = supportBias * displayedMoveIntensity * 0.016
-            - directionalLean * 0.022
-
-        upperBodyMotionRoot.position = CGPoint(
-            x: weightTransfer * 0.58 + directionalLean * 1.5,
-            y: pelvisCompression * 0.62
-                + breath * idleAmount * 0.85 + guardPulse * idleAmount * 0.25
+        let frame = locomotion.update(
+            movement: movement,
+            facing: facing,
+            opponentDirection: opponentDirection,
+            isNeutralPose: isInNeutralPose,
+            deltaTime: deltaTime
         )
-        upperBodyMotionRoot.zRotation = -supportBias * displayedMoveIntensity * 0.014
-            - directionalLean * 0.034
-            + breath * idleAmount * 0.008
+
+        frontLegAnchor.zRotation = frame.frontHipRotation
+        backLegAnchor.zRotation = frame.backHipRotation
+        frontLegAnchor.position.x += frame.frontHipX
+        backLegAnchor.position.x += frame.backHipX
+        frontKneeMotionRoot.zRotation = frame.frontKneeRotation
+        backKneeMotionRoot.zRotation = frame.backKneeRotation
+        let plantedLegY = 36 - pelvisPoseRoot.position.y - frame.pelvisCompression
+        frontLegAnchor.position.y = plantedLegY + frame.frontHipLift
+        backLegAnchor.position.y = plantedLegY + frame.backHipLift
+        pelvisMotionRoot.position = frame.pelvisPosition
+        pelvisMotionRoot.zRotation = frame.pelvisRotation
+        upperBodyMotionRoot.position = frame.upperBodyPosition
+        upperBodyMotionRoot.zRotation = frame.upperBodyRotation
 
         frontAnkleMotionRoot.zRotation = -(
             frontLegAnchor.zRotation + frontLeg.zRotation
                 + frontKneeMotionRoot.zRotation + frontLowerLeg.zRotation
-        ) * 0.92 + frontSlide * displayedMoveIntensity * 0.025
+        ) * 0.92 + frame.frontAnkleLift
         backAnkleMotionRoot.zRotation = -(
             backLegAnchor.zRotation + backLeg.zRotation
                 + backKneeMotionRoot.zRotation + backLowerLeg.zRotation
-        ) * 0.92 + backSlide * displayedMoveIntensity * 0.025
+        ) * 0.92 + frame.backAnkleLift
 
         locomotionRoot.position = .zero
         locomotionRoot.zRotation = 0
@@ -412,196 +253,17 @@ final class FighterNode: SKNode {
         backAnkleMotionRoot.zRotation = 0
         frontLegAnchor.position.y = 36
         backLegAnchor.position.y = 36
-        displayedMoveIntensity = 0
+        locomotion.reset()
         isInNeutralPose = true
-        gaitPhase = 0
         zRotation = 0
         transition(to: .guardPose, duration: CombatTuning.poseResetDuration, style: .settle)
     }
 
-    private func buildRig() {
-        addChild(animationRoot)
-        animationRoot.xScale = facing
-        animationRoot.addChild(locomotionRoot)
-        locomotionRoot.addChild(body)
-        body.addChild(pelvisMotionRoot)
-        pelvisMotionRoot.addChild(pelvisPoseRoot)
-        body.addChild(upperBodyMotionRoot)
-        upperBodyMotionRoot.addChild(upperBodyPoseRoot)
-
-        torso = Self.makePolygon([
-            CGPoint(x: -12, y: 31), CGPoint(x: 12, y: 31),
-            CGPoint(x: 18, y: 67), CGPoint(x: 22, y: 78),
-            CGPoint(x: 14, y: 85), CGPoint(x: -17, y: 84),
-            CGPoint(x: -22, y: 76), CGPoint(x: -17, y: 65)
-        ])
-        torso.fillColor = lineColor.withAlphaComponent(0.88)
-        torso.strokeColor = .black.withAlphaComponent(0.72)
-        torso.lineWidth = 2
-        upperBodyPoseRoot.addChild(torso)
-
-        let abdomen = Self.makePolygon([
-            CGPoint(x: -12, y: 18), CGPoint(x: 12, y: 18),
-            CGPoint(x: 11, y: 36), CGPoint(x: -11, y: 36)
-        ])
-        abdomen.fillColor = lineColor.withAlphaComponent(0.84)
-        abdomen.strokeColor = .black.withAlphaComponent(0.58)
-        abdomen.lineWidth = 1.5
-        abdomen.zPosition = -0.2
-        upperBodyPoseRoot.addChild(abdomen)
-
-        chestFacet = Self.makePolygon([
-            CGPoint(x: -10, y: 36), CGPoint(x: 11, y: 35),
-            CGPoint(x: 19, y: 76), CGPoint(x: 4, y: 68), CGPoint(x: 0, y: 51)
-        ])
-        chestFacet.fillColor = lineColor.withAlphaComponent(0.45)
-        chestFacet.strokeColor = .clear
-        chestFacet.zPosition = 0.5
-        upperBodyPoseRoot.addChild(chestFacet)
-
-        let neck = Self.makePolygon([
-            CGPoint(x: -6, y: 80), CGPoint(x: 6, y: 80),
-            CGPoint(x: 7, y: 98), CGPoint(x: -6, y: 97)
-        ])
-        neck.fillColor = Self.skinColor.withAlphaComponent(0.88)
-        neck.strokeColor = .black.withAlphaComponent(0.62)
-        neck.lineWidth = 1.5
-        neck.zPosition = -0.5
-        upperBodyPoseRoot.addChild(neck)
-
-        let shoulderFacet = Self.makePolygon([
-            CGPoint(x: -20, y: 73), CGPoint(x: 21, y: 72),
-            CGPoint(x: 14, y: 85), CGPoint(x: -17, y: 84)
-        ])
-        shoulderFacet.fillColor = lineColor.withAlphaComponent(0.74)
-        shoulderFacet.strokeColor = .clear
-        shoulderFacet.zPosition = 0.7
-        upperBodyPoseRoot.addChild(shoulderFacet)
-
-        let shorts = Self.makePolygon([
-            CGPoint(x: -17, y: 20), CGPoint(x: 17, y: 20),
-            CGPoint(x: 15, y: 41), CGPoint(x: -15, y: 41)
-        ])
-        shorts.fillColor = lineColor
-        shorts.strokeColor = .black.withAlphaComponent(0.75)
-        shorts.lineWidth = 2
-        shorts.zPosition = 3
-        pelvisPoseRoot.addChild(shorts)
-
-        headAnchor.position = CGPoint(x: 0, y: 108)
-        headAnchor.zPosition = 1
-        head.position = .zero
-        head.fillColor = Self.skinColor
-        head.strokeColor = .black.withAlphaComponent(0.75)
-        head.lineWidth = 2
-        headAnchor.addChild(head)
-        upperBodyPoseRoot.addChild(headAnchor)
-
-        faceFacet = Self.makePolygon([
-            CGPoint(x: 1, y: -14), CGPoint(x: 14, y: -3),
-            CGPoint(x: 5, y: 13), CGPoint(x: -1, y: 8)
-        ])
-        faceFacet.fillColor = Self.skinColor.withAlphaComponent(0.48)
-        faceFacet.strokeColor = .clear
-        faceFacet.zPosition = 1
-        headAnchor.addChild(faceFacet)
-
-        attachArm(backUpperArm, lower: backLowerArm, z: -2)
-        attachArm(frontUpperArm, lower: frontLowerArm, z: 2)
-        addGlove(to: backLowerArm, alpha: 0.78)
-        addGlove(to: frontLowerArm, alpha: 1)
-        attachLeg(
-            backLeg,
-            lower: backLowerLeg,
-            kneeRoot: backKneeMotionRoot,
-            ankleRoot: backAnkleMotionRoot,
-            to: backLegAnchor,
-            x: -6,
-            z: -2
-        )
-        attachLeg(
-            frontLeg,
-            lower: frontLowerLeg,
-            kneeRoot: frontKneeMotionRoot,
-            ankleRoot: frontAnkleMotionRoot,
-            to: frontLegAnchor,
-            x: 6,
-            z: 1
-        )
-        addShoe(to: backAnkleMotionRoot, alpha: 0.78)
-        addShoe(to: frontAnkleMotionRoot, alpha: 1)
-        apply(.guardPose)
-    }
-
-    private func attachArm(_ upper: SKNode, lower: SKNode, z: CGFloat) {
-        upper.position = CGPoint(x: 0, y: 79)
-        upper.zPosition = z
-        lower.position = CGPoint(x: 0, y: -Self.upperArmLength)
-        upper.addChild(lower)
-        addJoint(to: upper, at: CGPoint(x: 0, y: -Self.upperArmLength), radius: 5, alpha: z < 0 ? 0.82 : 1)
-        upperBodyPoseRoot.addChild(upper)
-    }
-
-    private func attachLeg(
-        _ leg: SKNode,
-        lower: SKNode,
-        kneeRoot: SKNode,
-        ankleRoot: SKNode,
-        to anchor: SKNode,
-        x: CGFloat,
-        z: CGFloat
+    private func transition(
+        to pose: FighterPose,
+        duration: TimeInterval,
+        style: FighterTransitionStyle
     ) {
-        anchor.position = CGPoint(x: x, y: 36)
-        anchor.zPosition = z
-        leg.position = .zero
-        kneeRoot.position = CGPoint(x: 0, y: -Self.upperLegLength)
-        lower.position = .zero
-        ankleRoot.position = CGPoint(x: 0, y: -Self.lowerLegLength)
-        lower.addChild(ankleRoot)
-        kneeRoot.addChild(lower)
-        leg.addChild(kneeRoot)
-        addJoint(to: kneeRoot, at: .zero, radius: 6, alpha: z < 0 ? 0.82 : 1)
-        anchor.addChild(leg)
-        pelvisPoseRoot.addChild(anchor)
-    }
-
-    private func addGlove(to lowerArm: SKNode, alpha: CGFloat) {
-        let glove = Self.makePolygon(Self.regularPolygon(radius: 10, sides: 6, startAngle: 0))
-        glove.position = CGPoint(x: 0, y: -Self.lowerArmLength + 1)
-        glove.fillColor = lineColor.withAlphaComponent(alpha)
-        glove.strokeColor = .black.withAlphaComponent(0.75)
-        glove.lineWidth = 2
-        glove.zPosition = 4
-        lowerArm.addChild(glove)
-    }
-
-    private func addShoe(to ankle: SKNode, alpha: CGFloat) {
-        let shoe = Self.makePolygon([
-            CGPoint(x: -5, y: 2), CGPoint(x: 17, y: -2),
-            CGPoint(x: 20, y: 7), CGPoint(x: -5, y: 10)
-        ])
-        shoe.fillColor = lineColor.withAlphaComponent(alpha)
-        shoe.strokeColor = .black.withAlphaComponent(0.75)
-        shoe.lineWidth = 2
-        ankle.addChild(shoe)
-    }
-
-    private func addJoint(
-        to parent: SKNode,
-        at position: CGPoint,
-        radius: CGFloat,
-        alpha: CGFloat
-    ) {
-        let joint = SKShapeNode(circleOfRadius: radius)
-        joint.position = position
-        joint.fillColor = Self.skinColor.withAlphaComponent(alpha)
-        joint.strokeColor = .black.withAlphaComponent(0.58)
-        joint.lineWidth = 1.2
-        joint.zPosition = 2
-        parent.addChild(joint)
-    }
-
-    private func transition(to pose: Pose, duration: TimeInterval, style: TransitionStyle) {
         let actions: [(SKNode, CGFloat)] = [
             (frontUpperArm, pose.frontUpper), (frontLowerArm, pose.frontLower),
             (backUpperArm, pose.backUpper), (backLowerArm, pose.backLower),
@@ -670,78 +332,7 @@ final class FighterNode: SKNode {
         pelvisPoseRoot.run(pelvisMove, withKey: "pose")
     }
 
-    private func punchPose(isActive: Bool) -> Pose {
-        var pose: Pose
-        if activePunchHand == .lead {
-            pose = isActive ? .leadPunch : .leadWindUp
-        } else {
-            pose = isActive ? .rearPunch : .rearWindUp
-        }
-
-        let power = CGFloat(activePunchProfile.powerScale)
-        let powerMotion = 0.78 + power * 0.24
-        pose.bodyX *= powerMotion
-        pose.bodyRotation *= 0.80 + power * 0.25
-        pose.bodyRotation += CGFloat(activePunchProfile.lateralDrive) * (isActive ? 0.055 : 0.025)
-
-        switch activePunchProfile.motion {
-        case .quick:
-            if activePunchHand == .lead {
-                pose.bodyRotation *= 0.72
-                if isActive {
-                    pose.bodyX -= 2
-                    pose.frontLeg = 0.14
-                    pose.backLeg = -0.30
-                    pose.frontKnee = -0.12
-                    pose.backKnee = 0.18
-                }
-            }
-        case .retreating:
-            pose.bodyRotation *= 0.68
-            pose.bodyX -= isActive ? 7 : 3
-            pose.frontLeg = 0.24
-            pose.backLeg = -0.25
-            pose.frontKnee = -0.20
-            pose.backKnee = 0.14
-            if isActive {
-                if activePunchHand == .lead {
-                    pose.frontLower = 0.11
-                } else {
-                    pose.backLower = 0.13
-                }
-            }
-        case .driving:
-            if isActive {
-                pose.bodyX += activePunchHand == .lead ? 6 : 10
-                pose.bodyRotation *= activePunchHand == .lead ? 1.08 : 1.20
-                pose.frontLeg = 0.04
-                pose.backLeg = -0.48
-                pose.frontKnee = -0.08
-                pose.backKnee = 0.27
-            } else {
-                pose.bodyX -= 4
-                pose.bodyRotation *= 1.14
-                pose.backLeg -= 0.06
-            }
-        case .counter:
-            if isActive {
-                pose.bodyX += 13
-                pose.bodyRotation *= 1.30
-                pose.frontLeg = 0.02
-                pose.backLeg = -0.52
-                pose.frontKnee = -0.06
-                pose.backKnee = 0.30
-            } else {
-                pose.bodyX -= 7
-                pose.bodyRotation *= 1.24
-                pose.frontLeg = 0.27
-                pose.backLeg = -0.42
-            }
-        }
-        return pose
-    }
-
-    private func apply(_ pose: Pose) {
+    private func apply(_ pose: FighterPose) {
         upperBodyPoseRoot.position.x = pose.bodyX * 0.68
         upperBodyPoseRoot.position.y = pose.bodyY * 0.78
         upperBodyPoseRoot.zRotation = pose.bodyRotation
@@ -768,39 +359,4 @@ final class FighterNode: SKNode {
         run(fall)
     }
 
-    private static func makeLimb(
-        length: CGFloat,
-        topWidth: CGFloat,
-        bottomWidth: CGFloat,
-        color: SKColor
-    ) -> SKNode {
-        let node = makePolygon([
-            CGPoint(x: -topWidth * 0.50, y: 1),
-            CGPoint(x: topWidth * 0.50, y: -1),
-            CGPoint(x: bottomWidth * 0.48, y: -length),
-            CGPoint(x: -bottomWidth * 0.48, y: -length + 1)
-        ])
-        node.fillColor = color
-        node.strokeColor = .black.withAlphaComponent(0.68)
-        node.lineWidth = 1.5
-        return node
-    }
-
-    private static func regularPolygon(radius: CGFloat, sides: Int, startAngle: CGFloat) -> [CGPoint] {
-        (0..<sides).map { index in
-            let angle = startAngle + CGFloat(index) * 2 * .pi / CGFloat(sides)
-            return CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
-        }
-    }
-
-    private static func makePolygon(_ points: [CGPoint]) -> SKShapeNode {
-        let node = SKShapeNode()
-        guard let first = points.first else { return node }
-        let path = CGMutablePath()
-        path.move(to: first)
-        points.dropFirst().forEach { path.addLine(to: $0) }
-        path.closeSubpath()
-        node.path = path
-        return node
-    }
 }
