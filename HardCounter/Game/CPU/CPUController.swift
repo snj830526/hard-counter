@@ -11,11 +11,6 @@ struct CPUPerception {
     let preferredPunchRange: CGFloat
 }
 
-enum CPUCombatAction {
-    case punch(PunchIntent)
-    case sway(SwayIntent)
-}
-
 struct CPUController {
     private let difficulty: CPUDifficultyProfile
     private var nextAttackTime: TimeInterval?
@@ -44,7 +39,7 @@ struct CPUController {
         lastSelfPhase = .idle
     }
 
-    mutating func combatAction(for perception: CPUPerception) -> CPUCombatAction? {
+    mutating func combatAction(for perception: CPUPerception) -> CombatAction? {
         if nextAttackTime == nil { reset(at: perception.time) }
         observePlayerAttack(perception)
         scheduleCombinationIfAvailable(perception)
@@ -118,7 +113,7 @@ struct CPUController {
 
     private mutating func counterAction(
         for perception: CPUPerception
-    ) -> CPUCombatAction? {
+    ) -> CombatAction? {
         let hasCounterWindow = perception.selfState.counterWindowEndsAt > perception.time
         let isNewCounterWindow = perception.selfState.counterWindowEndsAt
             != observedCounterWindowEndsAt
@@ -146,7 +141,7 @@ struct CPUController {
 
     private mutating func defenseAction(
         for perception: CPUPerception
-    ) -> CPUCombatAction? {
+    ) -> CombatAction? {
         guard let pendingDefenseAt,
               perception.time >= pendingDefenseAt else { return nil }
         self.pendingDefenseAt = nil
@@ -165,7 +160,7 @@ struct CPUController {
 
     private mutating func pressureAttack(
         for perception: CPUPerception
-    ) -> CPUCombatAction? {
+    ) -> CombatAction? {
         guard let nextAttackTime,
               perception.time >= nextAttackTime,
               perception.selfState.phase == .idle else { return nil }
