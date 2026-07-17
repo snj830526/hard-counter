@@ -2,14 +2,15 @@ import SpriteKit
 import UIKit
 
 final class CombatScene: SKScene {
+    private let fighterProfile: FighterProfile
     private let cameraRig = SKNode()
     private let arenaNode = SKNode()
     private let ringNode = BoxingRingNode()
-    private let player = FighterNode(facingRight: true, color: .systemCyan)
+    private lazy var player = FighterNode(facingRight: true, color: fighterProfile.color)
     private let cpu = FighterNode(facingRight: false, color: .systemOrange)
     private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
-    private let playerHealthBar = SKSpriteNode(color: .systemCyan, size: CGSize(width: 220, height: 14))
+    private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
     private let cpuHealthBar = SKSpriteNode(color: .systemOrange, size: CGSize(width: 220, height: 14))
     private let playerStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
     private let cpuStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
@@ -62,14 +63,23 @@ final class CombatScene: SKScene {
     private var motionShowcaseController = MotionShowcaseController()
 #endif
 
-    override init(size: CGSize) {
+    init(size: CGSize, fighter: FighterProfile) {
+        fighterProfile = fighter
         super.init(size: size)
         scaleMode = .resizeFill
         backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
     }
 
+    override convenience init(size: CGSize) {
+        self.init(size: size, fighter: .allRounder)
+    }
+
+    convenience init(fighter: FighterProfile) {
+        self.init(size: CGSize(width: 844, height: 390), fighter: fighter)
+    }
+
     override convenience init() {
-        self.init(size: CGSize(width: 844, height: 390))
+        self.init(size: CGSize(width: 844, height: 390), fighter: .allRounder)
     }
 
     @available(*, unavailable)
@@ -253,7 +263,7 @@ final class CombatScene: SKScene {
         statusLabel.zPosition = 20
         addChild(statusLabel)
 
-        configureNameLabel(playerName, text: "PLAYER 01", alignment: .left, color: .systemCyan)
+        configureNameLabel(playerName, text: fighterProfile.name, alignment: .left, color: fighterProfile.color)
         configureNameLabel(cpuName, text: "CPU RIVAL", alignment: .right, color: .systemOrange)
         roundLabel.text = "ROUND 1"
         roundLabel.fontSize = 11
