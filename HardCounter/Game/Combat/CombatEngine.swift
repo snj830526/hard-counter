@@ -113,7 +113,7 @@ struct CombatEngine {
         case let .punch(intent):
             let currentState = state(for: fighter)
             let canTransitionFromSway = currentState.phase == .swaying
-                && time >= currentState.phaseEndsAt - CombatTuning.swayPunchTransitionLeadTime
+                && time >= currentState.swayStartedAt + CombatTuning.swayPunchCancelDelay
             guard currentState.phase == .idle || canTransitionFromSway else { return [] }
             let hand = state(for: fighter).nextPunchHand
             let profile = makePunchProfile(

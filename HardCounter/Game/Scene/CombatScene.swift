@@ -133,7 +133,9 @@ final class CombatScene: SKScene {
                         // generic short input buffer expire before neutral returns.
                         bufferedPunchExpiresAt = max(
                             normalExpiry,
-                            playerState.phaseEndsAt + CombatTuning.swayPunchBufferGrace
+                            playerState.swayStartedAt
+                                + CombatTuning.swayPunchCancelDelay
+                                + CombatTuning.swayPunchBufferGrace
                         )
                     } else {
                         bufferedPunchExpiresAt = normalExpiry
@@ -654,7 +656,7 @@ final class CombatScene: SKScene {
         }
         let playerState = engine.state(for: .player)
         let canTransitionFromSway = playerState.phase == .swaying
-            && time >= playerState.phaseEndsAt - CombatTuning.swayPunchTransitionLeadTime
+            && time >= playerState.swayStartedAt + CombatTuning.swayPunchCancelDelay
         guard playerState.phase == .idle || canTransitionFromSway else { return }
 
         bufferedPlayerPunch = nil
