@@ -3,7 +3,7 @@ import Foundation
 
 enum CombatTuning {
     static let maximumHealth = 100
-    static let maximumStamina: Double = 100
+    static let maximumStamina: Double = 60
     static let normalDamage = 18
     static let counterDamage = 34
 
@@ -11,10 +11,10 @@ enum CombatTuning {
     static let hookStaminaCost: Double = 11
     static let uppercutStaminaCost: Double = 14
     static let swayStaminaCost: Double = 5
-    static let counterStaminaRefund: Double = 4
-    static let staminaRecoveryPerSecond: Double = 18
-    static let staminaRecoveryDelay: TimeInterval = 0.55
-    static let lowStaminaThreshold: Double = 25
+    static let counterStaminaRefund: Double = 3
+    static let staminaRecoveryPerSecond: Double = 12
+    static let staminaRecoveryDelay: TimeInterval = 0.70
+    static let lowStaminaThreshold: Double = 15
 
     static let punchStartup: TimeInterval = 0.16
     static let punchActive: TimeInterval = 0.07
