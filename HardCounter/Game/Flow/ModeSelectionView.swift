@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ModeSelectionView: View {
     let onSelectSolo: () -> Void
-    @State private var showsNearbyNotice = false
+    let onSelectNearby: () -> Void
 
     var body: some View {
         ZStack {
@@ -14,11 +14,6 @@ struct ModeSelectionView: View {
             }
             .padding(.horizontal, 54)
             .padding(.vertical, 32)
-        }
-        .alert("근거리 대전 준비 중", isPresented: $showsNearbyNotice) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("캐릭터와 솔로 모드를 완성한 뒤 iPhone 두 대를 연결하는 로비가 추가됩니다.")
         }
     }
 
@@ -65,8 +60,8 @@ struct ModeSelectionView: View {
                 subtitle: "가까운 iPhone과 1:1 대전",
                 symbol: "antenna.radiowaves.left.and.right",
                 tint: .orange,
-                badge: "COMING SOON",
-                action: { showsNearbyNotice = true }
+                badge: "LOBBY",
+                action: onSelectNearby
             )
         }
         .frame(maxWidth: 430)
