@@ -29,6 +29,7 @@ final class Fighter3DRenderer {
     private var swayDirection: SwayDirection = .back
     private var swayScreenDirection = CGVector(dx: -1, dy: 0)
     private var swayPerformance: CGFloat = 1
+    private var opponentScreenDirection = CGVector(dx: 1, dy: 0)
     private var gaitClock: CGFloat = 0
     private var hitElapsed: TimeInterval?
     private var hitKind: HitKind = .normal
@@ -115,6 +116,7 @@ final class Fighter3DRenderer {
         if hitElapsed != nil { hitElapsed! += deltaTime }
 
         let direction = orientation.direction
+        opponentScreenDirection = direction
         skeletonRoot.eulerAngles.y = Float(atan2(direction.dx, -direction.dy))
 
         let displacement = hypot(
@@ -218,7 +220,8 @@ final class Fighter3DRenderer {
             )
                 .aligned(
                     toScreenDirection: swayScreenDirection,
-                    swayDirection: swayDirection
+                    swayDirection: swayDirection,
+                    facingDirection: opponentScreenDirection
                 )
                 .styledSway(with: motionProfile)
             return guardPose.blended(
@@ -275,7 +278,7 @@ final class Fighter3DRenderer {
         skeletonRoot.eulerAngles.x = Float(pose.rootPitch)
         skeletonRoot.eulerAngles.z = Float(pose.rootRoll)
         pelvis.eulerAngles = pose.pelvis
-        spine.position = SCNVector3(pose.spineX, 0.13 + pose.spineY, 0)
+        spine.position = SCNVector3(pose.spineX, 0.13 + pose.spineY, pose.spineZ)
         spine.eulerAngles = pose.spine
         head.eulerAngles = pose.head
         leadShoulder.eulerAngles = pose.leadShoulder

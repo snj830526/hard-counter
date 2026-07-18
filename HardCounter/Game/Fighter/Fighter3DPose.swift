@@ -9,6 +9,7 @@ struct Fighter3DPose {
     var rootRoll: CGFloat = 0
     var spineX: CGFloat = 0
     var spineY: CGFloat = 0
+    var spineZ: CGFloat = 0
     var pelvis = SCNVector3Zero
     var spine = SCNVector3Zero
     var head = SCNVector3Zero
@@ -228,6 +229,7 @@ struct Fighter3DPose {
         pose.rootZ *= profile.swayRange
         pose.spineX *= profile.swayRange
         pose.spineY *= profile.swayRange
+        pose.spineZ *= profile.swayRange
         pose.spine.z *= Float(profile.swayRange)
         return pose
     }
@@ -237,7 +239,8 @@ struct Fighter3DPose {
     /// prevents arbitrary direction changes as the fighters rotate in the ring.
     func aligned(
         toScreenDirection direction: CGVector,
-        swayDirection: SwayDirection
+        swayDirection: SwayDirection,
+        facingDirection: CGVector
     ) -> Fighter3DPose {
         let length = hypot(direction.dx, direction.dy)
         guard length > 0.001 else { return self }
@@ -250,10 +253,20 @@ struct Fighter3DPose {
         case .forward: travel = 0.22
         case .left, .right: travel = 0.30
         }
-        pose.rootX = unit.dx * travel * 0.24
-        pose.rootY += unit.dy * travel * 0.10
-        pose.spineX = unit.dx * travel * 0.76
-        pose.spineY = unit.dy * travel * 0.38
+        let offset = Fighter3DSwayAlignment.torsoOffset(
+            screenDirection: unit,
+            facingDirection: facingDirection,
+            pelvisYaw: CGFloat(pose.pelvis.y),
+            travel: travel
+        )
+
+        // The torso node lives below the fighter's yawed skeleton and pelvis.
+        // Convert the desired screen-horizontal travel back into that local
+        // X/Z plane so diagonal facing never mirrors or suppresses the sway.
+        pose.rootX = 0
+        pose.spineX = offset.localX
+        pose.spineY = offset.localY
+        pose.spineZ = offset.localZ
 
         // Lean across the screen in the same direction as the stick. The hips
         // counter only slightly so the waist remains connected.
@@ -274,6 +287,7 @@ struct Fighter3DPose {
         pose.rootRoll = clamp(pose.rootRoll, minimum: -0.58, maximum: 0.58)
         pose.spineX = clamp(pose.spineX, minimum: -0.28, maximum: 0.28)
         pose.spineY = clamp(pose.spineY, minimum: -0.16, maximum: 0.16)
+        pose.spineZ = clamp(pose.spineZ, minimum: -0.28, maximum: 0.28)
 
         pose.pelvis = pose.pelvis.clamped(
             x: -0.42...0.42,
@@ -345,6 +359,7 @@ struct Fighter3DPose {
             rootRoll: mix3D(rootRoll, other.rootRoll, t),
             spineX: mix3D(spineX, other.spineX, t),
             spineY: mix3D(spineY, other.spineY, t),
+            spineZ: mix3D(spineZ, other.spineZ, t),
             pelvis: pelvis.mixed(with: other.pelvis, amount: t),
             spine: spine.mixed(with: other.spine, amount: t),
             head: head.mixed(with: other.head, amount: t),

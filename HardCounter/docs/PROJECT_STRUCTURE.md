@@ -57,6 +57,7 @@ HardCounter/
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
 │   │   ├── Fighter3DPose.swift
+│   │   ├── Fighter3DSwayAlignment.swift
 │   │   ├── FighterGroundShadowNode.swift
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
@@ -133,6 +134,7 @@ idle → swaying → idle
 - `FighterGroundShadowNode.swift`: 발밑 접촉 그림자와 광원 방향을 따르는 연한 투영 그림자를 합성하고 링 깊이에 따른 원근 크기를 적용한다.
 - `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
 - `Fighter3DPose.swift`: 3D 관절 포즈, 캐릭터 프로필 적용, 대표 기술의 준비·타격 강조, 포즈 보간과 최종 인체 관절 제한을 담당한다. 렌더러의 노드 생성 코드와 독립적으로 조정할 수 있다.
+- `Fighter3DSwayAlignment.swift`: 스틱의 화면 방향을 현재 선수와 골반 회전에 맞는 3D 상체 로컬 X/Z 이동으로 역변환한다. 대각선 구도에서도 화면상 스웨이가 반전되지 않도록 순수 계산으로 분리한다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
 - `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 장비 스타일 및 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
@@ -164,6 +166,7 @@ idle → swaying → idle
 - 3D 스파이크는 `FighterNode` 아래의 표현만 교체한다. 링 좌표, 히트 판정, 입력, CPU와 네트워크 메시지 형식은 2D 렌더러와 공유하므로 실험을 폐기해도 전투 로직에는 영향이 없어야 한다.
 - 캐릭터 기본 능력치는 `FighterStats`, 기술 규칙은 `FighterCombatStyle`, 외형은 `FighterAppearance`, 모션 개성과 대표 기술 연출은 `Fighter3DMotionProfile`이 각각 소유한다. 전투 규칙과 표현 프로필은 직접 참조하지 않고 `FighterProfile`에서 명시적으로 짝을 맞춘다.
 - 절차형 모션은 마지막 적용 단계에서 관절 제한을 반드시 통과한다. 양쪽 무릎은 캐릭터 로컬 좌표에서 같은 해부학적 방향으로만 접히고 고관절의 좌우 벌림을 제한한다. 스탠스의 앞뒤 차이는 다리 뿌리의 깊이로 표현하며 발목은 고관절과 무릎의 합을 보정하되 과회전하지 않는다.
+- 스웨이 입력의 `screenDirection`은 네트워크 전송 전후에 그대로 유지하고, 3D 표현 직전에만 `Fighter3DSwayAlignment`로 로컬 좌표화한다. 스웨이 종류는 회피 성공과 후속 기술을, 연속 화면 벡터는 보이는 머리 이동을 각각 담당한다.
 - 3D 캐릭터의 발바닥 기준점은 링 좌표와 같은 원점을 사용한다. 호흡은 상체에서 처리하고 스웨이는 골반보다 상체 이동 비중을 크게 두어 발이 접촉 그림자에서 떨어지지 않게 한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
 - 캐릭터 외형 비율은 `Fighter3DAppearanceProfile`을 거친다. 체형별로 굵기와 관절 뿌리 위치는 달라질 수 있지만 팔·다리 마디 길이는 리그와 일치시켜 관절 연결을 보존한다.
