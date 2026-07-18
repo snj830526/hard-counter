@@ -68,6 +68,7 @@ final class CombatScene: SKScene {
     private var playerArenaPosition = CGPoint.zero
     private var cpuArenaPosition = CGPoint.zero
     private var playerToCPUScreenDirection = CGVector(dx: 1, dy: 0)
+    private var pendingPunchContactPoints: [FighterID: CGPoint] = [:]
     private var playerMovementSmoother = MovementSmoother(
         acceleration: CombatTuning.movementAcceleration,
         turnAcceleration: CombatTuning.movementTurnAcceleration,
@@ -989,7 +990,7 @@ final class CombatScene: SKScene {
         }
         let attackerNode = attacker == .player ? player : cpu
         let defenderNode = attacker == .player ? cpu : player
-        return PunchContactGeometry.intersectsFighter(
+        let contactPoint = PunchContactGeometry.contactPointOnFighter(
             attackerPosition: attackerNode.position,
             attackerScale: attackerNode.xScale,
             aimDirection: attackerNode.committedPunchAimDirection,
@@ -1000,6 +1001,8 @@ final class CombatScene: SKScene {
                 * techniqueReachScale
                 * CGFloat(profile.reachScale)
         )
+        pendingPunchContactPoints[attacker] = contactPoint
+        return contactPoint != nil
     }
 
     private func visibleFighterDistance() -> CGFloat {
@@ -1597,44 +1600,136 @@ final class CombatScene: SKScene {
         attacker: FighterID,
         defender: FighterID
     ) {
-        let techniqueRadius: CGFloat
-        switch profile.technique {
-        case .straight: techniqueRadius = 22
-        case .smash: techniqueRadius = 29
-        case .uppercut: techniqueRadius = 27
-        }
-        let radius: CGFloat = kind == .counter ? 42 : techniqueRadius
-        let impact = SKShapeNode(circleOfRadius: radius)
         let attackerNode = node(for: attacker)
         let defenderNode = node(for: defender)
         let averageScale = (attackerNode.xScale + defenderNode.xScale) / 2
-        impact.position = CGPoint(
+        let fallback = CGPoint(
             x: attackerNode.position.x * 0.28 + defenderNode.position.x * 0.72,
             y: attackerNode.position.y * 0.22 + defenderNode.position.y * 0.78
                 + 70 * averageScale
         )
+        let contactPoint = pendingPunchContactPoints.removeValue(forKey: attacker) ?? fallback
+        let color: SKColor
         switch (kind, profile.technique) {
-        case (.counter, _): impact.strokeColor = .systemYellow
-        case (_, .straight): impact.strokeColor = .white
-        case (_, .smash): impact.strokeColor = .systemOrange
-        case (_, .uppercut): impact.strokeColor = .systemCyan
+        case (.counter, _): color = .systemYellow
+        case (_, .straight): color = .white
+        case (_, .smash): color = .systemOrange
+        case (_, .uppercut): color = .systemCyan
         }
-        impact.lineWidth = kind == .counter ? 8 : 4
-        impact.zPosition = 30
-        impact.setScale(0.25 / arenaZoom)
-        let core = SKShapeNode(circleOfRadius: radius * 0.28)
-        core.fillColor = impact.strokeColor.withAlphaComponent(0.88)
+
+        let root = SKNode()
+        root.position = contactPoint
+        root.zPosition = 60
+        root.setScale(0.52 / arenaZoom)
+
+        let radius: CGFloat
+        switch (kind, profile.technique) {
+        case (.counter, _): radius = 42
+        case (_, .straight): radius = 22
+        case (_, .smash): radius = 31
+        case (_, .uppercut): radius = 28
+        }
+        let burst = SKShapeNode(path: impactBurstPath(radius: radius))
+        burst.fillColor = color.withAlphaComponent(kind == .counter ? 0.28 : 0.18)
+        burst.strokeColor = color.withAlphaComponent(0.88)
+        burst.lineWidth = kind == .counter ? 4.8 : 2.8
+        burst.glowWidth = kind == .counter ? 7 : 4
+        root.addChild(burst)
+
+        let core = SKShapeNode(path: impactDiamondPath(radius: radius * 0.30))
+        core.fillColor = color.withAlphaComponent(0.96)
         core.strokeColor = .clear
-        core.zPosition = 1
-        impact.addChild(core)
-        arenaNode.addChild(impact)
-        impact.run(.sequence([
+        core.glowWidth = 5
+        core.zPosition = 2
+        root.addChild(core)
+
+        let direction = CGVector(
+            dx: defenderNode.position.x - attackerNode.position.x,
+            dy: defenderNode.position.y - attackerNode.position.y
+        )
+        addImpactSparks(
+            to: root,
+            color: color,
+            direction: direction,
+            technique: profile.technique,
+            isCounter: kind == .counter
+        )
+
+        arenaNode.addChild(root)
+        root.run(.sequence([
             .group([
-                .scale(to: 1.45 / arenaZoom, duration: CombatTuning.impactAnimationDuration),
+                .scale(to: 1.28 / arenaZoom, duration: CombatTuning.impactAnimationDuration),
                 .fadeOut(withDuration: CombatTuning.impactAnimationDuration)
             ]),
             .removeFromParent()
         ]))
+    }
+
+    private func impactDiamondPath(radius: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 0, y: radius))
+        path.addLine(to: CGPoint(x: radius * 0.72, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: -radius))
+        path.addLine(to: CGPoint(x: -radius * 0.72, y: 0))
+        path.closeSubpath()
+        return path
+    }
+
+    private func impactBurstPath(radius: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        let pointCount = 16
+        for index in 0..<pointCount {
+            let angle = -CGFloat.pi / 2
+                + CGFloat(index) * (2 * CGFloat.pi / CGFloat(pointCount))
+            let pointRadius = index.isMultiple(of: 2) ? radius : radius * 0.56
+            let point = CGPoint(
+                x: cos(angle) * pointRadius,
+                y: sin(angle) * pointRadius
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    private func addImpactSparks(
+        to root: SKNode,
+        color: SKColor,
+        direction: CGVector,
+        technique: PunchTechnique,
+        isCounter: Bool
+    ) {
+        let directionAngle = atan2(direction.dy, direction.dx)
+        let count = isCounter ? 11 : 7
+        for index in 0..<count {
+            let centered = CGFloat(index) - CGFloat(count - 1) * 0.5
+            var angle = directionAngle + centered * (isCounter ? 0.24 : 0.30)
+            switch technique {
+            case .straight: break
+            case .smash: angle -= 0.22
+            case .uppercut: angle += 0.34
+            }
+            let length = CGFloat(18 + (index * 11) % 24) * (isCounter ? 1.35 : 1)
+            let path = CGMutablePath()
+            path.move(to: .zero)
+            path.addLine(to: CGPoint(
+                x: cos(angle) * length,
+                y: sin(angle) * length
+            ))
+            let spark = SKShapeNode(path: path)
+            spark.strokeColor = index.isMultiple(of: 3)
+                ? SKColor.white.withAlphaComponent(0.92)
+                : color.withAlphaComponent(0.86)
+            spark.lineWidth = isCounter ? 3.2 : 2.2
+            spark.lineCap = .round
+            spark.glowWidth = isCounter ? 4 : 2
+            spark.zPosition = 1
+            root.addChild(spark)
+        }
     }
 
     private func playImpactFeedback(

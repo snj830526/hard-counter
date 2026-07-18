@@ -10,6 +10,26 @@ enum PunchContactGeometry {
         profile: PunchProfile,
         reachScale: CGFloat
     ) -> Bool {
+        contactPointOnFighter(
+            attackerPosition: attackerPosition,
+            attackerScale: attackerScale,
+            aimDirection: aimDirection,
+            defenderPosition: defenderPosition,
+            defenderScale: defenderScale,
+            profile: profile,
+            reachScale: reachScale
+        ) != nil
+    }
+
+    static func contactPointOnFighter(
+        attackerPosition: CGPoint,
+        attackerScale: CGFloat,
+        aimDirection: CGVector,
+        defenderPosition: CGPoint,
+        defenderScale: CGFloat,
+        profile: PunchProfile,
+        reachScale: CGFloat
+    ) -> CGPoint? {
         let fallback = CGVector(
             dx: defenderPosition.x - attackerPosition.x,
             dy: defenderPosition.y - attackerPosition.y
@@ -54,8 +74,15 @@ enum PunchContactGeometry {
             radiusX: targetRadius * 0.92,
             radiusY: targetRadius
         )
-        return torso.intersectsSegment(from: start, to: end)
-            || head.intersectsSegment(from: start, to: end)
+        let progress = [
+            torso.contactProgress(from: start, to: end),
+            head.contactProgress(from: start, to: end)
+        ].compactMap { $0 }.min()
+        guard let progress else { return nil }
+        return CGPoint(
+            x: start.x + (end.x - start.x) * progress,
+            y: start.y + (end.y - start.y) * progress
+        )
     }
 
     private static func normalized(_ vector: CGVector, fallback: CGVector) -> CGVector {
@@ -74,7 +101,7 @@ private struct HitEllipse {
     let radiusX: CGFloat
     let radiusY: CGFloat
 
-    func intersectsSegment(from start: CGPoint, to end: CGPoint) -> Bool {
+    func contactProgress(from start: CGPoint, to end: CGPoint) -> CGFloat? {
         let normalizedStart = CGPoint(
             x: (start.x - center.x) / max(radiusX, 0.001),
             y: (start.y - center.y) / max(radiusY, 0.001)
@@ -88,21 +115,22 @@ private struct HitEllipse {
             dy: normalizedEnd.y - normalizedStart.y
         )
         let lengthSquared = delta.dx * delta.dx + delta.dy * delta.dy
-        let closestProgress: CGFloat
-        if lengthSquared <= 0.0001 {
-            closestProgress = 0
-        } else {
-            closestProgress = min(max(
-                -(normalizedStart.x * delta.dx + normalizedStart.y * delta.dy)
-                    / lengthSquared,
-                0
-            ), 1)
-        }
-        let closest = CGPoint(
-            x: normalizedStart.x + delta.dx * closestProgress,
-            y: normalizedStart.y + delta.dy * closestProgress
-        )
-        return closest.x * closest.x + closest.y * closest.y <= 1
+        let startDistanceSquared = normalizedStart.x * normalizedStart.x
+            + normalizedStart.y * normalizedStart.y
+        if startDistanceSquared <= 1 { return 0 }
+        guard lengthSquared > 0.0001 else { return nil }
+
+        // Solve the segment/unit-circle intersection and use the first entry
+        // point. This keeps the visual impact on the body surface instead of
+        // letting it appear near the deepest point of the punch trajectory.
+        let projection = normalizedStart.x * delta.dx
+            + normalizedStart.y * delta.dy
+        let discriminant = projection * projection
+            - lengthSquared * (startDistanceSquared - 1)
+        guard discriminant >= 0 else { return nil }
+        let entryProgress = (-projection - sqrt(discriminant)) / lengthSquared
+        guard (0...1).contains(entryProgress) else { return nil }
+        return entryProgress
     }
 }
 

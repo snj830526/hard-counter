@@ -122,6 +122,18 @@ final class BoxingRingNode: SKNode {
         mat.zPosition = -2
         backgroundLayer.addChild(mat)
 
+        // A soft inner edge keeps the canvas from reading as one flat panel.
+        for edge in [(near, right), (right, far), (far, left), (left, near)] {
+            addLine(
+                from: edge.0,
+                to: edge.1,
+                color: SKColor.black.withAlphaComponent(0.16),
+                width: 11,
+                to: backgroundLayer,
+                z: -1.75
+            )
+        }
+
         let center = CGPoint(
             x: (near.x + right.x + far.x + left.x) / 4,
             y: (near.y + right.y + far.y + left.y) / 4
@@ -165,6 +177,20 @@ final class BoxingRingNode: SKNode {
         centerMark.zPosition = -1
         backgroundLayer.addChild(centerMark)
 
+        for scale in [CGFloat(0.18), 0.10] {
+            let diamond = polygon([near, right, far, left].map {
+                CGPoint(
+                    x: center.x + ($0.x - center.x) * scale,
+                    y: center.y + ($0.y - center.y) * scale
+                )
+            })
+            diamond.fillColor = .clear
+            diamond.strokeColor = SKColor.white.withAlphaComponent(scale == 0.18 ? 0.075 : 0.10)
+            diamond.lineWidth = scale == 0.18 ? 1.2 : 1.8
+            diamond.zPosition = -0.8
+            backgroundLayer.addChild(diamond)
+        }
+
         let coolPool = SKShapeNode(ellipseOf: CGSize(width: 118, height: 38))
         coolPool.position = CGPoint(x: center.x - 76, y: center.y + 25)
         coolPool.fillColor = ArenaVisualPalette.coolCanvasLight.withAlphaComponent(0.035)
@@ -196,6 +222,39 @@ final class BoxingRingNode: SKNode {
             let rightRope = CGPoint(x: right.x, y: right.y + rise)
             let farRope = CGPoint(x: far.x, y: far.y + rise)
             let leftRope = CGPoint(x: left.x, y: left.y + rise)
+            let shadowOffset = CGVector(dx: 1.5, dy: -4)
+            addLine(
+                from: CGPoint(x: leftRope.x + shadowOffset.dx, y: leftRope.y + shadowOffset.dy),
+                to: CGPoint(x: farRope.x + shadowOffset.dx, y: farRope.y + shadowOffset.dy),
+                color: SKColor.black.withAlphaComponent(0.32),
+                width: 6,
+                to: backgroundLayer,
+                z: 1.5
+            )
+            addLine(
+                from: CGPoint(x: farRope.x + shadowOffset.dx, y: farRope.y + shadowOffset.dy),
+                to: CGPoint(x: rightRope.x + shadowOffset.dx, y: rightRope.y + shadowOffset.dy),
+                color: SKColor.black.withAlphaComponent(0.32),
+                width: 6,
+                to: backgroundLayer,
+                z: 1.5
+            )
+            addLine(
+                from: CGPoint(x: leftRope.x + shadowOffset.dx, y: leftRope.y + shadowOffset.dy),
+                to: CGPoint(x: nearRope.x + shadowOffset.dx, y: nearRope.y + shadowOffset.dy),
+                color: SKColor.black.withAlphaComponent(0.38),
+                width: 5.5,
+                to: foregroundLayer,
+                z: 30.5
+            )
+            addLine(
+                from: CGPoint(x: nearRope.x + shadowOffset.dx, y: nearRope.y + shadowOffset.dy),
+                to: CGPoint(x: rightRope.x + shadowOffset.dx, y: rightRope.y + shadowOffset.dy),
+                color: SKColor.black.withAlphaComponent(0.38),
+                width: 5.5,
+                to: foregroundLayer,
+                z: 31.5
+            )
             addLine(from: leftRope, to: farRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
             addLine(from: farRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
             addLine(from: leftRope, to: nearRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 31)
@@ -229,6 +288,21 @@ final class BoxingRingNode: SKNode {
         post.lineWidth = 2
         post.zPosition = z
         layer.addChild(post)
+
+        let pad = SKShapeNode(rectOf: CGSize(width: 18, height: 30), cornerRadius: 4)
+        pad.position = CGPoint(x: point.x, y: point.y + 55)
+        pad.fillColor = color.withAlphaComponent(0.92)
+        pad.strokeColor = SKColor.white.withAlphaComponent(0.34)
+        pad.lineWidth = 1.5
+        pad.zPosition = z + 0.2
+        layer.addChild(pad)
+
+        let padHighlight = SKShapeNode(rectOf: CGSize(width: 3, height: 22), cornerRadius: 1.5)
+        padHighlight.position = CGPoint(x: point.x - 4, y: point.y + 57)
+        padHighlight.fillColor = SKColor.white.withAlphaComponent(0.20)
+        padHighlight.strokeColor = .clear
+        padHighlight.zPosition = z + 0.3
+        layer.addChild(padHighlight)
     }
 
     private func addLine(from start: CGPoint, to end: CGPoint, color: SKColor, width: CGFloat, to layer: SKNode, z: CGFloat) {

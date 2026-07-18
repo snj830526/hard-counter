@@ -618,6 +618,9 @@ final class Fighter3DRenderer {
         key.light?.type = .omni
         key.light?.intensity = 880
         key.light?.color = ArenaVisualPalette.overheadLight
+        key.light?.castsShadow = true
+        key.light?.shadowRadius = 5
+        key.light?.shadowColor = UIColor.black.withAlphaComponent(0.42)
         key.position = SCNVector3(-3, 5, 5)
         scene.rootNode.addChildNode(key)
 
@@ -629,21 +632,34 @@ final class Fighter3DRenderer {
         warmRim.position = SCNVector3(3.2, 2.7, 4.2)
         scene.rootNode.addChildNode(warmRim)
 
+        let coolRim = SCNNode()
+        coolRim.light = SCNLight()
+        coolRim.light?.type = .omni
+        coolRim.light?.intensity = 190
+        coolRim.light?.color = ArenaVisualPalette.coolCanvasLight
+        coolRim.position = SCNVector3(-3.4, 2.2, -2.8)
+        scene.rootNode.addChildNode(coolRim)
+
         let fill = SCNNode()
         fill.light = SCNLight()
         fill.light?.type = .ambient
-        fill.light?.intensity = 350
+        fill.light?.intensity = 270
         fill.light?.color = UIColor(red: 0.50, green: 0.61, blue: 0.78, alpha: 1)
         scene.rootNode.addChildNode(fill)
     }
 
     private func buildFighter(in scene: SCNScene, appearance: FighterAppearance) {
         let proportions = Fighter3DAppearanceProfile(appearance: appearance)
-        let skin = material(appearance.skinColor)
-        let shadowSkin = material(appearance.skinShadowColor)
-        let kit = material(appearance.kitColor)
-        let accent = material(appearance.accentColor)
-        let hair = material(appearance.hairColor)
+        let skin = material(appearance.skinColor, roughness: 0.66, specular: 0.20)
+        let shadowSkin = material(appearance.skinShadowColor, roughness: 0.72, specular: 0.14)
+        let kit = material(appearance.kitColor, roughness: 0.80, specular: 0.10)
+        let accent = material(
+            appearance.accentColor,
+            roughness: 0.48,
+            specular: 0.32,
+            emission: 0.025
+        )
+        let hair = material(appearance.hairColor, roughness: 0.94, specular: 0.04)
 
         scene.rootNode.addChildNode(skeletonRoot)
         skeletonRoot.addChildNode(pelvis)
@@ -1009,11 +1025,21 @@ final class Fighter3DRenderer {
         return SCNNode(geometry: geometry)
     }
 
-    private func material(_ color: UIColor) -> SCNMaterial {
+    private func material(
+        _ color: UIColor,
+        roughness: CGFloat = 0.82,
+        specular: CGFloat = 0.10,
+        emission: CGFloat = 0
+    ) -> SCNMaterial {
         let result = SCNMaterial()
         result.diffuse.contents = color
-        result.roughness.contents = 0.82
+        result.roughness.contents = roughness
         result.metalness.contents = 0.02
+        result.specular.contents = UIColor(white: specular, alpha: 1)
+        if emission > 0 {
+            result.emission.contents = color
+            result.emission.intensity = emission
+        }
         result.lightingModel = .physicallyBased
         return result
     }
