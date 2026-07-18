@@ -17,7 +17,7 @@ final class CombatScene: SKScene {
     private lazy var cpu = FighterNode(
         facingRight: false,
         appearance: opponentProfile?.appearance ?? .cpuRival,
-        motionStyle: opponentProfile?.motionStyle ?? .rival
+        motionStyle: cpuMotionStyle
     )
     private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
@@ -81,6 +81,15 @@ final class CombatScene: SKScene {
         idleThreshold: 0.012
     )
     private let arenaZoom: CGFloat = 2.20
+
+    private var cpuMotionStyle: Fighter3DMotionStyle {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase") {
+            return fighterProfile.motionStyle
+        }
+#endif
+        return opponentProfile?.motionStyle ?? .rival
+    }
 #if DEBUG
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")

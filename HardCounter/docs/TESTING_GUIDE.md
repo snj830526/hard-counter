@@ -50,6 +50,19 @@ xcrun simctl launch <SIMULATOR_UDID> \
 - `--impact-showcase`: 기술별 피격 방향과 전신 반응
 - 일반 솔로 경기: 이동 중 양발의 앞뒤 깊이, 무릎 굽힘과 발바닥 접지
 
+선택 캐릭터의 3D 모션 프로필을 CPU 기술 시연에 복제하려면 두 인자를 함께 사용한다.
+
+```bash
+xcrun simctl launch <SIMULATOR_UDID> \
+  com.soonispapa.HardCounter \
+  --motion-showcase \
+  --fighter-style-showcase
+```
+
+JIN, MASON, LEO를 각각 선택해 같은 CPU 기술 시퀀스에서 가드 높이, 스탠스 깊이,
+풋워크 바운스와 대표 기술 실루엣을 비교한다. 이 인자는 Debug 표현만 바꾸며 피해량,
+스태미너, 히트 판정과 CPU 의사결정에는 영향을 주면 안 된다.
+
 캐릭터 선택에서 JIN, MASON, LEO를 같은 조건으로 각각 실행해 다음 차이가 보이는지 확인한다.
 
 - JIN: 중간 높이의 균형 잡힌 가드와 보폭

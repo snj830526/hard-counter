@@ -54,6 +54,7 @@ HardCounter/
 │   ├── Fighter/
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
+│   │   ├── Fighter3DPose.swift
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
 │   │   ├── FighterAppearance.swift
@@ -121,8 +122,9 @@ idle → swaying → idle
 ### 표현 및 입력 계층
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
-- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 저폴리곤 3D 스켈레톤의 가드, 셔플, 펀치, 스웨이, 피격과 KO를 표현하는 실험 렌더러다. 모든 절차형 포즈를 합친 뒤 무릎·고관절·발목 등 관절을 인체 범위로 제한하며 판정과 네트워크 상태는 소유하지 않는다.
-- `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이, 무릎 굽힘, 호흡, 보폭, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
+- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 만들고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
+- `Fighter3DPose.swift`: 3D 관절 포즈, 캐릭터 프로필 적용, 대표 기술의 준비·타격 강조, 포즈 보간과 최종 인체 관절 제한을 담당한다. 렌더러의 노드 생성 코드와 독립적으로 조정할 수 있다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
 - `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
