@@ -61,8 +61,9 @@ enum CombatTuning {
     static let counterTitleHoldDuration: TimeInterval = 0.35
     static let counterTitleOutDuration: TimeInterval = 0.20
 
-    static let playerMoveSpeed: CGFloat = 148
-    static let playerDepthMoveSpeed: CGFloat = 110
+    /// Target velocity after quarter-view projection and camera zoom. Keeping
+    /// this in screen points removes direction-dependent diagonal speed.
+    static let playerScreenMoveSpeed: CGFloat = 200
     static let punchStartupFootworkMultiplier: CGFloat = 0.72
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
@@ -72,20 +73,20 @@ enum CombatTuning {
     static let movementDeceleration: CGFloat = 14
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
-    static let cpuMoveSpeed: CGFloat = 72
+    static let cpuScreenMoveSpeed: CGFloat = 115
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
     /// Contact geometry at perspective scale 1. The arm reaches from the
     /// attacker's ring anchor; the target radius belongs to the defender and
     /// must never be multiplied by the attacker's reach bonus.
-    static let punchArmReachAtUnitScale: CGFloat = 72
-    static let punchTargetRadiusAtUnitScale: CGFloat = 20
-    static let retreatingPunchReachScale: CGFloat = 0.92
-    static let drivingPunchReachScale: CGFloat = 1.08
-    static let counterPunchReachScale: CGFloat = 1.14
-    static let smashReachScale: CGFloat = 0.88
-    static let uppercutReachScale: CGFloat = 0.78
+    static let punchArmReachAtUnitScale: CGFloat = 56
+    static let punchTargetRadiusAtUnitScale: CGFloat = 14
+    static let retreatingPunchReachScale: CGFloat = 0.90
+    static let drivingPunchReachScale: CGFloat = 1.04
+    static let counterPunchReachScale: CGFloat = 1.05
+    static let smashReachScale: CGFloat = 0.90
+    static let uppercutReachScale: CGFloat = 0.86
     /// Minimum anchor separation before perspective is applied. Scaling this
     /// with the fighters keeps infighting close without letting near-camera
     /// bodies visually overlap.
