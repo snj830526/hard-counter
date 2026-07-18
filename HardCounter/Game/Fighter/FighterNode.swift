@@ -322,6 +322,7 @@ final class FighterNode: SKNode {
         threeDRenderer.update(
             movement: movementState,
             orientation: orientationFrame,
+            locomotionFrame: frame,
             deltaTime: deltaTime
         )
     }

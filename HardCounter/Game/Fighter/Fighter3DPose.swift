@@ -10,6 +10,8 @@ struct Fighter3DPose {
     var spineX: CGFloat = 0
     var spineY: CGFloat = 0
     var spineZ: CGFloat = 0
+    var leadAnklePitch: CGFloat = 0
+    var rearAnklePitch: CGFloat = 0
     var pelvis = SCNVector3Zero
     var spine = SCNVector3Zero
     var head = SCNVector3Zero
@@ -288,6 +290,8 @@ struct Fighter3DPose {
         pose.spineX = clamp(pose.spineX, minimum: -0.28, maximum: 0.28)
         pose.spineY = clamp(pose.spineY, minimum: -0.16, maximum: 0.16)
         pose.spineZ = clamp(pose.spineZ, minimum: -0.28, maximum: 0.28)
+        pose.leadAnklePitch = clamp(pose.leadAnklePitch, minimum: -0.20, maximum: 0.26)
+        pose.rearAnklePitch = clamp(pose.rearAnklePitch, minimum: -0.20, maximum: 0.26)
 
         pose.pelvis = pose.pelvis.clamped(
             x: -0.42...0.42,
@@ -360,6 +364,8 @@ struct Fighter3DPose {
             spineX: mix3D(spineX, other.spineX, t),
             spineY: mix3D(spineY, other.spineY, t),
             spineZ: mix3D(spineZ, other.spineZ, t),
+            leadAnklePitch: mix3D(leadAnklePitch, other.leadAnklePitch, t),
+            rearAnklePitch: mix3D(rearAnklePitch, other.rearAnklePitch, t),
             pelvis: pelvis.mixed(with: other.pelvis, amount: t),
             spine: spine.mixed(with: other.spine, amount: t),
             head: head.mixed(with: other.head, amount: t),
