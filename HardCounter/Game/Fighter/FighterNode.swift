@@ -20,6 +20,8 @@ final class FighterNode: SKNode {
     private var isInNeutralPose = true
     private var currentPhase: FighterPhase = .idle
 
+    var committedPunchAimDirection: CGVector { activePunchAimDirection }
+
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
     private var actionRoot: SKNode { rig.actionRoot }

@@ -90,7 +90,7 @@ enum CombatTuning {
     /// Minimum anchor separation before perspective is applied. Scaling this
     /// with the fighters keeps infighting close without letting near-camera
     /// bodies visually overlap.
-    static let minimumFighterSeparationAtUnitScale: CGFloat = 62
+    static let minimumFighterSeparationAtUnitScale: CGFloat = 34
     static let farPerspectiveScale: CGFloat = 0.62
     static let nearPerspectiveScale: CGFloat = 0.82
 }

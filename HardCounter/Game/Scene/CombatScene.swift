@@ -82,7 +82,7 @@ final class CombatScene: SKScene {
         turnDotThreshold: -0.12,
         idleThreshold: 0.012
     )
-    private let arenaZoom: CGFloat = 2.20
+    private var arenaZoom = ArenaViewTuning.baseZoom
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
@@ -488,12 +488,24 @@ final class CombatScene: SKScene {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {
-                playerArenaPosition = CGPoint(x: -210, y: -40)
-                cpuArenaPosition = CGPoint(x: 210, y: 40)
+                playerArenaPosition = CGPoint(
+                    x: -ArenaViewTuning.startingHorizontalOffset,
+                    y: -ArenaViewTuning.startingDepthOffset
+                )
+                cpuArenaPosition = CGPoint(
+                    x: ArenaViewTuning.startingHorizontalOffset,
+                    y: ArenaViewTuning.startingDepthOffset
+                )
             }
 #else
-            playerArenaPosition = CGPoint(x: -210, y: -40)
-            cpuArenaPosition = CGPoint(x: 210, y: 40)
+            playerArenaPosition = CGPoint(
+                x: -ArenaViewTuning.startingHorizontalOffset,
+                y: -ArenaViewTuning.startingDepthOffset
+            )
+            cpuArenaPosition = CGPoint(
+                x: ArenaViewTuning.startingHorizontalOffset,
+                y: ArenaViewTuning.startingDepthOffset
+            )
 #endif
         }
         clampAndRenderFighters()
@@ -756,8 +768,8 @@ final class CombatScene: SKScene {
         let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
         let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
         let averagePerspectiveScale = (
-            perspectiveScale(at: playerArenaPosition)
-                + perspectiveScale(at: cpuArenaPosition)
+            fighterScreenScale(at: playerArenaPosition)
+                + fighterScreenScale(at: cpuArenaPosition)
         ) * 0.5
         let minimumScreenSeparation = CombatTuning.minimumFighterSeparationAtUnitScale
             * averagePerspectiveScale
@@ -841,13 +853,15 @@ final class CombatScene: SKScene {
     }
 
     private func cameraFocusPoint() -> CGPoint {
-        CGPoint(
-            x: player.position.x * 0.65 + cpu.position.x * 0.35,
-            y: player.position.y * 0.65 + cpu.position.y * 0.35
+        let playerWeight = ArenaViewTuning.playerFocusWeight
+        return CGPoint(
+            x: player.position.x * playerWeight + cpu.position.x * (1 - playerWeight),
+            y: player.position.y * playerWeight + cpu.position.y * (1 - playerWeight)
         )
     }
 
     private func positionCameraImmediately() {
+        arenaZoom = desiredArenaZoom()
         cameraRig.setScale(arenaZoom)
         let focus = cameraFocusPoint()
         let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
@@ -860,6 +874,15 @@ final class CombatScene: SKScene {
     private func updateCamera(deltaTime: TimeInterval) {
         guard deltaTime > 0 else { return }
         let focus = cameraFocusPoint()
+        let previousZoom = arenaZoom
+        let zoomBlend = 1 - CGFloat(exp(-ArenaViewTuning.zoomResponse * deltaTime))
+        arenaZoom += (desiredArenaZoom() - arenaZoom) * zoomBlend
+        cameraRig.position = CGPoint(
+            x: cameraRig.position.x + focus.x * (previousZoom - arenaZoom),
+            y: cameraRig.position.y + focus.y * (previousZoom - arenaZoom)
+        )
+        cameraRig.setScale(arenaZoom)
+
         let focusOnScreen = CGPoint(
             x: focus.x * arenaZoom + cameraRig.position.x,
             y: focus.y * arenaZoom + cameraRig.position.y
@@ -871,23 +894,52 @@ final class CombatScene: SKScene {
         if focusOnScreen.x > center.x + deadZone.width { correction.dx = center.x + deadZone.width - focusOnScreen.x }
         if focusOnScreen.y < center.y - deadZone.height { correction.dy = center.y - deadZone.height - focusOnScreen.y }
         if focusOnScreen.y > center.y + deadZone.height { correction.dy = center.y + deadZone.height - focusOnScreen.y }
-        guard correction != .zero else { return }
-
-        let target = clampedCameraPosition(CGPoint(
-            x: cameraRig.position.x + correction.dx,
-            y: cameraRig.position.y + correction.dy
-        ))
-        let blend = 1 - CGFloat(exp(-5.5 * deltaTime))
+        let target = correction == .zero
+            ? cameraRig.position
+            : clampedCameraPosition(CGPoint(
+                x: cameraRig.position.x + correction.dx,
+                y: cameraRig.position.y + correction.dy
+            ))
+        let blend = 1 - CGFloat(exp(-ArenaViewTuning.cameraFollowResponse * deltaTime))
         cameraRig.position = CGPoint(
             x: cameraRig.position.x + (target.x - cameraRig.position.x) * blend,
             y: cameraRig.position.y + (target.y - cameraRig.position.y) * blend
         )
     }
 
+    private func desiredArenaZoom() -> CGFloat {
+        let delta = ringProjection.screenVector(forWorldVector: CGVector(
+            dx: cpuArenaPosition.x - playerArenaPosition.x,
+            dy: cpuArenaPosition.y - playerArenaPosition.y
+        ))
+        let separation = hypot(delta.dx, delta.dy)
+        let range = max(
+            ArenaViewTuning.farSeparation - ArenaViewTuning.closeSeparation,
+            1
+        )
+        let distanceProgress = min(max(
+            (separation - ArenaViewTuning.closeSeparation) / range,
+            0
+        ), 1)
+        let combatZoom = ArenaViewTuning.closeZoom
+            + (ArenaViewTuning.farZoom - ArenaViewTuning.closeZoom) * distanceProgress
+
+        let horizontalFit = abs(delta.dx) > 1
+            ? size.width * ArenaViewTuning.horizontalFitFraction / abs(delta.dx)
+            : ArenaViewTuning.closeZoom
+        let verticalFit = abs(delta.dy) > 1
+            ? size.height * ArenaViewTuning.verticalFitFraction / abs(delta.dy)
+            : ArenaViewTuning.closeZoom
+        return min(
+            max(min(combatZoom, min(horizontalFit, verticalFit)), ArenaViewTuning.farZoom),
+            ArenaViewTuning.closeZoom
+        )
+    }
+
     private func clampedCameraPosition(_ position: CGPoint) -> CGPoint {
         CGPoint(
-            x: min(max(position.x, -size.width * 0.74), size.width * 0.68),
-            y: min(max(position.y, -size.height * 0.68), size.height * 0.58)
+            x: min(max(position.x, -size.width * 1.35), size.width * 1.25),
+            y: min(max(position.y, -size.height * 1.20), size.height * 1.08)
         )
     }
 
@@ -904,7 +956,10 @@ final class CombatScene: SKScene {
 #else
         closeupScale = 1
 #endif
-        let scale = perspectiveScale(at: worldPosition) / arenaZoom * closeupScale
+        let scale = perspectiveScale(at: worldPosition)
+            / ArenaViewTuning.baseZoom
+            * ArenaViewTuning.fighterScaleBoost
+            * closeupScale
         fighter.setScale(scale)
         fighter.zPosition = 12 + (1 - progress) * 16
 
@@ -932,9 +987,16 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
-        return visibleFighterDistance() <= maximumVisiblePunchDistance(
-            for: attacker,
-            armReachScale: motionReachScale
+        let attackerNode = attacker == .player ? player : cpu
+        let defenderNode = attacker == .player ? cpu : player
+        return PunchContactGeometry.intersectsFighter(
+            attackerPosition: attackerNode.position,
+            attackerScale: attackerNode.xScale,
+            aimDirection: attackerNode.committedPunchAimDirection,
+            defenderPosition: defenderNode.position,
+            defenderScale: defenderNode.xScale,
+            profile: profile,
+            reachScale: motionReachScale
                 * techniqueReachScale
                 * CGFloat(profile.reachScale)
         )
@@ -956,11 +1018,17 @@ final class CombatScene: SKScene {
         let attackerPosition = attacker == .player ? playerArenaPosition : cpuArenaPosition
         let defenderPosition = attacker == .player ? cpuArenaPosition : playerArenaPosition
         let armReach = CombatTuning.punchArmReachAtUnitScale
-            * perspectiveScale(at: attackerPosition)
+            * fighterScreenScale(at: attackerPosition)
             * armReachScale
         let targetRadius = CombatTuning.punchTargetRadiusAtUnitScale
-            * perspectiveScale(at: defenderPosition)
+            * fighterScreenScale(at: defenderPosition)
         return armReach + targetRadius
+    }
+
+    private func fighterScreenScale(at position: CGPoint) -> CGFloat {
+        perspectiveScale(at: position)
+            * arenaZoom / ArenaViewTuning.baseZoom
+            * ArenaViewTuning.fighterScaleBoost
     }
 
     private func perspectiveScale(at position: CGPoint) -> CGFloat {

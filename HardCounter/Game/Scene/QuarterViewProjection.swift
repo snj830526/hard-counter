@@ -1,8 +1,8 @@
 import CoreGraphics
 
 struct QuarterViewProjection {
-    static let halfWidth: CGFloat = 320
-    static let halfDepth: CGFloat = 180
+    static let halfWidth = ArenaViewTuning.ringHalfWidth
+    static let halfDepth = ArenaViewTuning.ringHalfDepth
 
     let center: CGPoint
     let widthAxis: CGVector
