@@ -36,6 +36,8 @@ final class Fighter3DRenderer {
     private var hitProfile = PunchProfile()
     private var followThrough: CGFloat = 0
     private var whiffOverreach: CGFloat = 0
+    private var targetStaminaFraction: CGFloat = 1
+    private var displayedStaminaFraction: CGFloat = 1
 
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         motionProfile = motionStyle.profile
@@ -95,12 +97,18 @@ final class Fighter3DRenderer {
         whiffOverreach = CGFloat(0.65 + profile.powerScale * 0.25)
     }
 
+    func updateStamina(fraction: CGFloat) {
+        targetStaminaFraction = min(max(fraction, 0), 1)
+    }
+
     func reset() {
         phase = .idle
         phaseElapsed = 0
         hitElapsed = nil
         followThrough = 0
         whiffOverreach = 0
+        targetStaminaFraction = 1
+        displayedStaminaFraction = 1
         skeletonRoot.opacity = 1
         apply(guardPose)
     }
@@ -114,6 +122,10 @@ final class Fighter3DRenderer {
         guard deltaTime > 0 else { return }
         phaseElapsed += deltaTime
         if hitElapsed != nil { hitElapsed! += deltaTime }
+        let staminaBlend = 1 - exp(-CGFloat(deltaTime) * 7.5)
+        displayedStaminaFraction += (
+            targetStaminaFraction - displayedStaminaFraction
+        ) * staminaBlend
 
         let direction = orientation.direction
         opponentScreenDirection = direction
@@ -146,16 +158,58 @@ final class Fighter3DRenderer {
         }
 
         if followThrough > 0 {
-            pose.rootZ += 0.09 * followThrough
-            pose.spinePitch -= 0.05 * followThrough
+            applyHitConfirm(to: &pose, amount: followThrough)
             followThrough = max(followThrough - CGFloat(deltaTime) * 7.5, 0)
         }
         if whiffOverreach > 0 {
-            pose.rootZ += 0.13 * whiffOverreach
-            pose.spinePitch -= 0.09 * whiffOverreach
+            applyWhiff(to: &pose, amount: whiffOverreach)
             whiffOverreach = max(whiffOverreach - CGFloat(deltaTime) * 4.5, 0)
         }
+        let fatigue = 1 - min(displayedStaminaFraction / 0.28, 1)
+        let fatigueBreath = sin(CGFloat(phaseElapsed) * 5.2)
+        pose = pose.fatigued(amount: fatigue, breath: fatigueBreath)
         apply(pose)
+    }
+
+    private func applyHitConfirm(to pose: inout Fighter3DPose, amount: CGFloat) {
+        let drive = amount * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+        let handSign: CGFloat = activeHand == .lead ? -1 : 1
+        switch punchProfile.technique {
+        case .straight:
+            pose.rootZ += 0.10 * drive
+            pose.spinePitch -= 0.055 * drive
+            pose.pelvis.y += Float(0.08 * handSign * drive)
+        case .smash:
+            pose.rootZ += 0.07 * drive
+            pose.rootRoll += 0.07 * handSign * drive
+            pose.pelvis.y += Float(0.16 * handSign * drive)
+            pose.spine.y += Float(0.20 * handSign * drive)
+        case .uppercut:
+            pose.rootY += 0.07 * drive
+            pose.rootZ += 0.05 * drive
+            pose.spinePitch -= 0.09 * drive
+            pose.leadKnee.x -= activeHand == .lead ? Float(0.05 * drive) : 0
+            pose.rearKnee.x -= activeHand == .rear ? Float(0.05 * drive) : 0
+        }
+    }
+
+    private func applyWhiff(to pose: inout Fighter3DPose, amount: CGFloat) {
+        let overreach = amount * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+        let handSign: CGFloat = activeHand == .lead ? -1 : 1
+        switch punchProfile.technique {
+        case .straight:
+            pose.rootZ += 0.15 * overreach
+            pose.rootY -= 0.025 * overreach
+            pose.spinePitch -= 0.11 * overreach
+        case .smash:
+            pose.rootZ += 0.09 * overreach
+            pose.rootRoll += 0.12 * handSign * overreach
+            pose.spine.y += Float(0.24 * handSign * overreach)
+        case .uppercut:
+            pose.rootZ += 0.10 * overreach
+            pose.rootY += 0.045 * overreach
+            pose.spinePitch -= 0.15 * overreach
+        }
     }
 
     private func poseForCurrentPhase(

@@ -460,6 +460,10 @@ final class FighterNode: SKNode {
         body.run(.sequence([overreach, recover]), withKey: "impact")
     }
 
+    func updateStamina(fraction: CGFloat) {
+        threeDRenderer.updateStamina(fraction: fraction)
+    }
+
     func resetPose() {
         removeAllActions()
         locomotionRoot.removeAllActions()

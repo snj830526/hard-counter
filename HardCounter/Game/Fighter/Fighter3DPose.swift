@@ -149,16 +149,49 @@ struct Fighter3DPose {
 
     static func hit(technique: PunchTechnique, strength: CGFloat) -> Fighter3DPose {
         var pose = guardPose
-        pose.rootZ = -0.26 * strength
-        pose.pelvis.x = 0.12
-        pose.spine.x = technique == .uppercut ? -0.22 : 0.34
-        pose.spine.z = technique == .smash ? -0.28 : -0.10
-        pose.head.x = technique == .uppercut ? -0.42 : 0.28
-        pose.head.z = technique == .smash ? -0.22 : -0.08
+        let amount = min(max(strength, 0.65), 1.35)
         pose.leadShoulder.x = -0.34
         pose.rearShoulder.x = -0.38
-        pose.leadKnee.x += 0.18
-        pose.rearKnee.x += 0.22
+        switch technique {
+        case .straight:
+            pose.rootZ = -0.28 * amount
+            pose.rootY -= 0.035 * amount
+            pose.pelvis.x = 0.14
+            pose.spine.x = 0.34
+            pose.spine.z = -0.10
+            pose.head.x = 0.30
+            pose.head.z = -0.08
+            pose.leadHip.x += 0.12
+            pose.rearHip.x += 0.16
+            pose.leadKnee.x += 0.20
+            pose.rearKnee.x += 0.25
+        case .smash:
+            pose.rootX = -0.17 * amount
+            pose.rootZ = -0.20 * amount
+            pose.rootRoll = -0.16 * amount
+            pose.pelvis.y -= 0.18
+            pose.pelvis.z = -0.16
+            pose.spine.y -= 0.30
+            pose.spine.z = -0.36
+            pose.head.y = 0.18
+            pose.head.z = -0.28
+            pose.leadHip.x += 0.20
+            pose.rearHip.x += 0.08
+            pose.leadKnee.x += 0.26
+            pose.rearKnee.x += 0.16
+        case .uppercut:
+            pose.rootY = 0.12 * amount
+            pose.rootZ = -0.15 * amount
+            pose.pelvis.x = -0.10
+            pose.spine.x = -0.31
+            pose.head.x = -0.46
+            pose.leadShoulder.x = -0.48
+            pose.rearShoulder.x = -0.46
+            pose.leadHip.x -= 0.10
+            pose.rearHip.x -= 0.08
+            pose.leadKnee.x = max(pose.leadKnee.x - 0.13, 0.12)
+            pose.rearKnee.x = max(pose.rearKnee.x - 0.10, 0.12)
+        }
         return pose
     }
 
@@ -404,6 +437,30 @@ struct Fighter3DPose {
         pose.spineY += (locomotion.spineY - reference.spineY) * upper
         pose.spineZ += (locomotion.spineZ - reference.spineZ) * upper
         pose.spine.z += (locomotion.spine.z - reference.spine.z) * Float(upper)
+        return pose
+    }
+
+    /// Presentation-only exhaustion layer. CombatEngine remains the owner of
+    /// speed and power; this makes its low-stamina penalties readable in the rig.
+    func fatigued(amount: CGFloat, breath: CGFloat) -> Fighter3DPose {
+        let fatigue = min(max(amount, 0), 1)
+        guard fatigue > 0.001 else { return self }
+        var pose = self
+        pose.rootY -= fatigue * 0.060
+        pose.rootY += breath * fatigue * 0.016
+        pose.rootZ -= fatigue * 0.035
+        pose.pelvis.x -= Float(fatigue * 0.060)
+        pose.spine.x -= Float(fatigue * 0.13)
+        pose.spine.z += Float(breath * fatigue * 0.035)
+        pose.head.x += Float(fatigue * 0.075)
+        pose.leadShoulder.x += Float(fatigue * 0.20)
+        pose.rearShoulder.x += Float(fatigue * 0.20)
+        pose.leadElbow.x += Float(fatigue * 0.28)
+        pose.rearElbow.x += Float(fatigue * 0.28)
+        pose.leadHip.x += Float(fatigue * 0.10)
+        pose.rearHip.x += Float(fatigue * 0.10)
+        pose.leadKnee.x += Float(fatigue * 0.12)
+        pose.rearKnee.x += Float(fatigue * 0.12)
         return pose
     }
 }
