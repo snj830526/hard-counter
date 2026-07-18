@@ -35,6 +35,34 @@ enum FighterFullBodyPoseSolver {
             pose.leadAnklePitch += freeFootAmount * 0.055
         }
 
+        // The locomotion planner owns the only step clock. Solve the travelling
+        // foot from that clock so its knee and hip cannot animate on a second,
+        // unrelated cadence while the fighter root is moving.
+        let swing = stepSwing(at: body.stepProgress) * body.stepIntensity
+        let travel = body.localForward * swing * 0.15
+        let lift = swing * (0.055 + abs(body.localLateral) * 0.015)
+        if body.supportFoot == .rear {
+            solveLeg(
+                hip: &pose.leadHip,
+                knee: &pose.leadKnee,
+                anklePitch: &pose.leadAnklePitch,
+                footOffset: CGPoint(x: travel, y: lift),
+                amount: 0.68
+            )
+            pose.leadHip.z += Float(body.localLateral * swing * 0.075)
+            pose.rearHip.z -= Float(body.localLateral * swing * 0.025)
+        } else if body.supportFoot == .lead {
+            solveLeg(
+                hip: &pose.rearHip,
+                knee: &pose.rearKnee,
+                anklePitch: &pose.rearAnklePitch,
+                footOffset: CGPoint(x: travel, y: lift),
+                amount: 0.68
+            )
+            pose.rearHip.z += Float(body.localLateral * swing * 0.075)
+            pose.leadHip.z -= Float(body.localLateral * swing * 0.025)
+        }
+
         // 3. Rib cage and head counter the pelvis instead of being translated
         // separately. This preserves the waist connection in every action.
         pose.spineRoll -= weightBias * 0.055
@@ -47,5 +75,31 @@ enum FighterFullBodyPoseSolver {
         pose.leadElbow.z += Float(weightBias * 0.014)
         pose.rearElbow.z += Float(weightBias * 0.012)
         return pose
+    }
+
+    private static func solveLeg(
+        hip: inout SCNVector3,
+        knee: inout SCNVector3,
+        anklePitch: inout CGFloat,
+        footOffset: CGPoint,
+        amount: CGFloat
+    ) {
+        let solution = FighterLegIK.solve(
+            upperAngle: CGFloat(hip.x),
+            kneeAngle: CGFloat(knee.x),
+            bendDirection: 1,
+            footOffset: footOffset,
+            upperLength: 0.66,
+            lowerLength: 0.64
+        )
+        hip.x += Float(solution.hipCorrection * amount)
+        knee.x += Float(solution.kneeCorrection * amount)
+        // Keep the sole near the canvas while the two-bone chain changes.
+        anklePitch -= (solution.hipCorrection + solution.kneeCorrection) * amount
+    }
+
+    private static func stepSwing(at progress: CGFloat) -> CGFloat {
+        guard progress > 0.10, progress < 0.82 else { return 0 }
+        return sin((progress - 0.10) / 0.72 * .pi)
     }
 }

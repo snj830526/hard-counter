@@ -33,7 +33,8 @@ struct FighterMovementState {
             opponentDirection: normalized(
                 displayedOpponentDirection,
                 fallback: CGVector(dx: facing, dy: 0)
-            )
+            ),
+            bodyMotion: bodyMotion
         )
     }
 
@@ -49,4 +50,5 @@ struct FighterLocomotionInput {
     let localRootDisplacement: CGVector
     let facing: CGFloat
     let opponentDirection: CGVector
+    let bodyMotion: FighterBodyMotionFrame
 }

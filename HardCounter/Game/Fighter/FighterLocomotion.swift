@@ -20,15 +20,8 @@ struct FighterLocomotionFrame {
 }
 
 struct FighterLocomotionController {
-    private let cadence: CGFloat
     private var clock: TimeInterval = 0
-    private var stepProgress: CGFloat = 1
-    private var stepPlaybackRate: CGFloat = 1
     private var displayedIntensity: CGFloat = 0
-    private var stepIntensity: CGFloat = 0
-    private var stepDirection = CGVector(dx: 1, dy: 0)
-    private var frontFootInitiates = true
-    private var previousInputDirection = CGVector(dx: 1, dy: 0)
     private var frontFootPlantOffset = CGPoint.zero
     private var backFootPlantOffset = CGPoint.zero
 
@@ -40,7 +33,10 @@ struct FighterLocomotionController {
     private var displayedUpperRotation: CGFloat = 0
 
     init(cadence: CGFloat = 1) {
-        self.cadence = min(max(cadence, 0.70), 1.35)
+        // Cadence is now consumed by the authoritative body planner. Keep the
+        // argument during the migration so character construction remains API
+        // compatible while the visual controller owns no second step clock.
+        _ = cadence
     }
 
     mutating func update(
@@ -53,6 +49,19 @@ struct FighterLocomotionController {
         let rootDisplacement = input.localRootDisplacement
         let facing = input.facing
         let opponentDirection = input.opponentDirection
+        let bodyMotion = input.bodyMotion
+        let stepProgress = bodyMotion.stepProgress
+        let stepIntensity = bodyMotion.stepIntensity
+        let stepDirection = normalized(
+            bodyMotion.stepDirection,
+            fallback: normalized(movement, fallback: CGVector(dx: facing, dy: 0))
+        )
+        let frontFootInitiates: Bool
+        switch bodyMotion.supportFoot {
+        case .rear: frontFootInitiates = true
+        case .lead: frontFootInitiates = false
+        case .both: frontFootInitiates = bodyMotion.weightOnLeadFoot <= 0.5
+        }
         let commandedIntensity = min(hypot(movement.dx, movement.dy), 1)
         let measuredSpeed = hypot(rootDisplacement.dx, rootDisplacement.dy)
             / max(CGFloat(deltaTime), 0.001)
@@ -71,65 +80,6 @@ struct FighterLocomotionController {
             response: visualResponse,
             deltaTime: deltaTime
         )
-
-        var inputDirection = previousInputDirection
-        if targetIntensity > 0.025 {
-            inputDirection = CGVector(
-                dx: movement.dx / targetIntensity,
-                dy: movement.dy / targetIntensity
-            )
-        }
-
-        let directionDot = inputDirection.dx * stepDirection.dx
-            + inputDirection.dy * stepDirection.dy
-        let directionChanged = targetIntensity > 0.05 && directionDot < 0.35
-
-        if targetIntensity > 0.05, stepProgress < 1 {
-            // The root can turn continuously under an analog stick. Let the
-            // current step arc follow that turn instead of holding a rigid
-            // direction until the next footfall.
-            let turnResponse: CGFloat = directionDot < 0 ? 10.5 : 7.5
-            let blend = 1 - CGFloat(exp(-Double(turnResponse) * deltaTime))
-            let blendedDirection = CGVector(
-                dx: stepDirection.dx + (inputDirection.dx - stepDirection.dx) * blend,
-                dy: stepDirection.dy + (inputDirection.dy - stepDirection.dy) * blend
-            )
-            let blendedLength = max(hypot(blendedDirection.dx, blendedDirection.dy), 0.001)
-            stepDirection = CGVector(
-                dx: blendedDirection.dx / blendedLength,
-                dy: blendedDirection.dy / blendedLength
-            )
-        }
-
-        // Finish a sharp turn quickly without jumping the animation clock.
-        // Skipping directly to the landing phase produced a one-frame foot pop.
-        if directionChanged, stepProgress < 1 {
-            stepPlaybackRate = 2.15
-        }
-
-        if targetIntensity > 0.045, stepProgress >= 1 {
-            beginStep(
-                direction: inputDirection,
-                intensity: targetIntensity,
-                facing: facing,
-                opponentDirection: opponentDirection
-            )
-        }
-
-        if stepProgress < 1 {
-            let stepDuration = (0.36 - Double(stepIntensity) * 0.06)
-                / Double(cadence)
-            stepProgress = min(
-                stepProgress + CGFloat(deltaTime / stepDuration) * stepPlaybackRate,
-                1
-            )
-            if stepProgress >= 1 {
-                stepPlaybackRate = 1
-            }
-        }
-        if targetIntensity > 0.025 {
-            previousInputDirection = inputDirection
-        }
 
         let phase = stepProgress
         // A boxing shuffle is not two walking arcs. Weight loads onto the
@@ -285,39 +235,13 @@ struct FighterLocomotionController {
 
     mutating func reset() {
         clock = 0
-        stepProgress = 1
-        stepPlaybackRate = 1
         displayedIntensity = 0
-        stepIntensity = 0
-        stepDirection = CGVector(dx: 1, dy: 0)
-        frontFootInitiates = true
-        previousInputDirection = CGVector(dx: 1, dy: 0)
         frontFootPlantOffset = .zero
         backFootPlantOffset = .zero
         displayedPelvisPosition = .zero
         displayedPelvisRotation = 0
         displayedUpperPosition = .zero
         displayedUpperRotation = 0
-    }
-
-    private mutating func beginStep(
-        direction: CGVector,
-        intensity: CGFloat,
-        facing: CGFloat,
-        opponentDirection: CGVector
-    ) {
-        stepProgress = 0
-        stepPlaybackRate = 1
-        stepIntensity = max(intensity, 0.42)
-        stepDirection = direction
-
-        let forwardDrive = direction.dx * opponentDirection.dx
-            + direction.dy * opponentDirection.dy
-        let lateralDrive = direction.dx * -opponentDirection.dy
-            + direction.dy * opponentDirection.dx
-        frontFootInitiates = abs(forwardDrive) >= abs(lateralDrive)
-            ? forwardDrive >= 0
-            : lateralDrive * facing >= 0
     }
 
     private func damp(
@@ -359,6 +283,12 @@ struct FighterLocomotionController {
             x: min(max(offset.x, -19), 19),
             y: min(max(offset.y, -11), 11)
         )
+    }
+
+    private func normalized(_ vector: CGVector, fallback: CGVector) -> CGVector {
+        let length = hypot(vector.dx, vector.dy)
+        guard length > 0.001 else { return fallback }
+        return CGVector(dx: vector.dx / length, dy: vector.dy / length)
     }
 }
 

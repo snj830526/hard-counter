@@ -10,6 +10,10 @@ enum FighterSupportFoot {
 struct FighterBodyMotionFrame {
     let intendedMovement: CGVector
     let resolvedMovement: CGVector
+    let stepDirection: CGVector
+    let stepIntensity: CGFloat
+    let localForward: CGFloat
+    let localLateral: CGFloat
     let supportFoot: FighterSupportFoot
     let weightOnLeadFoot: CGFloat
     let centerOfMassOffset: CGPoint
@@ -20,6 +24,10 @@ struct FighterBodyMotionFrame {
     static let neutral = FighterBodyMotionFrame(
         intendedMovement: .zero,
         resolvedMovement: .zero,
+        stepDirection: .zero,
+        stepIntensity: 0,
+        localForward: 0,
+        localLateral: 0,
         supportFoot: .both,
         weightOnLeadFoot: 0.5,
         centerOfMassOffset: .zero,
@@ -50,7 +58,12 @@ struct FighterFullBodyMotionController {
 
         let mobility = mobilityScale(for: phase)
         guard mobility > 0 else {
-            if phase == .hit || phase == .knockedOut { resetStep() }
+            // Defensive actions and impacts establish a new support base.
+            // Resuming a half-finished shuffle after a sway made the first
+            // post-action frame look like the legs belonged to another clip.
+            if phase == .swaying || phase == .hit || phase == .knockedOut {
+                resetStep()
+            }
             return restingFrame(intent: movementIntent)
         }
 
@@ -116,6 +129,10 @@ struct FighterFullBodyMotionController {
         return FighterBodyMotionFrame(
             intendedMovement: movementIntent,
             resolvedMovement: resolved,
+            stepDirection: committedDirection,
+            stepIntensity: committedIntensity,
+            localForward: local.forward,
+            localLateral: local.lateral,
             supportFoot: supportFoot,
             weightOnLeadFoot: weightOnLead,
             centerOfMassOffset: center,
@@ -158,6 +175,10 @@ struct FighterFullBodyMotionController {
         FighterBodyMotionFrame(
             intendedMovement: intent,
             resolvedMovement: .zero,
+            stepDirection: committedDirection,
+            stepIntensity: committedIntensity,
+            localForward: 0,
+            localLateral: 0,
             supportFoot: supportFoot,
             weightOnLeadFoot: supportFoot == .lead ? 0.64 : (supportFoot == .rear ? 0.36 : 0.5),
             centerOfMassOffset: .zero,
