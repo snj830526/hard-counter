@@ -53,6 +53,7 @@ HardCounter/
 │   │   ├── NetworkCombatContainerView.swift
 │   │   └── CombatContainerView.swift
 │   ├── Fighter/
+│   │   ├── Fighter3DAppearanceProfile.swift
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
 │   │   ├── Fighter3DPose.swift
@@ -125,10 +126,11 @@ idle → swaying → idle
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
 - `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 만들고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DAppearanceProfile.swift`: 캐릭터별 몸통·어깨·트렁크·글러브·복싱화의 3D 비율을 정의한다. 관절 사이 길이는 공통으로 유지해 외형 변경이 상·하체 분리나 관절 틈을 만들지 않게 한다.
 - `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
 - `Fighter3DPose.swift`: 3D 관절 포즈, 캐릭터 프로필 적용, 대표 기술의 준비·타격 강조, 포즈 보간과 최종 인체 관절 제한을 담당한다. 렌더러의 노드 생성 코드와 독립적으로 조정할 수 있다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
-- `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
+- `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 장비 스타일 및 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
 - `FighterMotionClip.swift`: 시간축 키프레임, 보간 곡선과 루트·발 고정 오프셋을 샘플링한다. 현재 가드 호흡, 리어 스트레이트와 스트레이트 피격 반응부터 이 경로를 사용한다.
@@ -160,6 +162,7 @@ idle → swaying → idle
 - 절차형 모션은 마지막 적용 단계에서 관절 제한을 반드시 통과한다. 양쪽 무릎은 캐릭터 로컬 좌표에서 같은 해부학적 방향으로만 접히고 고관절의 좌우 벌림을 제한한다. 스탠스의 앞뒤 차이는 다리 뿌리의 깊이로 표현하며 발목은 고관절과 무릎의 합을 보정하되 과회전하지 않는다.
 - 3D 캐릭터의 발바닥 기준점은 링 좌표와 같은 원점을 사용한다. 호흡은 상체에서 처리하고 스웨이는 골반보다 상체 이동 비중을 크게 두어 발이 접촉 그림자에서 떨어지지 않게 한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
+- 캐릭터 외형 비율은 `Fighter3DAppearanceProfile`을 거친다. 체형별로 굵기와 관절 뿌리 위치는 달라질 수 있지만 팔·다리 마디 길이는 리그와 일치시켜 관절 연결을 보존한다.
 - 이동 경계는 링 내부 좌표로 계산하고, 펀치 사거리와 선수 간 최소 간격은 실제 보이는 크기에 맞춰 투영된 화면 거리로 계산한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
 - `CombatScene`이 지나치게 커지면 입력, 이동/충돌, HUD를 별도 객체로 분리한다.

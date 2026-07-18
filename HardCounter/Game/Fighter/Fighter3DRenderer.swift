@@ -329,12 +329,7 @@ final class Fighter3DRenderer {
     }
 
     private func buildFighter(in scene: SCNScene, appearance: FighterAppearance) {
-        let buildScale: CGFloat
-        switch appearance.bodyBuild {
-        case .balanced: buildScale = 1
-        case .heavyweight: buildScale = 1.13
-        case .lean: buildScale = 0.90
-        }
+        let proportions = Fighter3DAppearanceProfile(appearance: appearance)
         let skin = material(appearance.skinColor)
         let shadowSkin = material(appearance.skinShadowColor)
         let kit = material(appearance.kitColor)
@@ -346,21 +341,22 @@ final class Fighter3DRenderer {
         pelvis.position = SCNVector3(0, 1.34, 0)
 
         let shorts = box(
-            width: 0.58 * buildScale,
-            height: 0.40,
-            length: 0.42 * buildScale,
+            width: proportions.shortsWidth,
+            height: proportions.shortsHeight,
+            length: proportions.shortsDepth,
             chamfer: 0.08,
             material: kit
         )
         shorts.position.y = -0.03
         pelvis.addChildNode(shorts)
+        attachKitDetails(appearance.kitStyle, proportions: proportions, kit: kit, accent: accent, to: pelvis)
 
         pelvis.addChildNode(spine)
         spine.position.y = 0.13
         let torso = box(
-            width: 0.82 * buildScale,
+            width: proportions.torsoWidth,
             height: 0.88,
-            length: 0.38 * buildScale,
+            length: proportions.torsoDepth,
             chamfer: 0.18,
             material: skin
         )
@@ -368,9 +364,9 @@ final class Fighter3DRenderer {
         spine.addChildNode(torso)
 
         let chest = box(
-            width: 0.70 * buildScale,
+            width: proportions.chestWidth,
             height: 0.28,
-            length: 0.405 * buildScale,
+            length: proportions.torsoDepth + 0.025,
             chamfer: 0.10,
             material: shadowSkin
         )
@@ -385,49 +381,128 @@ final class Fighter3DRenderer {
         let skull = sphere(radius: 0.25, material: skin)
         skull.scale = SCNVector3(0.88, 1.10, 0.92)
         head.addChildNode(skull)
-        let hairCap = sphere(radius: 0.255, material: hair)
-        hairCap.scale = SCNVector3(0.90, 0.42, 0.94)
-        hairCap.position.y = 0.17
-        head.addChildNode(hairCap)
+        attachHair(appearance.hairStyle, material: hair, to: head)
 
         attachArm(
             shoulder: leadShoulder,
             elbow: leadElbow,
-            x: 0.46 * buildScale,
+            x: proportions.shoulderOffset,
             z: 0.13,
             material: skin,
             gloveMaterial: kit,
+            accentMaterial: accent,
+            proportions: proportions,
             to: spine
         )
         attachArm(
             shoulder: rearShoulder,
             elbow: rearElbow,
-            x: -0.46 * buildScale,
+            x: -proportions.shoulderOffset,
             z: -0.13,
             material: shadowSkin,
             gloveMaterial: kit,
+            accentMaterial: accent,
+            proportions: proportions,
             to: spine
         )
         attachLeg(
             hip: leadHip,
             knee: leadKnee,
             ankle: leadAnkle,
-            x: 0.20 * buildScale,
+            x: proportions.hipOffset,
             z: 0.17 * motionProfile.stanceDepth,
             material: skin,
             shoeMaterial: accent,
+            proportions: proportions,
             to: pelvis
         )
         attachLeg(
             hip: rearHip,
             knee: rearKnee,
             ankle: rearAnkle,
-            x: -0.20 * buildScale,
+            x: -proportions.hipOffset,
             z: -0.17 * motionProfile.stanceDepth,
             material: shadowSkin,
             shoeMaterial: accent,
+            proportions: proportions,
             to: pelvis
         )
+    }
+
+    private func attachKitDetails(
+        _ style: FighterKitStyle,
+        proportions: Fighter3DAppearanceProfile,
+        kit: SCNMaterial,
+        accent: SCNMaterial,
+        to pelvis: SCNNode
+    ) {
+        let waistbandHeight: CGFloat = style == .pressure ? 0.12 : 0.085
+        let waistband = box(
+            width: proportions.shortsWidth + 0.035,
+            height: waistbandHeight,
+            length: proportions.shortsDepth + 0.025,
+            chamfer: 0.025,
+            material: accent
+        )
+        waistband.position.y = 0.16
+        pelvis.addChildNode(waistband)
+
+        switch style {
+        case .classic:
+            let frontPatch = box(width: 0.13, height: 0.16, length: 0.025, chamfer: 0.01, material: accent)
+            frontPatch.position = SCNVector3(0, -0.06, proportions.shortsDepth / 2 + 0.015)
+            pelvis.addChildNode(frontPatch)
+        case .pressure:
+            for side: CGFloat in [-1, 1] {
+                let panel = box(width: 0.105, height: 0.31, length: 0.025, chamfer: 0.015, material: accent)
+                panel.position = SCNVector3(
+                    side * (proportions.shortsWidth / 2 - 0.07),
+                    -0.06,
+                    proportions.shortsDepth / 2 + 0.015
+                )
+                pelvis.addChildNode(panel)
+            }
+        case .speed:
+            for side: CGFloat in [-1, 1] {
+                let stripe = box(width: 0.045, height: 0.30, length: proportions.shortsDepth + 0.02, chamfer: 0.01, material: accent)
+                stripe.position = SCNVector3(side * (proportions.shortsWidth / 2 + 0.006), -0.04, 0)
+                pelvis.addChildNode(stripe)
+            }
+        }
+    }
+
+    private func attachHair(
+        _ style: FighterHairStyle,
+        material: SCNMaterial,
+        to head: SCNNode
+    ) {
+        switch style {
+        case .cropped:
+            let cap = sphere(radius: 0.255, material: material)
+            cap.scale = SCNVector3(0.90, 0.40, 0.94)
+            cap.position.y = 0.17
+            head.addChildNode(cap)
+
+            let hairline = box(width: 0.34, height: 0.08, length: 0.07, chamfer: 0.025, material: material)
+            hairline.position = SCNVector3(0, 0.15, 0.215)
+            head.addChildNode(hairline)
+        case .shaved:
+            let scalp = sphere(radius: 0.252, material: material)
+            scalp.scale = SCNVector3(0.89, 0.16, 0.92)
+            scalp.position.y = 0.22
+            head.addChildNode(scalp)
+        case .swept:
+            let cap = sphere(radius: 0.258, material: material)
+            cap.scale = SCNVector3(0.92, 0.46, 0.96)
+            cap.position.y = 0.17
+            cap.eulerAngles.z = -0.10
+            head.addChildNode(cap)
+
+            let sweep = box(width: 0.29, height: 0.11, length: 0.10, chamfer: 0.035, material: material)
+            sweep.position = SCNVector3(0.075, 0.20, 0.225)
+            sweep.eulerAngles.z = -0.30
+            head.addChildNode(sweep)
+        }
     }
 
     private func attachArm(
@@ -437,18 +512,27 @@ final class Fighter3DRenderer {
         z: CGFloat,
         material: SCNMaterial,
         gloveMaterial: SCNMaterial,
+        accentMaterial: SCNMaterial,
+        proportions: Fighter3DAppearanceProfile,
         to parent: SCNNode
     ) {
         parent.addChildNode(shoulder)
         shoulder.position = SCNVector3(x, 0.84, z)
-        shoulder.addChildNode(sphere(radius: 0.12, material: material))
-        shoulder.addChildNode(segment(length: 0.58, radius: 0.105, material: material))
+        shoulder.addChildNode(sphere(radius: 0.12 * proportions.limbRadiusScale, material: material))
+        shoulder.addChildNode(segment(length: 0.58, radius: 0.105 * proportions.limbRadiusScale, material: material))
         shoulder.addChildNode(elbow)
         elbow.position.y = -0.58
-        elbow.addChildNode(sphere(radius: 0.10, material: material))
-        elbow.addChildNode(segment(length: 0.54, radius: 0.09, material: material))
-        let glove = sphere(radius: 0.17, material: gloveMaterial)
-        glove.scale = SCNVector3(1.0, 0.90, 1.18)
+        elbow.addChildNode(sphere(radius: 0.10 * proportions.limbRadiusScale, material: material))
+        elbow.addChildNode(segment(length: 0.54, radius: 0.09 * proportions.limbRadiusScale, material: material))
+        let cuff = cylinder(radius: 0.105 * proportions.cuffScale, height: 0.16, material: accentMaterial)
+        cuff.position.y = -0.48
+        elbow.addChildNode(cuff)
+        let glove = sphere(radius: proportions.gloveRadius, material: gloveMaterial)
+        glove.scale = SCNVector3(
+            proportions.gloveWidthScale,
+            proportions.gloveHeightScale,
+            proportions.gloveDepthScale
+        )
         glove.position.y = -0.57
         elbow.addChildNode(glove)
     }
@@ -461,19 +545,29 @@ final class Fighter3DRenderer {
         z: CGFloat,
         material: SCNMaterial,
         shoeMaterial: SCNMaterial,
+        proportions: Fighter3DAppearanceProfile,
         to parent: SCNNode
     ) {
         parent.addChildNode(hip)
         hip.position = SCNVector3(x, -0.18, z)
-        hip.addChildNode(sphere(radius: 0.15, material: material))
-        hip.addChildNode(segment(length: 0.66, radius: 0.14, material: material))
+        hip.addChildNode(sphere(radius: 0.15 * proportions.limbRadiusScale, material: material))
+        hip.addChildNode(segment(length: 0.66, radius: 0.14 * proportions.limbRadiusScale, material: material))
         hip.addChildNode(knee)
         knee.position.y = -0.66
-        knee.addChildNode(sphere(radius: 0.115, material: material))
-        knee.addChildNode(segment(length: 0.64, radius: 0.105, material: material))
+        knee.addChildNode(sphere(radius: 0.115 * proportions.limbRadiusScale, material: material))
+        knee.addChildNode(segment(length: 0.64, radius: 0.105 * proportions.limbRadiusScale, material: material))
         knee.addChildNode(ankle)
         ankle.position.y = -0.64
-        let shoe = box(width: 0.22, height: 0.13, length: 0.39, chamfer: 0.055, material: shoeMaterial)
+        let boot = cylinder(radius: 0.115 * proportions.cuffScale, height: 0.18, material: shoeMaterial)
+        boot.position.y = -0.04
+        ankle.addChildNode(boot)
+        let shoe = box(
+            width: proportions.shoeWidth,
+            height: proportions.shoeHeight,
+            length: proportions.shoeLength,
+            chamfer: 0.055,
+            material: shoeMaterial
+        )
         shoe.position = SCNVector3(0, -0.06, 0.10)
         ankle.addChildNode(shoe)
     }
