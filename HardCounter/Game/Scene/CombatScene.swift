@@ -109,6 +109,7 @@ final class CombatScene: SKScene {
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
     private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
+    private let guardCloseupEnabled = ProcessInfo.processInfo.arguments.contains("--guard-closeup")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
@@ -228,6 +229,8 @@ final class CombatScene: SKScene {
             updateFootworkShowcase(at: currentTime)
         } else if fatigueShowcaseEnabled {
             updateFatigueShowcase()
+        } else if guardCloseupEnabled {
+            updateGuardCloseup()
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled || impactShowcaseEnabled {
@@ -474,7 +477,11 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if footworkShowcaseEnabled || fatigueShowcaseEnabled || fighterStyleShowcaseEnabled {
+            if guardCloseupEnabled {
+                playerArenaPosition = CGPoint(x: 0, y: -48)
+                cpuArenaPosition = CGPoint(x: 0, y: 48)
+            } else if footworkShowcaseEnabled || fatigueShowcaseEnabled
+                || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
             } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
@@ -715,7 +722,13 @@ final class CombatScene: SKScene {
         let distance = hypot(delta.dx, delta.dy)
         let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
         let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
-        guard screenDistance < CombatTuning.minimumFighterScreenSeparation else { return }
+        let averagePerspectiveScale = (
+            perspectiveScale(at: playerArenaPosition)
+                + perspectiveScale(at: cpuArenaPosition)
+        ) * 0.5
+        let minimumScreenSeparation = CombatTuning.minimumFighterSeparationAtUnitScale
+            * averagePerspectiveScale
+        guard screenDistance < minimumScreenSeparation else { return }
 
         let direction: CGVector
         if distance > 0.001 {
@@ -726,7 +739,7 @@ final class CombatScene: SKScene {
         let projectedUnit = ringProjection.screenVector(forWorldVector: direction)
         let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
         guard screenPointsPerWorldPoint > 0.001 else { return }
-        let targetWorldDistance = CombatTuning.minimumFighterScreenSeparation / screenPointsPerWorldPoint
+        let targetWorldDistance = minimumScreenSeparation / screenPointsPerWorldPoint
         let correction = max(targetWorldDistance - distance, 0)
         playerArenaPosition = clampedToRing(CGPoint(
             x: playerArenaPosition.x - direction.dx * correction * 0.5,
@@ -744,7 +757,7 @@ final class CombatScene: SKScene {
         let correctedScreenDelta = ringProjection.screenVector(forWorldVector: correctedDelta)
         let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy) * arenaZoom
         let remaining = max(
-            (CombatTuning.minimumFighterScreenSeparation - correctedScreenDistance) / screenPointsPerWorldPoint,
+            (minimumScreenSeparation - correctedScreenDistance) / screenPointsPerWorldPoint,
             0
         )
         guard remaining > 0.001 else { return }
@@ -760,7 +773,7 @@ final class CombatScene: SKScene {
         let finalScreenDelta = ringProjection.screenVector(forWorldVector: finalDelta)
         let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy) * arenaZoom
         let finalRemaining = max(
-            (CombatTuning.minimumFighterScreenSeparation - finalScreenDistance) / screenPointsPerWorldPoint,
+            (minimumScreenSeparation - finalScreenDistance) / screenPointsPerWorldPoint,
             0
         )
         if finalRemaining > 0.001 {
@@ -852,7 +865,13 @@ final class CombatScene: SKScene {
         screenPosition: CGPoint
     ) {
         let progress = ringProjection.depthProgress(at: worldPosition)
-        let scale = perspectiveScale(at: worldPosition) / arenaZoom
+        let closeupScale: CGFloat
+#if DEBUG
+        closeupScale = guardCloseupEnabled ? 2.15 : 1
+#else
+        closeupScale = 1
+#endif
+        let scale = perspectiveScale(at: worldPosition) / arenaZoom * closeupScale
         fighter.setScale(scale)
         fighter.zPosition = 12 + (1 - progress) * 16
 
@@ -958,7 +977,7 @@ final class CombatScene: SKScene {
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
         motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
-            || motionClipShowcaseEnabled || fatigueShowcaseEnabled
+            || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
 #else
         false
 #endif
@@ -1183,6 +1202,16 @@ final class CombatScene: SKScene {
     }
 
 #if DEBUG
+    private func updateGuardCloseup() {
+        cpu.isHidden = true
+        cpuShadow.isHidden = true
+        guard statusLabel.text != "GUARD CLOSEUP" else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = .systemCyan
+        statusLabel.text = "GUARD CLOSEUP"
+    }
+
     private func updateFatigueShowcase() {
         updateStamina(.cpu, stamina: 0)
         guard statusLabel.text != "CPU EXHAUSTED" else { return }
