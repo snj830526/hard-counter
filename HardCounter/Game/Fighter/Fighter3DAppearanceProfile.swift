@@ -6,6 +6,10 @@ struct Fighter3DAppearanceProfile {
     let torsoWidth: CGFloat
     let torsoDepth: CGFloat
     let chestWidth: CGFloat
+    let headWidthScale: CGFloat
+    let headHeightScale: CGFloat
+    let headDepthScale: CGFloat
+    let neckRadius: CGFloat
     let shortsWidth: CGFloat
     let shortsHeight: CGFloat
     let shortsDepth: CGFloat
@@ -27,6 +31,10 @@ struct Fighter3DAppearanceProfile {
             torsoWidth = 0.82
             torsoDepth = 0.38
             chestWidth = 0.70
+            headWidthScale = 0.88
+            headHeightScale = 1.10
+            headDepthScale = 0.92
+            neckRadius = 0.11
             shoulderOffset = 0.46
             hipOffset = 0.20
             limbRadiusScale = 1
@@ -34,6 +42,10 @@ struct Fighter3DAppearanceProfile {
             torsoWidth = 0.94
             torsoDepth = 0.46
             chestWidth = 0.84
+            headWidthScale = 0.98
+            headHeightScale = 1.02
+            headDepthScale = 0.98
+            neckRadius = 0.135
             shoulderOffset = 0.53
             hipOffset = 0.23
             limbRadiusScale = 1.12
@@ -41,6 +53,10 @@ struct Fighter3DAppearanceProfile {
             torsoWidth = 0.72
             torsoDepth = 0.33
             chestWidth = 0.62
+            headWidthScale = 0.82
+            headHeightScale = 1.16
+            headDepthScale = 0.88
+            neckRadius = 0.09
             shoulderOffset = 0.41
             hipOffset = 0.17
             limbRadiusScale = 0.89

@@ -313,6 +313,12 @@ final class Fighter3DRenderer {
         pose.leadAnklePitch = leadLift * 0.11
         pose.rearAnklePitch = rearLift * 0.11
 
+        let guardRhythm = (leadLift - rearLift) * 0.065 * motionProfile.strideCadence
+        pose.leadShoulder.z += Float(guardRhythm)
+        pose.leadElbow.z -= Float(guardRhythm * 0.72)
+        pose.rearShoulder.z -= Float(guardRhythm * 0.82)
+        pose.rearElbow.z += Float(guardRhythm * 0.58)
+
         let screenUpperX = locomotionFrame.upperBodyPosition.x * facingSign * 0.012
         let bodyYaw = atan2(
             opponentScreenDirection.dx,
@@ -469,11 +475,15 @@ final class Fighter3DRenderer {
 
         spine.addChildNode(head)
         head.position = SCNVector3(0, 1.17, 0)
-        let neck = cylinder(radius: 0.11, height: 0.23, material: shadowSkin)
+        let neck = cylinder(radius: proportions.neckRadius, height: 0.23, material: shadowSkin)
         neck.position.y = -0.20
         head.addChildNode(neck)
         let skull = sphere(radius: 0.25, material: skin)
-        skull.scale = SCNVector3(0.88, 1.10, 0.92)
+        skull.scale = SCNVector3(
+            proportions.headWidthScale,
+            proportions.headHeightScale,
+            proportions.headDepthScale
+        )
         head.addChildNode(skull)
         attachHair(appearance.hairStyle, material: hair, to: head)
 

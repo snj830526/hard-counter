@@ -229,6 +229,19 @@ struct Fighter3DPose {
         pose.leadElbow.x -= guardShift * 0.16
         pose.rearElbow.x -= guardShift * 0.16
 
+        if technique == nil {
+            pose.rootZ += profile.forwardBias
+            pose.leadShoulder.x -= Float(profile.leadGuardReach * 0.35)
+            pose.leadElbow.x += Float(profile.leadGuardReach * 1.15)
+            pose.leadShoulder.y += Float(profile.leadGuardReach * 0.30)
+
+            let asymmetry = Float(profile.guardAsymmetry)
+            pose.leadShoulder.x += asymmetry * 0.45
+            pose.leadElbow.x += asymmetry * 0.55
+            pose.rearShoulder.x -= asymmetry * 0.40
+            pose.rearElbow.x -= asymmetry * 0.55
+        }
+
         pose.pelvis.y *= Float(profile.hipDrive)
         pose.spine.y *= Float(profile.hipDrive)
         if pose.rootZ > 0 {
@@ -249,10 +262,17 @@ struct Fighter3DPose {
                 pose.spine.z *= Float(1 + 0.18 * accent)
                 pose.rootY -= 0.025 * accent
             case .uppercut:
-                pose.rootY += 0.055 * accent
-                pose.spine.x += Float(0.095 * accent)
-                pose.leadKnee.x += Float(0.045 * accent)
-                pose.rearKnee.x += Float(0.045 * accent)
+                if signatureIntensity < 0.60 {
+                    pose.rootY -= 0.035 * accent
+                    pose.spine.x += Float(0.055 * accent)
+                    pose.leadKnee.x += Float(0.075 * accent)
+                    pose.rearKnee.x += Float(0.075 * accent)
+                } else {
+                    pose.rootY += 0.070 * accent
+                    pose.spine.x += Float(0.11 * accent)
+                    pose.leadKnee.x -= Float(0.055 * accent)
+                    pose.rearKnee.x -= Float(0.055 * accent)
+                }
             }
         }
         return pose

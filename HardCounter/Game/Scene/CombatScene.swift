@@ -474,7 +474,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if footworkShowcaseEnabled || fatigueShowcaseEnabled {
+            if footworkShowcaseEnabled || fatigueShowcaseEnabled || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
             } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {

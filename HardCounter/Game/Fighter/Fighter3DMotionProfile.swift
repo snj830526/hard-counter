@@ -17,6 +17,9 @@ enum Fighter3DMotionStyle {
                 guardLean: 0,
                 kneeBend: 1,
                 guardTightness: 1,
+                leadGuardReach: 0.04,
+                guardAsymmetry: 0.03,
+                forwardBias: 0,
                 stanceDepth: 1,
                 breathFrequency: 4.4,
                 breathAmplitude: 1,
@@ -36,6 +39,9 @@ enum Fighter3DMotionStyle {
                 guardLean: -0.08,
                 kneeBend: 1.18,
                 guardTightness: 1.18,
+                leadGuardReach: -0.02,
+                guardAsymmetry: 0,
+                forwardBias: 0.055,
                 stanceDepth: 0.82,
                 breathFrequency: 3.7,
                 breathAmplitude: 0.78,
@@ -55,6 +61,9 @@ enum Fighter3DMotionStyle {
                 guardLean: 0.045,
                 kneeBend: 0.82,
                 guardTightness: 0.86,
+                leadGuardReach: 0.14,
+                guardAsymmetry: 0.09,
+                forwardBias: -0.045,
                 stanceDepth: 1.22,
                 breathFrequency: 5.2,
                 breathAmplitude: 1.24,
@@ -74,6 +83,9 @@ enum Fighter3DMotionStyle {
                 guardLean: -0.05,
                 kneeBend: 1.08,
                 guardTightness: 1.08,
+                leadGuardReach: 0.01,
+                guardAsymmetry: 0.02,
+                forwardBias: 0.035,
                 stanceDepth: 0.90,
                 breathFrequency: 4.0,
                 breathAmplitude: 0.88,
@@ -96,6 +108,9 @@ struct Fighter3DMotionProfile {
     let guardLean: CGFloat
     let kneeBend: CGFloat
     let guardTightness: CGFloat
+    let leadGuardReach: CGFloat
+    let guardAsymmetry: CGFloat
+    let forwardBias: CGFloat
     let stanceDepth: CGFloat
     let breathFrequency: CGFloat
     let breathAmplitude: CGFloat
