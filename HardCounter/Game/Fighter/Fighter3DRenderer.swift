@@ -661,6 +661,15 @@ final class Fighter3DRenderer {
         )
         let hair = material(appearance.hairColor, roughness: 0.94, specular: 0.04)
         let eyeWhite = material(UIColor(white: 0.92, alpha: 1), roughness: 0.74, specular: 0.08)
+        let jointSkin = material(
+            blendedColor(
+                appearance.skinColor,
+                appearance.skinShadowColor,
+                amount: 0.30
+            ),
+            roughness: 0.96,
+            specular: 0.02
+        )
 
         scene.rootNode.addChildNode(skeletonRoot)
         skeletonRoot.addChildNode(pelvis)
@@ -714,6 +723,7 @@ final class Fighter3DRenderer {
             x: proportions.shoulderOffset,
             z: 0.13,
             material: skin,
+            jointMaterial: jointSkin,
             gloveMaterial: kit,
             accentMaterial: accent,
             proportions: proportions,
@@ -725,6 +735,7 @@ final class Fighter3DRenderer {
             x: -proportions.shoulderOffset,
             z: -0.13,
             material: shadowSkin,
+            jointMaterial: jointSkin,
             gloveMaterial: kit,
             accentMaterial: accent,
             proportions: proportions,
@@ -737,6 +748,7 @@ final class Fighter3DRenderer {
             x: proportions.hipOffset,
             z: 0.17 * motionProfile.stanceDepth,
             material: skin,
+            jointMaterial: jointSkin,
             shoeMaterial: accent,
             proportions: proportions,
             to: pelvis
@@ -748,6 +760,7 @@ final class Fighter3DRenderer {
             x: -proportions.hipOffset,
             z: -0.17 * motionProfile.stanceDepth,
             material: shadowSkin,
+            jointMaterial: jointSkin,
             shoeMaterial: accent,
             proportions: proportions,
             to: pelvis
@@ -946,6 +959,7 @@ final class Fighter3DRenderer {
         x: CGFloat,
         z: CGFloat,
         material: SCNMaterial,
+        jointMaterial: SCNMaterial,
         gloveMaterial: SCNMaterial,
         accentMaterial: SCNMaterial,
         proportions: Fighter3DAppearanceProfile,
@@ -955,7 +969,7 @@ final class Fighter3DRenderer {
         shoulder.position = SCNVector3(x, 0.84, z)
         shoulder.addChildNode(Fighter3DMeshFactory.joint(
             radius: 0.112 * proportions.limbRadiusScale,
-            material: material
+            material: jointMaterial
         ))
         shoulder.addChildNode(Fighter3DMeshFactory.upperArm(
             length: 0.58,
@@ -966,7 +980,7 @@ final class Fighter3DRenderer {
         elbow.position.y = -0.58
         elbow.addChildNode(Fighter3DMeshFactory.joint(
             radius: 0.086 * proportions.limbRadiusScale,
-            material: material
+            material: jointMaterial
         ))
         elbow.addChildNode(Fighter3DMeshFactory.forearm(
             length: 0.54,
@@ -995,6 +1009,7 @@ final class Fighter3DRenderer {
         x: CGFloat,
         z: CGFloat,
         material: SCNMaterial,
+        jointMaterial: SCNMaterial,
         shoeMaterial: SCNMaterial,
         proportions: Fighter3DAppearanceProfile,
         to parent: SCNNode
@@ -1010,7 +1025,7 @@ final class Fighter3DRenderer {
         knee.position.y = -0.66
         knee.addChildNode(Fighter3DMeshFactory.joint(
             radius: 0.098 * proportions.limbRadiusScale,
-            material: material
+            material: jointMaterial
         ))
         knee.addChildNode(Fighter3DMeshFactory.calf(
             length: 0.64,
@@ -1031,16 +1046,6 @@ final class Fighter3DRenderer {
         )
         shoe.position = SCNVector3(0, -0.06, 0.10)
         ankle.addChildNode(shoe)
-    }
-
-    private func segment(length: CGFloat, radius: CGFloat, material: SCNMaterial) -> SCNNode {
-        let geometry = SCNCapsule(capRadius: radius, height: length)
-        geometry.radialSegmentCount = 6
-        geometry.capSegmentCount = 2
-        geometry.materials = [material]
-        let node = SCNNode(geometry: geometry)
-        node.position.y = Float(-length / 2)
-        return node
     }
 
     private func sphere(radius: CGFloat, material: SCNMaterial) -> SCNNode {
@@ -1092,6 +1097,40 @@ final class Fighter3DRenderer {
         }
         result.lightingModel = .physicallyBased
         return result
+    }
+
+    private func blendedColor(
+        _ first: UIColor,
+        _ second: UIColor,
+        amount: CGFloat
+    ) -> UIColor {
+        var firstRed: CGFloat = 0
+        var firstGreen: CGFloat = 0
+        var firstBlue: CGFloat = 0
+        var firstAlpha: CGFloat = 0
+        var secondRed: CGFloat = 0
+        var secondGreen: CGFloat = 0
+        var secondBlue: CGFloat = 0
+        var secondAlpha: CGFloat = 0
+        guard first.getRed(
+            &firstRed,
+            green: &firstGreen,
+            blue: &firstBlue,
+            alpha: &firstAlpha
+        ), second.getRed(
+            &secondRed,
+            green: &secondGreen,
+            blue: &secondBlue,
+            alpha: &secondAlpha
+        ) else { return first }
+
+        let t = min(max(amount, 0), 1)
+        return UIColor(
+            red: firstRed + (secondRed - firstRed) * t,
+            green: firstGreen + (secondGreen - firstGreen) * t,
+            blue: firstBlue + (secondBlue - firstBlue) * t,
+            alpha: firstAlpha + (secondAlpha - firstAlpha) * t
+        )
     }
 }
 
