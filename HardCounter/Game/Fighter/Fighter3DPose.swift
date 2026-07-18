@@ -379,6 +379,33 @@ struct Fighter3DPose {
             rearKnee: rearKnee.mixed(with: other.rearKnee, amount: t)
         )
     }
+
+    /// Adds only the locomotion deltas that must survive an action transition.
+    /// Punch and sway poses keep their authored hip drive while a foot that was
+    /// already travelling is allowed to land instead of snapping to guard.
+    func applyingLocomotion(
+        _ locomotion: Fighter3DPose,
+        relativeTo reference: Fighter3DPose,
+        upperBodyAmount: CGFloat = 0
+    ) -> Fighter3DPose {
+        var pose = self
+        pose.rootY += locomotion.rootY - reference.rootY
+        pose.rootRoll += locomotion.rootRoll - reference.rootRoll
+        pose.pelvis.z += locomotion.pelvis.z - reference.pelvis.z
+        pose.leadHip.x += locomotion.leadHip.x - reference.leadHip.x
+        pose.rearHip.x += locomotion.rearHip.x - reference.rearHip.x
+        pose.leadKnee.x += locomotion.leadKnee.x - reference.leadKnee.x
+        pose.rearKnee.x += locomotion.rearKnee.x - reference.rearKnee.x
+        pose.leadAnklePitch += locomotion.leadAnklePitch
+        pose.rearAnklePitch += locomotion.rearAnklePitch
+
+        let upper = min(max(upperBodyAmount, 0), 1)
+        pose.spineX += (locomotion.spineX - reference.spineX) * upper
+        pose.spineY += (locomotion.spineY - reference.spineY) * upper
+        pose.spineZ += (locomotion.spineZ - reference.spineZ) * upper
+        pose.spine.z += (locomotion.spine.z - reference.spine.z) * Float(upper)
+        return pose
+    }
 }
 
 extension SCNVector3 {

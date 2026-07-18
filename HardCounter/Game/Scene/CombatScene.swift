@@ -107,9 +107,11 @@ final class CombatScene: SKScene {
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
+    private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
+    private var footworkShowcaseController = FootworkShowcaseController()
 #endif
 
     init(size: CGSize, fighter: FighterProfile) {
@@ -162,6 +164,7 @@ final class CombatScene: SKScene {
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
         motionClipShowcaseController.reset(at: gameTime)
+        footworkShowcaseController.reset(at: gameTime)
 #endif
         haptics.prepare()
         layoutScene()
@@ -184,6 +187,7 @@ final class CombatScene: SKScene {
             motionShowcaseController.reset(at: currentTime)
             swayShowcaseController.reset(at: currentTime)
             motionClipShowcaseController.reset(at: currentTime)
+            footworkShowcaseController.reset(at: currentTime)
 #endif
         }
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
@@ -219,6 +223,8 @@ final class CombatScene: SKScene {
             updateNetworkCombat(at: currentTime)
         } else if motionClipShowcaseEnabled {
             updateMotionClipShowcase(at: currentTime)
+        } else if footworkShowcaseEnabled {
+            updateFootworkShowcase(at: currentTime)
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled || impactShowcaseEnabled {
@@ -465,7 +471,10 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
+            if footworkShowcaseEnabled {
+                playerArenaPosition = CGPoint(x: -92, y: 0)
+                cpuArenaPosition = CGPoint(x: 92, y: 0)
+            } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {
@@ -560,6 +569,10 @@ final class CombatScene: SKScene {
         var cpuTargetMovement = CGVector.zero
         if let networkConfiguration {
             cpuTargetMovement = networkConfiguration.localFighterID == .cpu ? localMovement : remoteMovement
+        } else if let showcaseMovement = footworkShowcaseMovement(at: gameTime) {
+            cpuTargetMovement = ringProjection.worldDirection(
+                forScreenVector: showcaseMovement
+            )
         } else if cpuCanMove {
             cpuTargetMovement = cpuInputSource
                 .movementCommand(for: cpuPerception(at: gameTime))
@@ -942,6 +955,15 @@ final class CombatScene: SKScene {
 #endif
     }
 
+    private func footworkShowcaseMovement(at time: TimeInterval) -> CGVector? {
+#if DEBUG
+        guard footworkShowcaseEnabled else { return nil }
+        return footworkShowcaseController.frame(at: time).screenMovement
+#else
+        return nil
+#endif
+    }
+
     private func cpuPerception(at time: TimeInterval) -> CPUPerception {
         CPUPerception(
             time: time,
@@ -1146,6 +1168,35 @@ final class CombatScene: SKScene {
     }
 
 #if DEBUG
+    private func updateFootworkShowcase(at time: TimeInterval) {
+        let frame = footworkShowcaseController.frame(at: time)
+        let towardPlayer = CGVector(
+            dx: -playerToCPUScreenDirection.dx,
+            dy: -playerToCPUScreenDirection.dy
+        )
+        if let transition = footworkShowcaseController.transition(
+            at: time,
+            state: engine.state(for: .cpu),
+            towardOpponent: towardPlayer
+        ) {
+            statusLabel.removeAllActions()
+            statusLabel.alpha = 1
+            statusLabel.fontColor = .systemCyan
+            statusLabel.text = transition.label
+            execute(FighterCommand(
+                fighter: .cpu,
+                payload: .action(transition.action),
+                issuedAt: time
+            ))
+        } else if engine.state(for: .cpu).phase == .idle,
+                  statusLabel.text != frame.label {
+            statusLabel.removeAllActions()
+            statusLabel.alpha = 1
+            statusLabel.fontColor = frame.screenMovement == .zero ? .systemGreen : .systemYellow
+            statusLabel.text = frame.label
+        }
+    }
+
     private func updateMotionClipShowcase(at time: TimeInterval) {
         guard let label = motionClipShowcaseController.command(
             at: time,
@@ -1531,6 +1582,7 @@ final class CombatScene: SKScene {
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
         motionClipShowcaseController.reset(at: gameTime)
+        footworkShowcaseController.reset(at: gameTime)
 #endif
         statusLabel.removeAllActions()
         statusLabel.text = nil

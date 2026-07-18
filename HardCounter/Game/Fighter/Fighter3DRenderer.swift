@@ -30,6 +30,7 @@ final class Fighter3DRenderer {
     private var swayScreenDirection = CGVector(dx: -1, dy: 0)
     private var swayPerformance: CGFloat = 1
     private var opponentScreenDirection = CGVector(dx: 1, dy: 0)
+    private var facingSign: CGFloat = 1
     private var hitElapsed: TimeInterval?
     private var hitKind: HitKind = .normal
     private var hitProfile = PunchProfile()
@@ -116,6 +117,7 @@ final class Fighter3DRenderer {
 
         let direction = orientation.direction
         opponentScreenDirection = direction
+        facingSign = orientation.facing
         skeletonRoot.eulerAngles.y = Float(atan2(direction.dx, -direction.dy))
 
         let movementAmount = min(hypot(
@@ -160,47 +162,20 @@ final class Fighter3DRenderer {
         movementAmount: CGFloat,
         locomotionFrame: FighterLocomotionFrame
     ) -> Fighter3DPose {
+        let movingGuard = locomotionGuardPose(
+            movementAmount: movementAmount,
+            locomotionFrame: locomotionFrame
+        )
         switch phase {
         case .idle:
-            var pose = guardPose
-            let breath = sin(CGFloat(phaseElapsed) * motionProfile.breathFrequency)
-            pose.spineY += breath * 0.015 * motionProfile.breathAmplitude
-            pose.spinePitch += breath * 0.018 * motionProfile.breathAmplitude
-            guard movementAmount > 0.035 else { return pose }
-
-            let leadLift = min(max(
-                locomotionFrame.frontAnkleLift / 0.105,
-                0
-            ), 1.20)
-            let rearLift = min(max(
-                locomotionFrame.backAnkleLift / 0.105,
-                0
-            ), 1.20)
-            let activeLift = max(leadLift, rearLift)
-            let bounce = motionProfile.footworkBounce
-            let stride = motionProfile.strideLength
-
-            // Use the same planted-foot frame as the 2D rig. The initiating
-            // foot lifts first, then the support foot catches up; neither leg
-            // runs on an independent sine clock anymore.
-            pose.rootY += locomotionFrame.pelvisCompression * 0.009
-            pose.rootY += activeLift * 0.012 * bounce
-            pose.pelvisRoll += locomotionFrame.pelvisRotation * 0.82
-            pose.spineRoll += locomotionFrame.upperBodyRotation * 0.68
-            pose.leadHip.x += Float(leadLift * 0.23 * stride * movementAmount)
-            pose.rearHip.x += Float(rearLift * 0.23 * stride * movementAmount)
-            pose.leadKnee.x += Float(leadLift * 0.28 * movementAmount)
-            pose.rearKnee.x += Float(rearLift * 0.28 * movementAmount)
-            pose.leadAnklePitch = leadLift * 0.11
-            pose.rearAnklePitch = rearLift * 0.11
-            return pose
+            return movingGuard
 
         case .punchStartup:
             let duration = CombatTuning.punchStartup * punchProfile.startupScale
             return guardPose.blended(
                 to: punchLoadPose,
                 amount: smooth(progress(duration))
-            )
+            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.18)
 
         case .punchActive:
             let duration = CombatTuning.punchActive * punchProfile.activeScale
@@ -208,7 +183,7 @@ final class Fighter3DRenderer {
             return punchLoadPose.blended(
                 to: punchStrikePose(power: power),
                 amount: snap(progress(duration))
-            )
+            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.10)
 
         case .punchRecovery:
             let duration = CombatTuning.punchRecovery * punchProfile.recoveryScale
@@ -218,6 +193,7 @@ final class Fighter3DRenderer {
             )
             return punchStrikePose(power: CGFloat(punchProfile.powerScale))
                 .blended(to: guardPose, amount: recovery)
+                .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.14)
 
         case .swaying:
             let amount = sin(min(progress(CombatTuning.swayDuration), 1) * .pi)
@@ -234,10 +210,10 @@ final class Fighter3DRenderer {
             return guardPose.blended(
                 to: swayPose,
                 amount: smooth(amount)
-            )
+            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.08)
 
         case .hit:
-            return guardPose
+            return movingGuard
 
         case .knockedOut:
             let t = smooth(progress(0.52))
@@ -246,6 +222,52 @@ final class Fighter3DRenderer {
                 amount: t
             )
         }
+    }
+
+    private func locomotionGuardPose(
+        movementAmount: CGFloat,
+        locomotionFrame: FighterLocomotionFrame
+    ) -> Fighter3DPose {
+        var pose = guardPose
+        let breath = sin(CGFloat(phaseElapsed) * motionProfile.breathFrequency)
+        pose.spineY += breath * 0.015 * motionProfile.breathAmplitude
+        pose.spinePitch += breath * 0.018 * motionProfile.breathAmplitude
+
+        let leadLift = min(max(locomotionFrame.frontAnkleLift / 0.105, 0), 1.20)
+        let rearLift = min(max(locomotionFrame.backAnkleLift / 0.105, 0), 1.20)
+        let activeLift = max(leadLift, rearLift)
+        let settlingActivity = max(
+            activeLift,
+            min(abs(locomotionFrame.pelvisCompression) * 0.22, 1),
+            min(hypot(
+                locomotionFrame.upperBodyPosition.x,
+                locomotionFrame.upperBodyPosition.y
+            ) * 0.12, 1)
+        )
+        guard movementAmount > 0.025 || settlingActivity > 0.025 else { return pose }
+
+        let bounce = motionProfile.footworkBounce
+        let stride = motionProfile.strideLength
+        pose.rootY += locomotionFrame.pelvisCompression * 0.009
+        pose.rootY += activeLift * 0.012 * bounce
+        pose.pelvisRoll += locomotionFrame.pelvisRotation * 0.82
+        pose.spineRoll += locomotionFrame.upperBodyRotation * 0.68
+        pose.leadHip.x += Float(leadLift * 0.23 * stride)
+        pose.rearHip.x += Float(rearLift * 0.23 * stride)
+        pose.leadKnee.x += Float(leadLift * 0.28)
+        pose.rearKnee.x += Float(rearLift * 0.28)
+        pose.leadAnklePitch = leadLift * 0.11
+        pose.rearAnklePitch = rearLift * 0.11
+
+        let screenUpperX = locomotionFrame.upperBodyPosition.x * facingSign * 0.012
+        let bodyYaw = atan2(
+            opponentScreenDirection.dx,
+            -opponentScreenDirection.dy
+        ) + CGFloat(pose.pelvis.y)
+        pose.spineX += screenUpperX * cos(bodyYaw)
+        pose.spineZ += screenUpperX * sin(bodyYaw)
+        pose.spineY += locomotionFrame.upperBodyPosition.y * 0.007
+        return pose
     }
 
     private var guardPose: Fighter3DPose {
