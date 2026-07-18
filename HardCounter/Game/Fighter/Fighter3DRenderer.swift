@@ -320,12 +320,25 @@ final class Fighter3DRenderer {
         let stride = motionProfile.strideLength
         pose.rootY += locomotionFrame.pelvisCompression * 0.009
         pose.rootY += activeLift * 0.012 * bounce
+        pose.rootY -= locomotionFrame.landingAmount * 0.014
+        pose.rootZ += locomotionFrame.forwardDrive
+            * locomotionFrame.movementIntensity * 0.034
+        pose.rootX += locomotionFrame.lateralDrive
+            * locomotionFrame.movementIntensity * 0.022
         pose.pelvisRoll += locomotionFrame.pelvisRotation * 0.82
         pose.spineRoll += locomotionFrame.upperBodyRotation * 0.68
-        pose.leadHip.x += Float(leadLift * 0.23 * stride)
-        pose.rearHip.x += Float(rearLift * 0.23 * stride)
-        pose.leadKnee.x += Float(leadLift * 0.28)
-        pose.rearKnee.x += Float(rearLift * 0.28)
+        // Hip swing now follows ring travel instead of always lifting both
+        // thighs forward. Retreats extend the initiating leg, lateral shuffles
+        // open the stepping hip, and the knee still folds during clearance.
+        let forwardSwing = locomotionFrame.forwardDrive * 0.15
+        let leadHipSwing = leadLift * (0.09 + forwardSwing) * stride
+        let rearHipSwing = rearLift * (0.09 + forwardSwing) * stride
+        pose.leadHip.x += Float(leadHipSwing)
+        pose.rearHip.x += Float(rearHipSwing)
+        pose.leadHip.z += Float(locomotionFrame.lateralDrive * leadLift * 0.085)
+        pose.rearHip.z += Float(locomotionFrame.lateralDrive * rearLift * 0.085)
+        pose.leadKnee.x += Float(leadLift * (0.23 - min(forwardSwing, 0) * 0.25))
+        pose.rearKnee.x += Float(rearLift * (0.23 - min(forwardSwing, 0) * 0.25))
         pose.leadAnklePitch = leadLift * 0.11
         pose.rearAnklePitch = rearLift * 0.11
 

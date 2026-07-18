@@ -11,6 +11,10 @@ struct FighterLocomotionFrame {
     var upperBodyRotation: CGFloat
     var frontAnkleLift: CGFloat
     var backAnkleLift: CGFloat
+    var movementIntensity: CGFloat
+    var forwardDrive: CGFloat
+    var lateralDrive: CGFloat
+    var landingAmount: CGFloat
 }
 
 struct FighterLocomotionController {
@@ -47,8 +51,18 @@ struct FighterLocomotionController {
         let rootDisplacement = input.localRootDisplacement
         let facing = input.facing
         let opponentDirection = input.opponentDirection
-        let targetIntensity = min(hypot(movement.dx, movement.dy), 1)
-        let visualResponse: CGFloat = targetIntensity > displayedIntensity ? 14.5 : 17.0
+        let commandedIntensity = min(hypot(movement.dx, movement.dy), 1)
+        let measuredSpeed = hypot(rootDisplacement.dx, rootDisplacement.dy)
+            / max(CGFloat(deltaTime), 0.001)
+        let measuredIntensity = min(measuredSpeed / 96, 1)
+        // Drive the feet primarily from actual root travel. A small command
+        // floor lets the support leg preload immediately, while blocked or
+        // heavily slowed movement no longer produces a full-speed shuffle.
+        let targetIntensity = min(
+            commandedIntensity,
+            max(measuredIntensity, commandedIntensity * 0.28)
+        )
+        let visualResponse: CGFloat = targetIntensity > displayedIntensity ? 10.5 : 8.5
         displayedIntensity = damp(
             displayedIntensity,
             toward: targetIntensity,
@@ -101,7 +115,7 @@ struct FighterLocomotionController {
         }
 
         if stepProgress < 1 {
-            let stepDuration = (0.46 - Double(stepIntensity) * 0.08)
+            let stepDuration = (0.36 - Double(stepIntensity) * 0.06)
                 / Double(cadence)
             stepProgress = min(
                 stepProgress + CGFloat(deltaTime / stepDuration) * stepPlaybackRate,
@@ -181,9 +195,9 @@ struct FighterLocomotionController {
         // Stay in a guarded crouch while travelling, then load a little more
         // before push-off and on landing. This is the low, weighty shuffle that
         // keeps the torso from looking bolted onto sliding legs.
-        let guardedCrouch = displayedIntensity * 0.72
+        let guardedCrouch = displayedIntensity * 0.62
         let compression = -(
-            guardedCrouch + preload * 1.45 + landing * 0.90
+            guardedCrouch + preload * 1.08 + landing * 0.72
         ) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
         let weightLoad = supportSign * preload * motionAmplitude * 3.45
@@ -257,7 +271,11 @@ struct FighterLocomotionController {
             upperBodyPosition: displayedUpperPosition,
             upperBodyRotation: displayedUpperRotation,
             frontAnkleLift: frontLift * motionAmplitude * 0.075,
-            backAnkleLift: backLift * motionAmplitude * 0.075
+            backAnkleLift: backLift * motionAmplitude * 0.075,
+            movementIntensity: displayedIntensity,
+            forwardDrive: forwardDrive,
+            lateralDrive: lateralDrive,
+            landingAmount: landing * motionAmplitude
         )
     }
 
