@@ -238,6 +238,11 @@ struct Fighter3DPose {
 
         if technique == nil {
             pose.rootZ += profile.forwardBias
+            // Body proportions change how the same elbow rotation projects on
+            // screen. Closure is a presentation-only correction that keeps
+            // every style's gloves together without erasing stance identity.
+            pose.leadElbow.z += Float(profile.guardClosure)
+            pose.rearElbow.z -= Float(profile.guardClosure)
             pose.leadShoulder.x -= Float(profile.leadGuardReach * 0.35)
             pose.leadElbow.x += Float(profile.leadGuardReach * 1.15)
             pose.leadShoulder.y += Float(profile.leadGuardReach * 0.30)
@@ -259,26 +264,31 @@ struct Fighter3DPose {
             let accent = signatureIntensity * profile.signatureAccent
             switch profile.signatureTechnique {
             case .straight:
-                pose.rootZ += 0.045 * accent
-                pose.spine.x -= Float(0.055 * accent)
-                pose.leadShoulder.x -= Float(0.045 * accent)
-                pose.rearShoulder.x -= Float(0.045 * accent)
+                pose.rootZ += 0.085 * accent
+                pose.rootY += 0.012 * accent
+                pose.spine.x -= Float(0.095 * accent)
+                pose.pelvis.y *= Float(1 + 0.08 * accent)
+                pose.leadShoulder.x -= Float(0.075 * accent)
+                pose.rearShoulder.x -= Float(0.075 * accent)
             case .smash:
                 pose.pelvis.y *= Float(1 + 0.10 * accent)
-                pose.spine.y *= Float(1 + 0.14 * accent)
-                pose.spine.z *= Float(1 + 0.18 * accent)
-                pose.rootY -= 0.025 * accent
+                pose.spine.y *= Float(1 + 0.24 * accent)
+                pose.spine.z *= Float(1 + 0.32 * accent)
+                pose.rootY -= 0.045 * accent
+                pose.leadKnee.x += Float(0.045 * accent)
+                pose.rearKnee.x += Float(0.035 * accent)
             case .uppercut:
                 if signatureIntensity < 0.60 {
-                    pose.rootY -= 0.035 * accent
-                    pose.spine.x += Float(0.055 * accent)
-                    pose.leadKnee.x += Float(0.075 * accent)
-                    pose.rearKnee.x += Float(0.075 * accent)
+                    pose.rootY -= 0.060 * accent
+                    pose.spine.x += Float(0.085 * accent)
+                    pose.leadKnee.x += Float(0.105 * accent)
+                    pose.rearKnee.x += Float(0.105 * accent)
                 } else {
-                    pose.rootY += 0.070 * accent
-                    pose.spine.x += Float(0.11 * accent)
-                    pose.leadKnee.x -= Float(0.055 * accent)
-                    pose.rearKnee.x -= Float(0.055 * accent)
+                    pose.rootY += 0.105 * accent
+                    pose.rootZ += 0.040 * accent
+                    pose.spine.x += Float(0.15 * accent)
+                    pose.leadKnee.x -= Float(0.080 * accent)
+                    pose.rearKnee.x -= Float(0.080 * accent)
                 }
             }
         }
@@ -382,12 +392,12 @@ struct Fighter3DPose {
         pose.leadElbow = pose.leadElbow.clamped(
             x: -3.16...0.10,
             y: -0.62...0.62,
-            z: -1.25...1.25
+            z: -1.75...1.75
         )
         pose.rearElbow = pose.rearElbow.clamped(
             x: -3.16...0.10,
             y: -0.62...0.62,
-            z: -1.25...1.25
+            z: -1.75...1.75
         )
 
         pose.leadHip = pose.leadHip.clamped(
