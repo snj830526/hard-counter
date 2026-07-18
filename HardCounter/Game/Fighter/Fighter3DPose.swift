@@ -44,10 +44,13 @@ struct Fighter3DPose {
         pose.pelvis = SCNVector3(-0.04, 0.16, 0.02)
         pose.spine = SCNVector3(-0.08, -0.08, -0.02)
         pose.head = SCNVector3(0.08, 0, 0)
-        pose.leadShoulder = SCNVector3(-0.64, 0.08, -0.30)
-        pose.leadElbow = SCNVector3(-1.66, 0.04, -0.30)
-        pose.rearShoulder = SCNVector3(-0.76, -0.06, 0.28)
-        pose.rearElbow = SCNVector3(-1.76, -0.02, 0.32)
+        // Keep the elbows low and outside, then angle both forearms inward so
+        // the gloves meet around the chin. From the front the forearms should
+        // read as a clear `八`, not as two parallel arms beside the shoulders.
+        pose.leadShoulder = SCNVector3(-1.05, 0.03, -0.04)
+        pose.leadElbow = SCNVector3(-2.10, 0.01, 1.15)
+        pose.rearShoulder = SCNVector3(-1.00, -0.03, 0.04)
+        pose.rearElbow = SCNVector3(-2.12, -0.01, -0.98)
         pose.leadHip = SCNVector3(-0.16, 0, 0)
         pose.leadKnee = SCNVector3(0.36, 0, 0)
         pose.rearHip = SCNVector3(-0.12, 0, 0)
@@ -308,9 +311,9 @@ struct Fighter3DPose {
         let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
         let travel: CGFloat
         switch swayDirection {
-        case .back: travel = 0.32
-        case .forward: travel = 0.22
-        case .left, .right: travel = 0.30
+        case .back: travel = 0.46
+        case .forward: travel = 0.36
+        case .left, .right: travel = 0.44
         }
         let offset = Fighter3DSwayAlignment.torsoOffset(
             screenDirection: unit,
@@ -344,9 +347,9 @@ struct Fighter3DPose {
         pose.rootZ = clamp(pose.rootZ, minimum: -0.48, maximum: 0.42)
         pose.rootPitch = clamp(pose.rootPitch, minimum: -0.42, maximum: 1.52)
         pose.rootRoll = clamp(pose.rootRoll, minimum: -0.58, maximum: 0.58)
-        pose.spineX = clamp(pose.spineX, minimum: -0.28, maximum: 0.28)
-        pose.spineY = clamp(pose.spineY, minimum: -0.16, maximum: 0.16)
-        pose.spineZ = clamp(pose.spineZ, minimum: -0.28, maximum: 0.28)
+        pose.spineX = clamp(pose.spineX, minimum: -0.52, maximum: 0.52)
+        pose.spineY = clamp(pose.spineY, minimum: -0.24, maximum: 0.24)
+        pose.spineZ = clamp(pose.spineZ, minimum: -0.52, maximum: 0.52)
         pose.leadAnklePitch = clamp(pose.leadAnklePitch, minimum: -0.20, maximum: 0.26)
         pose.rearAnklePitch = clamp(pose.rearAnklePitch, minimum: -0.20, maximum: 0.26)
 
@@ -377,14 +380,14 @@ struct Fighter3DPose {
             z: -0.72...0.72
         )
         pose.leadElbow = pose.leadElbow.clamped(
-            x: -2.06...0.10,
+            x: -3.16...0.10,
             y: -0.62...0.62,
-            z: -0.72...0.72
+            z: -1.25...1.25
         )
         pose.rearElbow = pose.rearElbow.clamped(
-            x: -2.06...0.10,
+            x: -3.16...0.10,
             y: -0.62...0.62,
-            z: -0.72...0.72
+            z: -1.25...1.25
         )
 
         pose.leadHip = pose.leadHip.clamped(

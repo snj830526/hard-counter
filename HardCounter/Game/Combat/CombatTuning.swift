@@ -22,9 +22,9 @@ enum CombatTuning {
     static let punchStartup: TimeInterval = 0.16
     static let punchActive: TimeInterval = 0.07
     static let punchRecovery: TimeInterval = 0.28
-    static let swayDuration: TimeInterval = 0.34
-    static let swayEntryFraction: CGFloat = 0.22
-    static let swayHoldFraction: CGFloat = 0.12
+    static let swayDuration: TimeInterval = 0.46
+    static let swayEntryFraction: CGFloat = 0.18
+    static let swayHoldFraction: CGFloat = 0.10
     static let swayEvadeStartup: TimeInterval = 0.05
     static let swayEvadeActiveDuration: TimeInterval = 0.19
     static let counterWindow: TimeInterval = 0.72
@@ -86,7 +86,10 @@ enum CombatTuning {
     static let counterPunchReachScale: CGFloat = 1.14
     static let smashReachScale: CGFloat = 0.88
     static let uppercutReachScale: CGFloat = 0.78
-    static let minimumFighterScreenSeparation: CGFloat = 56
+    /// Minimum anchor separation before perspective is applied. Scaling this
+    /// with the fighters keeps infighting close without letting near-camera
+    /// bodies visually overlap.
+    static let minimumFighterSeparationAtUnitScale: CGFloat = 62
     static let farPerspectiveScale: CGFloat = 0.62
     static let nearPerspectiveScale: CGFloat = 0.82
 }
