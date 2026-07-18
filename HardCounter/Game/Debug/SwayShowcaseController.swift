@@ -5,14 +5,18 @@ import Foundation
 struct SwayShowcaseController {
     struct Demo {
         let label: String
-        let direction: SwayDirection
+        let screenDirection: CGVector
     }
 
     private let demos = [
-        Demo(label: "CPU SLIP LEFT", direction: .left),
-        Demo(label: "CPU SLIP RIGHT", direction: .right),
-        Demo(label: "CPU PULL BACK", direction: .back),
-        Demo(label: "CPU FORWARD FAIL", direction: .forward)
+        Demo(label: "SWAY 0°", screenDirection: CGVector(dx: 1, dy: 0)),
+        Demo(label: "SWAY 45°", screenDirection: CGVector(dx: 0.707, dy: 0.707)),
+        Demo(label: "SWAY 90°", screenDirection: CGVector(dx: 0, dy: 1)),
+        Demo(label: "SWAY 135°", screenDirection: CGVector(dx: -0.707, dy: 0.707)),
+        Demo(label: "SWAY 180°", screenDirection: CGVector(dx: -1, dy: 0)),
+        Demo(label: "SWAY 225°", screenDirection: CGVector(dx: -0.707, dy: -0.707)),
+        Demo(label: "SWAY 270°", screenDirection: CGVector(dx: 0, dy: -1)),
+        Demo(label: "SWAY 315°", screenDirection: CGVector(dx: 0.707, dy: -0.707))
     ]
     private var index = 0
     private var nextDemoAt: TimeInterval?
@@ -33,29 +37,13 @@ struct SwayShowcaseController {
         let demo = demos[index % demos.count]
         index += 1
         self.nextDemoAt = time + 1.35
-        let toward = normalized(towardOpponent)
-        let screenDirection: CGVector
-        switch demo.direction {
-        case .left:
-            screenDirection = CGVector(dx: -toward.dy, dy: toward.dx)
-        case .right:
-            screenDirection = CGVector(dx: toward.dy, dy: -toward.dx)
-        case .back:
-            screenDirection = CGVector(dx: -toward.dx, dy: -toward.dy)
-        case .forward:
-            screenDirection = toward
-        }
-        return (demo, SwayIntent(
-            direction: demo.direction,
-            isTowardOpponent: demo.direction == .forward,
-            screenDirection: screenDirection
-        ))
-    }
-
-    private func normalized(_ vector: CGVector) -> CGVector {
-        let length = hypot(vector.dx, vector.dy)
-        guard length > 0.001 else { return CGVector(dx: -1, dy: 0) }
-        return CGVector(dx: vector.dx / length, dy: vector.dy / length)
+        return (
+            demo,
+            SwayInputResolver.resolve(
+                movement: demo.screenDirection,
+                towardOpponent: towardOpponent
+            )
+        )
     }
 }
 #endif

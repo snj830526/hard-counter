@@ -1311,8 +1311,17 @@ final class CombatScene: SKScene {
         ) else { return }
         statusLabel.removeAllActions()
         statusLabel.alpha = 1
-        statusLabel.fontColor = demo.direction == .forward ? .systemRed : .systemYellow
+        statusLabel.fontColor = intent.isTowardOpponent ? .systemRed : .systemYellow
         statusLabel.text = demo.label
+        let playerIntent = SwayInputResolver.resolve(
+            movement: demo.screenDirection,
+            towardOpponent: playerToCPUScreenDirection
+        )
+        execute(FighterCommand(
+            fighter: .player,
+            payload: .action(.sway(playerIntent)),
+            issuedAt: time
+        ))
         execute(FighterCommand(
             fighter: .cpu,
             payload: .action(.sway(intent)),
