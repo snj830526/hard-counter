@@ -92,34 +92,38 @@ struct Fighter3DPose {
         pose.rootY += technique == .uppercut ? 0.10 : 0
         pose.pelvis.y += 0.36 * handSign * Float(power)
         pose.spine.y += 0.48 * handSign * Float(power)
-        pose.spine.x -= technique == .straight ? 0.12 : 0.02
-        if technique == .smash { pose.spine.z += 0.20 * handSign }
+        pose.spine.x += technique == .straight ? 0.12 : -0.02
+        if technique == .smash { pose.spine.z += 0.08 * handSign }
         if technique == .uppercut { pose.spine.x += 0.25 }
 
         if hand == .rear {
             pose.rearShoulder = technique == .uppercut
-                ? SCNVector3(-1.12, 0.18, 0.12)
-                : SCNVector3(-1.52, 0.02, 0.05)
+                ? SCNVector3(-1.14, -0.10, 0.14)
+                : (technique == .smash
+                    ? SCNVector3(-1.30, -0.18, 0.16)
+                    : SCNVector3(-1.52, 0.02, 0.05))
             if technique == .uppercut {
-                // Fold the forearm upward through the chin line. A nearly
-                // straight elbow made the glove travel down like an overhand.
-                pose.rearElbow = SCNVector3(-1.42, -0.04, 0.12)
+                // Keep a visible bend while extending the glove through the
+                // opponent's chin line instead of folding it into our face.
+                pose.rearElbow = SCNVector3(-1.00, -0.05, 0.14)
             } else {
                 pose.rearElbow = technique == .smash
-                    ? SCNVector3(-0.28, 0, 0.46)
+                    ? SCNVector3(-0.82, -0.04, 0.32)
                     : SCNVector3(-0.08, 0, 0.03)
             }
             pose.rearHip.x -= 0.18
             pose.rearKnee.x += 0.08
         } else {
             pose.leadShoulder = technique == .uppercut
-                ? SCNVector3(-1.08, -0.16, -0.10)
-                : SCNVector3(-1.48, -0.02, -0.05)
+                ? SCNVector3(-1.10, 0.10, -0.12)
+                : (technique == .smash
+                    ? SCNVector3(-1.26, 0.18, -0.15)
+                    : SCNVector3(-1.48, -0.02, -0.05))
             if technique == .uppercut {
-                pose.leadElbow = SCNVector3(-1.44, 0.04, -0.12)
+                pose.leadElbow = SCNVector3(-1.02, 0.05, -0.13)
             } else {
                 pose.leadElbow = technique == .smash
-                    ? SCNVector3(-0.24, 0, -0.42)
+                    ? SCNVector3(-0.80, 0.04, -0.30)
                     : SCNVector3(-0.06, 0, -0.03)
             }
             pose.leadHip.x -= 0.14
@@ -243,7 +247,7 @@ struct Fighter3DPose {
             case .straight:
                 pose.rootZ += 0.085 * accent
                 pose.rootY += 0.012 * accent
-                pose.spine.x -= Float(0.095 * accent)
+                pose.spine.x += Float(0.095 * accent)
                 pose.pelvis.y *= Float(1 + 0.08 * accent)
                 pose.leadShoulder.x -= Float(0.075 * accent)
                 pose.rearShoulder.x -= Float(0.075 * accent)

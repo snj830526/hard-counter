@@ -7,6 +7,7 @@ import SceneKit
 struct FighterFullBodyActionFrame {
     let forward: CGFloat
     let lateral: CGFloat
+    let screenHorizontal: CGFloat
     let intensity: CGFloat
     let compression: CGFloat
     let weightShift: CGFloat
@@ -15,6 +16,7 @@ struct FighterFullBodyActionFrame {
     static let neutral = FighterFullBodyActionFrame(
         forward: 0,
         lateral: 0,
+        screenHorizontal: 0,
         intensity: 0,
         compression: 0,
         weightShift: 0,
@@ -51,7 +53,10 @@ enum FighterFullBodyActionPoseSolver {
 
         // The root displacement is deliberately smaller than the chest arc.
         // A sway is a weight transfer inside the stance, not a teleport.
-        pose.rootX += lateral * 0.16
+        // Root position belongs to the renderer's parent coordinate space, so
+        // screen-horizontal intent must not be mirrored through fighter-local
+        // handedness. Local lateral still owns the anatomical weight transfer.
+        pose.rootX += frame.screenHorizontal * amount * 0.20
         pose.rootZ += forward * 0.17
         pose.pelvisRoll += lateral * 0.10
         pose.pelvis.x += Float(-forward * 0.12 + compression * 0.045)
@@ -109,11 +114,11 @@ enum FighterFullBodyActionPoseSolver {
 
         switch technique {
         case .straight:
-            pose.spinePitch -= reach * 0.045
+            pose.spinePitch += reach * 0.045
             if hand == .rear { pose.rearAnklePitch += max(reach, 0) * 0.10 }
         case .smash:
-            pose.rootRoll += handSign * reach * 0.055
-            pose.spineRoll += handSign * reach * 0.085
+            pose.rootRoll += handSign * reach * 0.025
+            pose.spineRoll += handSign * reach * 0.040
         case .uppercut:
             // Load downward, then extend both legs under the rising fist.
             let rise = max(reach - compression * 0.35, 0)

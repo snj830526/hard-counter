@@ -41,9 +41,6 @@ final class Fighter3DRenderer {
     private var targetStaminaFraction: CGFloat = 1
     private var displayedStaminaFraction: CGFloat = 1
     private var lastAppliedPose = Fighter3DPose.guardPose
-    private var transitionSourcePose: Fighter3DPose?
-    private var transitionElapsed: TimeInterval = 0
-    private var transitionDuration: TimeInterval = 0
 
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         self.motionStyle = motionStyle
@@ -66,11 +63,6 @@ final class Fighter3DRenderer {
     }
 
     func show(phase newPhase: FighterPhase) {
-        if newPhase != phase {
-            transitionSourcePose = lastAppliedPose
-            transitionElapsed = 0
-            transitionDuration = inertialTransitionDuration(to: newPhase)
-        }
         phase = newPhase
         phaseElapsed = 0
         if newPhase == .idle {
@@ -125,9 +117,6 @@ final class Fighter3DRenderer {
         targetStaminaFraction = 1
         displayedStaminaFraction = 1
         lastAppliedPose = guardPose
-        transitionSourcePose = nil
-        transitionElapsed = 0
-        transitionDuration = 0
         skeletonRoot.opacity = 1
         apply(guardPose)
     }
@@ -140,7 +129,6 @@ final class Fighter3DRenderer {
     ) {
         guard deltaTime > 0 else { return }
         phaseElapsed += deltaTime
-        transitionElapsed += deltaTime
         if hitElapsed != nil { hitElapsed! += deltaTime }
         let staminaBlend = 1 - exp(-CGFloat(deltaTime) * 7.5)
         displayedStaminaFraction += (
@@ -165,13 +153,6 @@ final class Fighter3DRenderer {
             body: movement.bodyMotion,
             to: pose
         )
-        if let source = transitionSourcePose, transitionDuration > 0 {
-            let amount = smooth(CGFloat(min(transitionElapsed / transitionDuration, 1)))
-            pose = source.blended(to: pose, amount: amount)
-            if transitionElapsed >= transitionDuration {
-                transitionSourcePose = nil
-            }
-        }
         if let hitElapsed {
             let duration = hitKind == .counter
                 ? CombatTuning.counterHitReaction
@@ -199,6 +180,11 @@ final class Fighter3DRenderer {
         let fatigue = 1 - min(displayedStaminaFraction / 0.28, 1)
         let fatigueBreath = sin(CGFloat(phaseElapsed) * 5.2)
         pose = pose.fatigued(amount: fatigue, breath: fatigueBreath)
+        pose = inertializedPose(
+            toward: pose,
+            movementAmount: movementAmount,
+            deltaTime: deltaTime
+        )
         apply(pose)
     }
 
@@ -208,11 +194,11 @@ final class Fighter3DRenderer {
         switch punchProfile.technique {
         case .straight:
             pose.rootZ += 0.10 * drive
-            pose.spinePitch -= 0.055 * drive
+            pose.spinePitch += 0.055 * drive
             pose.pelvis.y += Float(0.08 * handSign * drive)
         case .smash:
             pose.rootZ += 0.07 * drive
-            pose.rootRoll += 0.07 * handSign * drive
+            pose.rootRoll += 0.04 * handSign * drive
             pose.pelvis.y += Float(0.16 * handSign * drive)
             pose.spine.y += Float(0.20 * handSign * drive)
         case .uppercut:
@@ -231,10 +217,10 @@ final class Fighter3DRenderer {
         case .straight:
             pose.rootZ += 0.15 * overreach
             pose.rootY -= 0.025 * overreach
-            pose.spinePitch -= 0.11 * overreach
+            pose.spinePitch += 0.11 * overreach
         case .smash:
             pose.rootZ += 0.09 * overreach
-            pose.rootRoll += 0.12 * handSign * overreach
+            pose.rootRoll += 0.07 * handSign * overreach
             pose.spine.y += Float(0.24 * handSign * overreach)
         case .uppercut:
             pose.rootZ += 0.10 * overreach
@@ -317,6 +303,7 @@ final class Fighter3DRenderer {
             frame: FighterFullBodyActionFrame(
                 forward: -0.18,
                 lateral: handSign * 0.18,
+                screenHorizontal: 0,
                 intensity: power,
                 compression: 0.72,
                 weightShift: activeHand == .rear ? -0.82 : 0.68,
@@ -348,6 +335,7 @@ final class Fighter3DRenderer {
             frame: FighterFullBodyActionFrame(
                 forward: 0.72,
                 lateral: handSign * 0.20,
+                screenHorizontal: 0,
                 intensity: power,
                 compression: 0.48,
                 weightShift: activeHand == .rear ? -0.25 : 0.28,
@@ -362,6 +350,7 @@ final class Fighter3DRenderer {
             frame: FighterFullBodyActionFrame(
                 forward: 1,
                 lateral: handSign * 0.30,
+                screenHorizontal: 0,
                 intensity: power,
                 compression: punchProfile.technique == .uppercut ? 0.12 : 0.20,
                 weightShift: activeHand == .rear ? 0.72 : -0.42,
@@ -379,10 +368,10 @@ final class Fighter3DRenderer {
             followPose.rootRoll += handSign * 0.035 * power
             followPose.pelvis.y += Float(handSign * 0.11 * power)
             followPose.spine.y += Float(handSign * 0.15 * power)
-            followPose.spinePitch -= 0.07 * power
+            followPose.spinePitch += 0.07 * power
         case .smash:
             followPose.rootZ += 0.075 * power
-            followPose.rootRoll += handSign * 0.13 * power
+            followPose.rootRoll += handSign * 0.06 * power
             followPose.pelvis.y += Float(handSign * 0.16 * power)
             followPose.spine.y += Float(handSign * 0.20 * power)
         case .uppercut:
@@ -418,9 +407,12 @@ final class Fighter3DRenderer {
         let guardPose = guardPose
         let components = swayMotionComponents()
         let performance = min(max(swayPerformance, 0.72), 1.20)
+        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
+        let screenHorizontal = swayScreenDirection.dx / swayLength
         let loadFrame = FighterFullBodyActionFrame(
             forward: components.forward * 0.22,
             lateral: -components.lateral * 0.18,
+            screenHorizontal: -screenHorizontal * 0.18,
             intensity: performance,
             compression: 0.58,
             weightShift: -components.lateral * 0.35,
@@ -434,6 +426,7 @@ final class Fighter3DRenderer {
         let evadeFrame = FighterFullBodyActionFrame(
             forward: components.forward,
             lateral: components.lateral,
+            screenHorizontal: screenHorizontal,
             intensity: performance * motionProfile.swayRange,
             compression: 0.88 + abs(components.forward) * 0.18,
             weightShift: components.lateral,
@@ -448,6 +441,7 @@ final class Fighter3DRenderer {
         let apexFrame = FighterFullBodyActionFrame(
             forward: components.forward * 1.04,
             lateral: components.lateral * 1.06,
+            screenHorizontal: screenHorizontal * 1.06,
             intensity: performance * motionProfile.swayRange,
             compression: 1.0,
             weightShift: components.lateral,
@@ -844,7 +838,7 @@ final class Fighter3DRenderer {
                 if isStrike {
                     pose.rootZ += 0.24 * power
                     pose.rootY += 0.045 * power
-                    pose.spinePitch -= 0.15 * power
+                    pose.spinePitch += 0.15 * power
                     pose.pelvis.y += Float(handSign * 0.22 * power)
                     pose.spine.y += Float(handSign * 0.18 * power)
                     if activeHand == .rear {
@@ -872,16 +866,44 @@ final class Fighter3DRenderer {
         CGFloat(min(max(phaseElapsed / max(duration, 0.001), 0), 1))
     }
 
-    private func inertialTransitionDuration(to phase: FighterPhase) -> TimeInterval {
+    /// Pose-space inertialization keeps state changes continuous while allowing
+    /// each body group to retain a distinct boxing rhythm. It is deliberately
+    /// phase-aware: the fist snaps, the evasive torso reacts quickly, and the
+    /// body settles back into stance with visibly more weight.
+    private func inertializedPose(
+        toward target: Fighter3DPose,
+        movementAmount: CGFloat,
+        deltaTime: TimeInterval
+    ) -> Fighter3DPose {
+        let responses: (lower: CGFloat, torso: CGFloat, arms: CGFloat)
         switch phase {
-        case .idle: return 0.11
-        case .punchStartup: return 0.065
-        case .punchActive: return 0.026
-        case .punchRecovery: return 0.050
-        case .swaying: return 0.070
-        case .hit: return 0.030
-        case .knockedOut: return 0.080
+        case .idle:
+            responses = movementAmount > 0.03
+                ? (28, 17, 15)
+                : (12, 8.5, 9.5)
+        case .punchStartup:
+            responses = (24, 21, 24)
+        case .punchActive:
+            responses = (34, 42, 58)
+        case .punchRecovery:
+            responses = (14, 15, 22)
+        case .swaying:
+            responses = (25, 36, 27)
+        case .hit:
+            responses = (42, 52, 48)
+        case .knockedOut:
+            responses = (12, 14, 13)
         }
+
+        func amount(for response: CGFloat) -> CGFloat {
+            1 - CGFloat(exp(-Double(response) * deltaTime))
+        }
+        return lastAppliedPose.stagedBlend(
+            to: target,
+            lowerBody: amount(for: responses.lower),
+            torso: amount(for: responses.torso),
+            arms: amount(for: responses.arms)
+        )
     }
 
     private func apply(_ pose: Fighter3DPose) {
