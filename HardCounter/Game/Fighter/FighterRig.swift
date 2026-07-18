@@ -5,6 +5,7 @@ final class FighterRig {
     let skinColor: SKColor
     let animationRoot = SKNode()
     let locomotionRoot = SKNode()
+    let actionRoot = SKNode()
     let body = SKNode()
     let pelvisMotionRoot = SKNode()
     let pelvisPoseRoot = SKNode()
@@ -99,7 +100,8 @@ final class FighterRig {
     private func build(facing: CGFloat) {
         animationRoot.xScale = facing
         animationRoot.addChild(locomotionRoot)
-        locomotionRoot.addChild(body)
+        locomotionRoot.addChild(actionRoot)
+        actionRoot.addChild(body)
         body.addChild(pelvisMotionRoot)
         pelvisMotionRoot.addChild(pelvisPoseRoot)
         body.addChild(upperBodyMotionRoot)

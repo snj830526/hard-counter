@@ -83,8 +83,10 @@ final class CombatScene: SKScene {
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
+    private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
+    private var motionClipShowcaseController = MotionClipShowcaseController()
 #endif
 
     init(size: CGSize, fighter: FighterProfile) {
@@ -136,6 +138,7 @@ final class CombatScene: SKScene {
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
+        motionClipShowcaseController.reset(at: gameTime)
 #endif
         haptics.prepare()
         layoutScene()
@@ -157,6 +160,7 @@ final class CombatScene: SKScene {
 #if DEBUG
             motionShowcaseController.reset(at: currentTime)
             swayShowcaseController.reset(at: currentTime)
+            motionClipShowcaseController.reset(at: currentTime)
 #endif
         }
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
@@ -190,6 +194,8 @@ final class CombatScene: SKScene {
 #if DEBUG
         if networkConfiguration != nil {
             updateNetworkCombat(at: currentTime)
+        } else if motionClipShowcaseEnabled {
+            updateMotionClipShowcase(at: currentTime)
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled || impactShowcaseEnabled {
@@ -423,7 +429,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if impactShowcaseEnabled {
+            if impactShowcaseEnabled || motionClipShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {
@@ -569,6 +575,9 @@ final class CombatScene: SKScene {
         previousCPUPosition: CGPoint,
         deltaTime: TimeInterval
     ) {
+        // Hit stop freezes the presentation timeline only. The combat engine
+        // continues to advance so solo and nearby matches keep identical rules.
+        let motionDeltaTime = arenaNode.speed == 0 ? 0 : deltaTime
         player.updateMotion(
             FighterMovementState(
                 screenMovement: playerMovement,
@@ -578,7 +587,7 @@ final class CombatScene: SKScene {
                 ),
                 towardOpponent: playerToCPUScreenDirection
             ),
-            deltaTime: deltaTime
+            deltaTime: motionDeltaTime
         )
         cpu.updateMotion(
             FighterMovementState(
@@ -592,7 +601,7 @@ final class CombatScene: SKScene {
                     dy: -playerToCPUScreenDirection.dy
                 )
             ),
-            deltaTime: deltaTime
+            deltaTime: motionDeltaTime
         )
     }
 
@@ -889,6 +898,7 @@ final class CombatScene: SKScene {
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
         motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
+            || motionClipShowcaseEnabled
 #else
         false
 #endif
@@ -1098,6 +1108,22 @@ final class CombatScene: SKScene {
     }
 
 #if DEBUG
+    private func updateMotionClipShowcase(at time: TimeInterval) {
+        guard let label = motionClipShowcaseController.command(
+            at: time,
+            state: engine.state(for: .cpu)
+        ) else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = label.hasPrefix("CLIP") ? .systemCyan : .systemYellow
+        statusLabel.text = label
+        execute(FighterCommand(
+            fighter: .cpu,
+            payload: .action(.punch(.neutral)),
+            issuedAt: time
+        ))
+    }
+
     private func updateSwayShowcase(at time: TimeInterval) {
         let towardPlayer = CGVector(
             dx: -playerToCPUScreenDirection.dx,
@@ -1456,6 +1482,7 @@ final class CombatScene: SKScene {
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
+        motionClipShowcaseController.reset(at: gameTime)
 #endif
         statusLabel.removeAllActions()
         statusLabel.text = nil
