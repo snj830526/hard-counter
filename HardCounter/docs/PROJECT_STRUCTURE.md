@@ -78,6 +78,7 @@ HardCounter/
 │   │   └── NearbyLobbyService.swift
 │   └── Scene/
 │       ├── ArenaVisualPalette.swift
+│       ├── ArenaViewTuning.swift
 │       ├── BoxingRingNode.swift
 │       ├── CombatScene.swift
 │       └── QuarterViewProjection.swift
@@ -106,8 +107,9 @@ HardCounter/
 
 ### 장면 계층
 
-- `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
+- `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 선수 간 거리에 따라 동적 줌과 데드존 추적을 적용하되 HUD는 고정한다.
 - `ArenaVisualPalette.swift`: 2D 링의 조명 표시와 3D 파이터의 키·림 라이트가 공유하는 색상 팔레트를 정의한다.
+- `ArenaViewTuning.swift`: 링의 실제 이동 면적, 시작 위치, 원·근거리 카메라 배율, 선수 화면 크기와 추적 반응을 한곳에서 조정한다. 화면 배율과 히트 판정의 화면 스케일이 함께 변경되도록 기준을 제공한다.
 - `BoxingRingNode.swift`: 쿼터 뷰 축을 따르는 캔버스 패널과 봉제선, 조명 면, 로프, 포스트 및 저채도 로우폴리 관중석을 생성한다. 3D 캐릭터보다 배경이 튀지 않도록 색과 명암을 제한한다.
 - `QuarterViewProjection.swift`: 정사각형 링 내부 좌표를 대각선 쿼터 뷰 화면 좌표로 변환하고, 화면 입력을 다시 링 이동 방향으로 역변환한다.
 
