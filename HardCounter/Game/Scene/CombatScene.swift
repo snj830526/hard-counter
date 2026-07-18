@@ -987,9 +987,16 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
-        return visibleFighterDistance() <= maximumVisiblePunchDistance(
-            for: attacker,
-            armReachScale: motionReachScale
+        let attackerNode = attacker == .player ? player : cpu
+        let defenderNode = attacker == .player ? cpu : player
+        return PunchContactGeometry.intersectsFighter(
+            attackerPosition: attackerNode.position,
+            attackerScale: attackerNode.xScale,
+            aimDirection: attackerNode.committedPunchAimDirection,
+            defenderPosition: defenderNode.position,
+            defenderScale: defenderNode.xScale,
+            profile: profile,
+            reachScale: motionReachScale
                 * techniqueReachScale
                 * CGFloat(profile.reachScale)
         )

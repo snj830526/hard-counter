@@ -36,7 +36,8 @@ HardCounter/
 │   │   ├── CombatEngine.swift
 │   │   ├── CombatTuning.swift
 │   │   ├── FighterCombatStyle.swift
-│   │   └── FighterStats.swift
+│   │   ├── FighterStats.swift
+│   │   └── PunchContactGeometry.swift
 │   ├── Debug/
 │   │   ├── FootworkShowcaseController.swift
 │   │   ├── MotionClipShowcaseController.swift
@@ -117,6 +118,7 @@ HardCounter/
 
 - `CombatEngine.swift`: 선수 상태와 전투 단계 전이를 관리한다. 이동 의도와 펀치 리듬으로 펀치 프로필을 만들고 스웨이 방향·유효 시간을 판정하며 SpriteKit 노드에 직접 의존하지 않는다.
 - `CombatTuning.swift`: 피해량, 프레임 시간, 이동 속도, 사거리, 연출 시간 등 조정 가능한 수치를 모은다.
+- `PunchContactGeometry.swift`: 펀치 시작 시 고정한 화면 방향으로 기술별 선분 궤적을 만들고, 상대의 머리·몸통 타원과 실제로 교차할 때만 접촉으로 판정한다.
 - `FighterStats.swift`: 선수별 최대 체력, 최대 스태미너와 이동 속도 배율을 정의하며 저스태미너 기준도 최대치 비율로 계산한다.
 - `FighterCombatStyle.swift`: 선수별 기술의 위력, 발동, 활성, 회복, 스태미너 소모와 사거리 배율을 정의한다. 표현용 모션 프로필과 분리되며 양 기기의 `CombatEngine`이 같은 선수 ID에 같은 스타일을 적용한다.
 
