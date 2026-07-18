@@ -32,6 +32,14 @@ enum FighterProfile: String, CaseIterable, Identifiable {
         }
     }
 
+    var combatTraitName: String {
+        switch self {
+        case .allRounder: "카운터 강화 · 어퍼컷 효율"
+        case .pressure: "스매시 위력 · 높은 소모"
+        case .outBoxer: "스트레이트 속도 · 긴 사거리"
+        }
+    }
+
     var color: UIColor {
         switch self {
         case .allRounder: .systemCyan
@@ -54,6 +62,22 @@ enum FighterProfile: String, CaseIterable, Identifiable {
 
     var swiftUIColor: Color { Color(uiColor: color) }
 
+    var motionStyle: Fighter3DMotionStyle {
+        switch self {
+        case .allRounder: .allRounder
+        case .pressure: .pressure
+        case .outBoxer: .outBoxer
+        }
+    }
+
+    var combatStyle: FighterCombatStyle {
+        switch self {
+        case .allRounder: .balancedCounter
+        case .pressure: .pressure
+        case .outBoxer: .outBoxer
+        }
+    }
+
     var appearance: FighterAppearance {
         switch self {
         case .allRounder:
@@ -64,7 +88,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 accentColor: UIColor(red: 0.02, green: 0.20, blue: 0.26, alpha: 1),
                 hairColor: UIColor(red: 0.08, green: 0.07, blue: 0.07, alpha: 1),
                 bodyBuild: .balanced,
-                hairStyle: .cropped
+                hairStyle: .cropped,
+                kitStyle: .classic
             )
         case .pressure:
             FighterAppearance(
@@ -74,7 +99,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 accentColor: UIColor(red: 0.30, green: 0.02, blue: 0.04, alpha: 1),
                 hairColor: UIColor(red: 0.08, green: 0.055, blue: 0.04, alpha: 1),
                 bodyBuild: .heavyweight,
-                hairStyle: .shaved
+                hairStyle: .shaved,
+                kitStyle: .pressure
             )
         case .outBoxer:
             FighterAppearance(
@@ -84,7 +110,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 accentColor: UIColor(red: 0.12, green: 0.05, blue: 0.32, alpha: 1),
                 hairColor: UIColor(red: 0.16, green: 0.09, blue: 0.055, alpha: 1),
                 bodyBuild: .lean,
-                hairStyle: .swept
+                hairStyle: .swept,
+                kitStyle: .speed
             )
         }
     }

@@ -11,14 +11,16 @@ final class CombatScene: SKScene {
     private let ringNode = BoxingRingNode()
     private lazy var player = FighterNode(
         facingRight: true,
-        appearance: fighterProfile.appearance
+        appearance: fighterProfile.appearance,
+        motionStyle: fighterProfile.motionStyle
     )
     private lazy var cpu = FighterNode(
         facingRight: false,
-        appearance: opponentProfile?.appearance ?? .cpuRival
+        appearance: opponentProfile?.appearance ?? .cpuRival,
+        motionStyle: cpuMotionStyle
     )
-    private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
-    private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
+    private let playerShadow = FighterGroundShadowNode()
+    private let cpuShadow = FighterGroundShadowNode()
     private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
     private lazy var cpuHealthBar = SKSpriteNode(
         color: opponentProfile?.color ?? .systemOrange,
@@ -38,7 +40,9 @@ final class CombatScene: SKScene {
 
     private lazy var engine = CombatEngine(
         playerStats: fighterProfile.stats,
-        cpuStats: opponentProfile?.stats ?? .standard
+        cpuStats: opponentProfile?.stats ?? .standard,
+        playerStyle: fighterProfile.combatStyle,
+        cpuStyle: cpuCombatStyle
     )
     private lazy var localInputSource = LocalInputSource(
         fighter: networkConfiguration?.localFighterID ?? .player
@@ -79,7 +83,26 @@ final class CombatScene: SKScene {
         idleThreshold: 0.012
     )
     private let arenaZoom: CGFloat = 2.20
+
+    private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
+        if fighterStyleShowcaseEnabled {
+            return fighterProfile.motionStyle
+        }
+#endif
+        return opponentProfile?.motionStyle ?? .rival
+    }
+
+    private var cpuCombatStyle: FighterCombatStyle {
+#if DEBUG
+        if fighterStyleShowcaseEnabled {
+            return fighterProfile.combatStyle
+        }
+#endif
+        return opponentProfile?.combatStyle ?? .rival
+    }
+#if DEBUG
+    private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
@@ -232,6 +255,12 @@ final class CombatScene: SKScene {
         }
         guard countdownEndsAt == nil else { return }
 
+        // A second finger can press SWAY before UIKit delivers the pending
+        // touchesMoved callback for the stick finger. Re-sample the active
+        // stick from this event so the committed sway uses what the player is
+        // actually holding on this exact frame, not the previous frame.
+        refreshActiveMovement(from: event)
+
         // UIKit delivers simultaneous touches as a Set. Resolve SWAY before
         // PUNCH so a near-simultaneous two-button chain is deterministic and
         // the punch enters the sway buffer instead of randomly starting first.
@@ -281,6 +310,21 @@ final class CombatScene: SKScene {
         }
     }
 
+    private func refreshActiveMovement(from event: UIEvent?) {
+        guard let activeTouches = event?.allTouches else { return }
+        for touch in activeTouches where touch.phase != .ended && touch.phase != .cancelled {
+            let latestTouch = event?.coalescedTouches(for: touch)?.last ?? touch
+            if localInputSource.updateMovement(
+                touchID: ObjectIdentifier(touch),
+                vector: controls.continuedMovement(at: latestTouch.location(in: self)),
+                at: gameTime
+            ) {
+                refreshMovementIndicator()
+                return
+            }
+        }
+    }
+
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             let identifier = ObjectIdentifier(touch)
@@ -306,8 +350,6 @@ final class CombatScene: SKScene {
         addChild(cameraRig)
         cameraRig.addChild(arenaNode)
         arenaNode.addChild(ringNode)
-        configureShadow(playerShadow)
-        configureShadow(cpuShadow)
         arenaNode.addChild(playerShadow)
         arenaNode.addChild(cpuShadow)
         player.zPosition = 10
@@ -394,12 +436,6 @@ final class CombatScene: SKScene {
         bar.zPosition = 10
     }
 
-    private func configureShadow(_ shadow: SKShapeNode) {
-        shadow.fillColor = .black.withAlphaComponent(0.34)
-        shadow.strokeColor = .clear
-        shadow.zPosition = 5
-    }
-
     private func configureNameLabel(
         _ label: SKLabelNode,
         text: String,
@@ -429,7 +465,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if impactShowcaseEnabled || motionClipShowcaseEnabled {
+            if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {
@@ -795,7 +831,7 @@ final class CombatScene: SKScene {
 
     private func applyPerspective(
         to fighter: FighterNode,
-        shadow: SKShapeNode,
+        shadow: FighterGroundShadowNode,
         worldPosition: CGPoint,
         screenPosition: CGPoint
     ) {
@@ -804,9 +840,8 @@ final class CombatScene: SKScene {
         fighter.setScale(scale)
         fighter.zPosition = 12 + (1 - progress) * 16
 
-        shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 2)
-        shadow.xScale = scale
-        shadow.yScale = scale
+        shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 1)
+        shadow.applyPerspective(scale: scale, depthProgress: progress)
         shadow.zPosition = fighter.zPosition - 1
     }
 
@@ -830,7 +865,10 @@ final class CombatScene: SKScene {
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
         return visibleFighterDistance()
-            <= baseVisiblePunchReach(for: attacker) * motionReachScale * techniqueReachScale
+            <= baseVisiblePunchReach(for: attacker)
+                * motionReachScale
+                * techniqueReachScale
+                * CGFloat(profile.reachScale)
     }
 
     private func visibleFighterDistance() -> CGFloat {
@@ -1230,6 +1268,16 @@ final class CombatScene: SKScene {
                 node(for: fighter).show(phase: phase)
             case let .punchStarted(fighter, hand, profile):
                 node(for: fighter).preparePunch(hand, profile: profile)
+#if DEBUG
+                if fighterStyleShowcaseEnabled, fighter == .cpu {
+                    statusLabel.text = String(
+                        format: "PWR %.2f  SPD %.2f  RNG %.2f",
+                        profile.powerScale,
+                        1 / profile.startupScale,
+                        profile.reachScale
+                    )
+                }
+#endif
             case let .punchMissed(fighter, profile):
                 node(for: fighter).playWhiff(profile)
             case let .swayStarted(fighter, direction, screenDirection, performance):

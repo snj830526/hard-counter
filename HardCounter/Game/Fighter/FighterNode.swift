@@ -3,6 +3,8 @@ import SpriteKit
 final class FighterNode: SKNode {
     private var facing: CGFloat
     private let rig: FighterRig
+    private let threeDRenderer: Fighter3DRenderer
+    private let usesThreeDRenderer: Bool
     private var activePunchHand: PunchHand = .lead
     private var activePunchProfile = PunchProfile()
     private var activePunchAimDirection = CGVector(dx: 1, dy: 0)
@@ -45,12 +47,25 @@ final class FighterNode: SKNode {
     private var backAnkleMotionRoot: SKNode { rig.backAnkleMotionRoot }
     private var headAnchor: SKNode { rig.headAnchor }
 
-    init(facingRight: Bool, appearance: FighterAppearance) {
+    init(
+        facingRight: Bool,
+        appearance: FighterAppearance,
+        motionStyle: Fighter3DMotionStyle
+    ) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
         rig = FighterRig(facing: facing, appearance: appearance)
+        threeDRenderer = Fighter3DRenderer(
+            appearance: appearance,
+            motionStyle: motionStyle
+        )
+        usesThreeDRenderer = !ProcessInfo.processInfo.arguments.contains("--legacy-2d-fighters")
         super.init()
         addChild(rig.animationRoot)
+        addChild(threeDRenderer.spriteNode)
+        rig.animationRoot.isHidden = usesThreeDRenderer
+        threeDRenderer.spriteNode.isHidden = !usesThreeDRenderer
+        threeDRenderer.spriteNode.isPlaying = usesThreeDRenderer
         apply(.guardPose)
     }
 
@@ -60,6 +75,7 @@ final class FighterNode: SKNode {
     func show(phase: FighterPhase) {
         currentPhase = phase
         isInNeutralPose = phase == .idle
+        threeDRenderer.show(phase: phase)
         switch phase {
         case .idle:
             motionClipPlayer.finishAction()
@@ -137,6 +153,7 @@ final class FighterNode: SKNode {
     func preparePunch(_ hand: PunchHand, profile: PunchProfile) {
         activePunchHand = hand
         activePunchProfile = profile
+        threeDRenderer.preparePunch(hand, profile: profile)
         // Lock the exact continuous aim vector at commitment. The opponent may
         // keep moving during startup, but the fist should finish along one
         // readable line instead of snapping between projected pose updates.
@@ -151,6 +168,11 @@ final class FighterNode: SKNode {
         activeSwayDirection = direction
         activeSwayScreenDirection = screenDirection
         activeSwayPerformance = CGFloat(performance)
+        threeDRenderer.prepareSway(
+            direction,
+            screenDirection: screenDirection,
+            performance: CGFloat(performance)
+        )
     }
 
     private func applyOrientation(_ frame: FighterOrientationFrame) {
@@ -297,9 +319,16 @@ final class FighterNode: SKNode {
         headAnchor.zRotation = -(
             upperBodyPoseRoot.zRotation + upperBodyMotionRoot.zRotation
         ) * 0.46
+        threeDRenderer.update(
+            movement: movementState,
+            orientation: orientationFrame,
+            locomotionFrame: frame,
+            deltaTime: deltaTime
+        )
     }
 
     func playHit(_ kind: HitKind, profile: PunchProfile = PunchProfile()) {
+        threeDRenderer.playHit(kind, profile: profile)
         let baseDistance = kind == .counter
             ? CombatTuning.counterKnockback
             : CombatTuning.normalKnockback
@@ -384,6 +413,7 @@ final class FighterNode: SKNode {
     }
 
     func playHitConfirm(_ profile: PunchProfile) {
+        threeDRenderer.playHitConfirm(profile)
         if profile.technique == .straight, motionClipPlayer.isPlayingAction { return }
         body.removeAction(forKey: "impact")
         let travel: CGFloat
@@ -401,6 +431,7 @@ final class FighterNode: SKNode {
     }
 
     func playWhiff(_ profile: PunchProfile) {
+        threeDRenderer.playWhiff(profile)
         if profile.technique == .straight, motionClipPlayer.isPlayingAction { return }
         body.removeAction(forKey: "impact")
         let travel: CGFloat
@@ -466,6 +497,7 @@ final class FighterNode: SKNode {
         backLegAnchor.position.y = 36
         locomotion.reset()
         motionClipPlayer.reset()
+        threeDRenderer.reset()
         appliedPose = .guardPose
         isInNeutralPose = true
         currentPhase = .idle

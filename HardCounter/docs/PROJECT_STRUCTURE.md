@@ -35,6 +35,7 @@ HardCounter/
 │   ├── Combat/
 │   │   ├── CombatEngine.swift
 │   │   ├── CombatTuning.swift
+│   │   ├── FighterCombatStyle.swift
 │   │   └── FighterStats.swift
 │   ├── Debug/
 │   │   ├── MotionClipShowcaseController.swift
@@ -52,6 +53,12 @@ HardCounter/
 │   │   ├── NetworkCombatContainerView.swift
 │   │   └── CombatContainerView.swift
 │   ├── Fighter/
+│   │   ├── Fighter3DAppearanceProfile.swift
+│   │   ├── Fighter3DRenderer.swift
+│   │   ├── Fighter3DMotionProfile.swift
+│   │   ├── Fighter3DPose.swift
+│   │   ├── Fighter3DSwayAlignment.swift
+│   │   ├── FighterGroundShadowNode.swift
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
 │   │   ├── FighterAppearance.swift
@@ -69,6 +76,7 @@ HardCounter/
 │   │   ├── NearbyLobbyModels.swift
 │   │   └── NearbyLobbyService.swift
 │   └── Scene/
+│       ├── ArenaVisualPalette.swift
 │       ├── BoxingRingNode.swift
 │       ├── CombatScene.swift
 │       └── QuarterViewProjection.swift
@@ -98,7 +106,8 @@ HardCounter/
 ### 장면 계층
 
 - `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
-- `BoxingRingNode.swift`: 링 바닥, 로프, 포스트, 관중과 배경을 생성한다.
+- `ArenaVisualPalette.swift`: 2D 링의 조명 표시와 3D 파이터의 키·림 라이트가 공유하는 색상 팔레트를 정의한다.
+- `BoxingRingNode.swift`: 쿼터 뷰 축을 따르는 캔버스 패널과 봉제선, 조명 면, 로프, 포스트 및 저채도 로우폴리 관중석을 생성한다. 3D 캐릭터보다 배경이 튀지 않도록 색과 명암을 제한한다.
 - `QuarterViewProjection.swift`: 정사각형 링 내부 좌표를 대각선 쿼터 뷰 화면 좌표로 변환하고, 화면 입력을 다시 링 이동 방향으로 역변환한다.
 
 ### 전투 계층
@@ -106,6 +115,7 @@ HardCounter/
 - `CombatEngine.swift`: 선수 상태와 전투 단계 전이를 관리한다. 이동 의도와 펀치 리듬으로 펀치 프로필을 만들고 스웨이 방향·유효 시간을 판정하며 SpriteKit 노드에 직접 의존하지 않는다.
 - `CombatTuning.swift`: 피해량, 프레임 시간, 이동 속도, 사거리, 연출 시간 등 조정 가능한 수치를 모은다.
 - `FighterStats.swift`: 선수별 최대 체력, 최대 스태미너와 이동 속도 배율을 정의하며 저스태미너 기준도 최대치 비율로 계산한다.
+- `FighterCombatStyle.swift`: 선수별 기술의 위력, 발동, 활성, 회복, 스태미너 소모와 사거리 배율을 정의한다. 표현용 모션 프로필과 분리되며 양 기기의 `CombatEngine`이 같은 선수 ID에 같은 스타일을 적용한다.
 
 전투 상태는 대략 다음 순서로 흐른다.
 
@@ -119,14 +129,20 @@ idle → swaying → idle
 ### 표현 및 입력 계층
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
+- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 만들고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. `FighterLocomotionFrame`의 앞발 선행·뒷발 추종 위상을 공유하며, 머리부터 복싱화까지 들어오는 공통 카메라 프레임과 링 접점 정렬도 담당한다. 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DAppearanceProfile.swift`: 캐릭터별 몸통·어깨·트렁크·글러브·복싱화의 3D 비율을 정의한다. 관절 사이 길이는 공통으로 유지해 외형 변경이 상·하체 분리나 관절 틈을 만들지 않게 한다.
+- `FighterGroundShadowNode.swift`: 발밑 접촉 그림자와 광원 방향을 따르는 연한 투영 그림자를 합성하고 링 깊이에 따른 원근 크기를 적용한다.
+- `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
+- `Fighter3DPose.swift`: 3D 관절 포즈, 캐릭터 프로필 적용, 대표 기술의 준비·타격 강조, 포즈 보간과 최종 인체 관절 제한을 담당한다. 렌더러의 노드 생성 코드와 독립적으로 조정할 수 있다.
+- `Fighter3DSwayAlignment.swift`: 스틱의 화면 방향을 현재 선수와 골반 회전에 맞는 3D 상체 로컬 X/Z 이동으로 역변환한다. 대각선 구도에서도 화면상 스웨이가 반전되지 않도록 순수 계산으로 분리한다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
-- `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
+- `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 장비 스타일 및 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
 - `FighterMotionClip.swift`: 시간축 키프레임, 보간 곡선과 루트·발 고정 오프셋을 샘플링한다. 현재 가드 호흡, 리어 스트레이트와 스트레이트 피격 반응부터 이 경로를 사용한다.
 - `MotionClipShowcaseController.swift`: Debug 실행에서 기존 리드 스트레이트와 시간축 리어 스트레이트를 번갈아 재생해 새 모션 경로를 A/B 비교한다.
 - `SwayShowcaseController.swift`: Debug 실행에서 좌우 슬립·풀백·전진 실패를 일정한 간격으로 반복해 스웨이 실루엣을 비교한다.
-- `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 프레임 데이터로 계산한다.
+- `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 실제 화면 이동량에 따른 발 고정, 앞발–뒷발 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 공통 프레임 데이터로 계산한다. 2D와 3D 표현이 같은 발 리듬을 소비한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
 - `FighterCommand.swift`: 이동과 전투 행동을 선수 식별자·입력 시각과 함께 전달하는 공통 명령 형식과 입력 소스 규약을 정의한다.
 - `LocalInputSource.swift`: 이동 터치, 최근 스웨이 방향, 스웨이–펀치 버퍼를 소유하고 플레이어 명령을 만든다.
@@ -147,7 +163,14 @@ idle → swaying → idle
 - 시각 노드는 전투 이벤트를 받아 표현하되 승패 규칙을 결정하지 않는다.
 - 모션 계산은 `FighterLocomotionController`, `FighterPoseResolver`, `FighterMotionClipPlayer`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
 - 시간축 클립은 루트 이동과 양발의 상쇄 오프셋을 함께 기록해 체중 이동 중에도 발이 매트에서 미끄러지지 않게 한다. 검증된 클립만 기존 상태 전환 모션을 단계적으로 대체한다.
+- 3D 스파이크는 `FighterNode` 아래의 표현만 교체한다. 링 좌표, 히트 판정, 입력, CPU와 네트워크 메시지 형식은 2D 렌더러와 공유하므로 실험을 폐기해도 전투 로직에는 영향이 없어야 한다.
+- 캐릭터 기본 능력치는 `FighterStats`, 기술 규칙은 `FighterCombatStyle`, 외형은 `FighterAppearance`, 모션 개성과 대표 기술 연출은 `Fighter3DMotionProfile`이 각각 소유한다. 전투 규칙과 표현 프로필은 직접 참조하지 않고 `FighterProfile`에서 명시적으로 짝을 맞춘다.
+- 절차형 모션은 마지막 적용 단계에서 관절 제한을 반드시 통과한다. 양쪽 무릎은 캐릭터 로컬 좌표에서 같은 해부학적 방향으로만 접히고 고관절의 좌우 벌림을 제한한다. 스탠스의 앞뒤 차이는 다리 뿌리의 깊이로 표현하며 발목은 고관절과 무릎의 합을 보정하되 과회전하지 않는다.
+- 스웨이 입력의 `screenDirection`은 네트워크 전송 전후에 그대로 유지하고, 3D 표현 직전에만 `Fighter3DSwayAlignment`로 로컬 좌표화한다. 스웨이 종류는 회피 성공과 후속 기술을, 연속 화면 벡터는 보이는 머리 이동을 각각 담당한다.
+- 3D 풋워크는 독립 애니메이션 시계를 만들지 않는다. `FighterNode`가 실제 화면 이동으로 계산한 `FighterLocomotionFrame`을 2D·3D 리그에 함께 전달해 가속, 감속과 급반전 중에도 발 순서가 캐릭터 이동과 어긋나지 않게 한다.
+- 3D 캐릭터의 발바닥 기준점은 링 좌표와 같은 원점을 사용한다. 호흡은 상체에서 처리하고 스웨이는 골반보다 상체 이동 비중을 크게 두어 발이 접촉 그림자에서 떨어지지 않게 한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
+- 캐릭터 외형 비율은 `Fighter3DAppearanceProfile`을 거친다. 체형별로 굵기와 관절 뿌리 위치는 달라질 수 있지만 팔·다리 마디 길이는 리그와 일치시켜 관절 연결을 보존한다.
 - 이동 경계는 링 내부 좌표로 계산하고, 펀치 사거리와 선수 간 최소 간격은 실제 보이는 크기에 맞춰 투영된 화면 거리로 계산한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
 - `CombatScene`이 지나치게 커지면 입력, 이동/충돌, HUD를 별도 객체로 분리한다.

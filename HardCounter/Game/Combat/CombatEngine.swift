@@ -42,6 +42,7 @@ struct PunchProfile {
     var startupScale: Double = 1
     var activeScale: Double = 1
     var recoveryScale: Double = 1
+    var reachScale: Double = 1
 }
 
 enum PunchHand {
@@ -131,14 +132,18 @@ enum CombatEvent {
 
 struct CombatEngine {
     private let fighterStats: [FighterID: FighterStats]
+    private let fighterStyles: [FighterID: FighterCombatStyle]
     private(set) var states: [FighterID: FighterCombatState]
     private(set) var winner: FighterID?
 
     init(
         playerStats: FighterStats = .standard,
-        cpuStats: FighterStats = .standard
+        cpuStats: FighterStats = .standard,
+        playerStyle: FighterCombatStyle = .standard,
+        cpuStyle: FighterCombatStyle = .standard
     ) {
         fighterStats = [.player: playerStats, .cpu: cpuStats]
+        fighterStyles = [.player: playerStyle, .cpu: cpuStyle]
         states = [
             .player: FighterCombatState(stats: playerStats),
             .cpu: FighterCombatState(stats: cpuStats)
@@ -197,14 +202,21 @@ struct CombatEngine {
                 technique: technique,
                 intent: intent,
                 state: state(for: fighter),
-                time: time
+                time: time,
+                style: fighterStyles[fighter] ?? .standard
             )
             states[fighter]?.activePunchHand = hand
             states[fighter]?.activePunchProfile = profile
+            if profile.motion == .counter {
+                states[fighter]?.counterWindowEndsAt = 0
+            }
             states[fighter]?.nextPunchHand = hand.opposite
             states[fighter]?.lastPunchAt = time
             let staminaEvent = spendStamina(
-                staminaCost(for: technique),
+                staminaCost(for: technique)
+                    * (fighterStyles[fighter] ?? .standard)
+                        .modifier(for: technique, motion: profile.motion)
+                        .stamina,
                 for: fighter,
                 at: time
             )
@@ -326,21 +338,19 @@ struct CombatEngine {
             ]
         }
 
-        let counterWindowEndsAt = state(for: attacker).counterWindowEndsAt
-        let isCounter = attacker == .player && counterWindowEndsAt > 0 && time <= counterWindowEndsAt
+        let isCounter = profile.motion == .counter
         let kind: HitKind = isCounter ? .counter : .normal
         let damage = isCounter
             ? max(
                 1,
                 Int(
                     (Double(CombatTuning.counterDamage)
-                        * min(profile.powerScale / 1.25, 1)).rounded()
+                        * min(profile.powerScale / 1.25, 1.12)).rounded()
                 )
             )
             : max(1, Int((Double(CombatTuning.normalDamage) * profile.powerScale).rounded()))
         let remainingHealth = max(0, defenderState.health - damage)
         states[defender]?.health = remainingHealth
-        states[attacker]?.counterWindowEndsAt = 0
 
         var events: [CombatEvent] = [
             .hit(
@@ -389,7 +399,8 @@ struct CombatEngine {
         technique: PunchTechnique,
         intent: PunchIntent,
         state: FighterCombatState,
-        time: TimeInterval
+        time: TimeInterval,
+        style: FighterCombatStyle
     ) -> PunchProfile {
         let hasCounter = state.counterWindowEndsAt > 0 && time <= state.counterWindowEndsAt
         let rhythmScale: Double
@@ -416,6 +427,7 @@ struct CombatEngine {
         } else {
             motion = .quick
         }
+        let styleModifier = style.modifier(for: technique, motion: motion)
 
         let handScale = hand == .lead ? 0.86 : 1.06
         let techniquePowerScale: Double
@@ -438,7 +450,7 @@ struct CombatEngine {
                 1.28
             )
         let performance = staminaPerformance(for: state)
-        let powerScale = basePowerScale * performance
+        let powerScale = basePowerScale * performance * styleModifier.power
         let fatigueRecoveryScale = 1 + (1 - performance) * 1.65
         let fatigueStartupScale = 1 + (1 - performance) * 0.65
         let techniqueStartupScale: Double
@@ -467,10 +479,11 @@ struct CombatEngine {
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
                 startupScale: (hand == .lead ? 0.80 : 0.96)
-                    * fatigueStartupScale * techniqueStartupScale,
-                activeScale: techniqueActiveScale,
+                    * fatigueStartupScale * techniqueStartupScale * styleModifier.startup,
+                activeScale: techniqueActiveScale * styleModifier.active,
                 recoveryScale: (hand == .lead ? 0.82 : 1.02)
-                    * fatigueRecoveryScale * techniqueRecoveryScale
+                    * fatigueRecoveryScale * techniqueRecoveryScale * styleModifier.recovery,
+                reachScale: styleModifier.reach
             )
         case .retreating:
             return PunchProfile(
@@ -478,9 +491,10 @@ struct CombatEngine {
                 motion: motion,
                 powerScale: powerScale * 0.92,
                 lateralDrive: intent.lateralDrive,
-                startupScale: 0.84 * fatigueStartupScale * techniqueStartupScale,
-                activeScale: techniqueActiveScale,
-                recoveryScale: 0.86 * fatigueRecoveryScale * techniqueRecoveryScale
+                startupScale: 0.84 * fatigueStartupScale * techniqueStartupScale * styleModifier.startup,
+                activeScale: techniqueActiveScale * styleModifier.active,
+                recoveryScale: 0.86 * fatigueRecoveryScale * techniqueRecoveryScale * styleModifier.recovery,
+                reachScale: styleModifier.reach
             )
         case .driving:
             return PunchProfile(
@@ -489,10 +503,11 @@ struct CombatEngine {
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
                 startupScale: (hand == .lead ? 0.88 : 1.05)
-                    * fatigueStartupScale * techniqueStartupScale,
-                activeScale: techniqueActiveScale,
+                    * fatigueStartupScale * techniqueStartupScale * styleModifier.startup,
+                activeScale: techniqueActiveScale * styleModifier.active,
                 recoveryScale: (hand == .lead ? 0.94 : 1.12)
-                    * fatigueRecoveryScale * techniqueRecoveryScale
+                    * fatigueRecoveryScale * techniqueRecoveryScale * styleModifier.recovery,
+                reachScale: styleModifier.reach
             )
         case .counter:
             return PunchProfile(
@@ -500,9 +515,10 @@ struct CombatEngine {
                 motion: motion,
                 powerScale: powerScale,
                 lateralDrive: intent.lateralDrive,
-                startupScale: 0.68 * fatigueStartupScale * techniqueStartupScale,
-                activeScale: techniqueActiveScale,
-                recoveryScale: 1.08 * fatigueRecoveryScale * techniqueRecoveryScale
+                startupScale: 0.68 * fatigueStartupScale * techniqueStartupScale * styleModifier.startup,
+                activeScale: techniqueActiveScale * styleModifier.active,
+                recoveryScale: 1.08 * fatigueRecoveryScale * techniqueRecoveryScale * styleModifier.recovery,
+                reachScale: styleModifier.reach
             )
         }
     }
