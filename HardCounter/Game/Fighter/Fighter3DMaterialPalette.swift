@@ -17,11 +17,7 @@ struct Fighter3DMaterialPalette {
         skin = Self.make(appearance.skinColor, roughness: 0.66, specular: 0.20)
         shadowSkin = Self.make(appearance.skinShadowColor, roughness: 0.72, specular: 0.14)
         jointSkin = Self.make(
-            Self.blend(
-                appearance.skinColor,
-                appearance.skinShadowColor,
-                amount: 0.30
-            ),
+            appearance.skinColor,
             roughness: 0.96,
             specular: 0.02
         )
@@ -59,31 +55,4 @@ struct Fighter3DMaterialPalette {
         return result
     }
 
-    private static func blend(
-        _ first: UIColor,
-        _ second: UIColor,
-        amount: CGFloat
-    ) -> UIColor {
-        var firstRGBA = (r: CGFloat.zero, g: CGFloat.zero, b: CGFloat.zero, a: CGFloat.zero)
-        var secondRGBA = (r: CGFloat.zero, g: CGFloat.zero, b: CGFloat.zero, a: CGFloat.zero)
-        guard first.getRed(
-            &firstRGBA.r,
-            green: &firstRGBA.g,
-            blue: &firstRGBA.b,
-            alpha: &firstRGBA.a
-        ), second.getRed(
-            &secondRGBA.r,
-            green: &secondRGBA.g,
-            blue: &secondRGBA.b,
-            alpha: &secondRGBA.a
-        ) else { return first }
-
-        let t = min(max(amount, 0), 1)
-        return UIColor(
-            red: firstRGBA.r + (secondRGBA.r - firstRGBA.r) * t,
-            green: firstRGBA.g + (secondRGBA.g - firstRGBA.g) * t,
-            blue: firstRGBA.b + (secondRGBA.b - firstRGBA.b) * t,
-            alpha: firstRGBA.a + (secondRGBA.a - firstRGBA.a) * t
-        )
-    }
 }

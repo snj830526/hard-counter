@@ -427,8 +427,12 @@ final class Fighter3DRenderer {
             pose.head.x -= 0.12
             pose.leadKnee.x += 0.08
             pose.rearKnee.x += 0.05
-            pose.leadHip.x -= 0.16
-            pose.rearHip.x -= 0.14
+            // Fold the thighs farther in front of the hips. The feet stay
+            // under the stance while the pelvis reads behind the chest.
+            pose.leadHip.x -= 0.27
+            pose.rearHip.x -= 0.25
+            pose.leadKnee.x += 0.04
+            pose.rearKnee.x += 0.04
             pose.leadShoulder.x -= 0.13
             pose.rearShoulder.x -= 0.13
         case .outBoxer:
@@ -681,7 +685,7 @@ final class Fighter3DRenderer {
         let neck = Fighter3DMeshFactory.cylinder(
             radius: proportions.neckRadius,
             height: 0.23,
-            material: palette.shadowSkin
+            material: palette.skin
         )
         neck.position.y = -0.20
         head.addChildNode(neck)
@@ -720,7 +724,7 @@ final class Fighter3DRenderer {
             elbow: rearElbow,
             x: -proportions.shoulderOffset,
             z: -0.13,
-            material: palette.shadowSkin,
+            material: palette.skin,
             jointMaterial: palette.jointSkin,
             gloveMaterial: palette.kit,
             accentMaterial: palette.accent,
@@ -745,7 +749,7 @@ final class Fighter3DRenderer {
             ankle: rearAnkle,
             x: -proportions.hipOffset,
             z: -0.17 * motionProfile.stanceDepth,
-            material: palette.shadowSkin,
+            material: palette.skin,
             jointMaterial: palette.jointSkin,
             shoeMaterial: palette.accent,
             proportions: proportions,
