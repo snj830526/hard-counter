@@ -226,27 +226,42 @@ final class Fighter3DRenderer {
 
         case .punchStartup:
             let duration = CombatTuning.punchStartup * punchProfile.startupScale
-            return guardPose.blended(
+            let amount = progress(duration)
+            return guardPose.stagedBlend(
                 to: punchLoadPose,
-                amount: smooth(progress(duration))
+                lowerBody: smooth(min(amount / 0.68, 1)),
+                torso: smooth(min(max((amount - 0.08) / 0.78, 0), 1)),
+                arms: smooth(min(max((amount - 0.18) / 0.82, 0), 1))
             ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.18)
 
         case .punchActive:
             let duration = CombatTuning.punchActive * punchProfile.activeScale
             let power = CGFloat(min(max(punchProfile.powerScale, 0.7), 1.3))
-            return punchLoadPose.blended(
+            let amount = progress(duration)
+            return punchLoadPose.stagedBlend(
                 to: punchStrikePose(power: power),
-                amount: snap(progress(duration))
+                lowerBody: snap(min(amount / 0.58, 1)),
+                torso: snap(min(max((amount - 0.06) / 0.70, 0), 1)),
+                arms: snap(min(max((amount - 0.16) / 0.84, 0), 1))
             ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.10)
 
         case .punchRecovery:
             let duration = CombatTuning.punchRecovery * punchProfile.recoveryScale
+            let amount = progress(duration)
             let recovery = pow(
-                smooth(progress(duration)),
+                smooth(amount),
                 max(motionProfile.recoveryWeight, 0.2)
             )
+            let armRecovery = min(smooth(min(amount / 0.64, 1)) * 0.96 + recovery * 0.04, 1)
+            let torsoRecovery = smooth(min(max((amount - 0.10) / 0.82, 0), 1))
+            let balanceRecovery = smooth(min(max((amount - 0.20) / 0.80, 0), 1))
             return punchStrikePose(power: CGFloat(punchProfile.powerScale))
-                .blended(to: guardPose, amount: recovery)
+                .stagedBlend(
+                    to: guardPose,
+                    lowerBody: balanceRecovery,
+                    torso: torsoRecovery,
+                    arms: armRecovery
+                )
                 .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.14)
 
         case .swaying:
@@ -262,6 +277,7 @@ final class Fighter3DRenderer {
                     facingSign: facingSign
                 )
                 .styledSway(with: motionProfile)
+            applySwayWeightTransfer(to: &swayPose)
             applyGuardIdentity(to: &swayPose)
             return guardPose.blended(
                 to: swayPose,
@@ -278,6 +294,31 @@ final class Fighter3DRenderer {
                 amount: t
             )
         }
+    }
+
+    private func applySwayWeightTransfer(to pose: inout Fighter3DPose) {
+        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
+        let facingLength = max(hypot(opponentScreenDirection.dx, opponentScreenDirection.dy), 0.001)
+        let sway = CGVector(
+            dx: swayScreenDirection.dx / swayLength,
+            dy: swayScreenDirection.dy / swayLength
+        )
+        let facing = CGVector(
+            dx: opponentScreenDirection.dx / facingLength,
+            dy: opponentScreenDirection.dy / facingLength
+        )
+        let lateral = sway.dx * -facing.dy + sway.dy * facing.dx
+        let forward = sway.dx * facing.dx + sway.dy * facing.dy
+        let leadLoad = max(lateral, 0) * 0.16 + max(forward, 0) * 0.07
+        let rearLoad = max(-lateral, 0) * 0.16 + max(-forward, 0) * 0.07
+
+        pose.rootY -= 0.045 * (0.55 + abs(lateral) * 0.45)
+        pose.pelvis.y += Float(lateral * 0.14)
+        pose.spine.y -= Float(lateral * 0.09)
+        pose.leadKnee.x += Float(leadLoad)
+        pose.rearKnee.x += Float(rearLoad)
+        pose.leadHip.x -= Float(leadLoad * 0.34)
+        pose.rearHip.x -= Float(rearLoad * 0.34)
     }
 
     private func locomotionGuardPose(

@@ -376,8 +376,8 @@ struct Fighter3DPose {
         let forwardDot = unit.dx * facing.dx + unit.dy * facing.dy
         let depthWeight = abs(forwardDot)
         let lateralWeight = 1 - depthWeight
-        let depthTravel: CGFloat = forwardDot >= 0 ? 0.36 : 0.46
-        let travel = 0.44 * lateralWeight + depthTravel * depthWeight
+        let depthTravel: CGFloat = forwardDot >= 0 ? 0.45 : 0.56
+        let travel = 0.55 * lateralWeight + depthTravel * depthWeight
         let offset = Fighter3DSwayAlignment.torsoOffset(
             screenDirection: unit,
             facingDirection: facingDirection,
@@ -509,6 +509,40 @@ struct Fighter3DPose {
             rearHip: rearHip.mixed(with: other.rearHip, amount: t),
             rearKnee: rearKnee.mixed(with: other.rearKnee, amount: t)
         )
+    }
+
+    /// Blends the body as a kinetic chain instead of moving every joint on the
+    /// same interpolation clock. Legs and hips can lead, the torso can follow,
+    /// and the striking arm can arrive last without introducing a second rig.
+    func stagedBlend(
+        to other: Fighter3DPose,
+        lowerBody lowerAmount: CGFloat,
+        torso torsoAmount: CGFloat,
+        arms armAmount: CGFloat
+    ) -> Fighter3DPose {
+        let lower = blended(to: other, amount: lowerAmount)
+        let torso = blended(to: other, amount: torsoAmount)
+        var result = blended(to: other, amount: armAmount)
+
+        result.rootX = lower.rootX
+        result.rootY = lower.rootY
+        result.rootZ = lower.rootZ
+        result.leadAnklePitch = lower.leadAnklePitch
+        result.rearAnklePitch = lower.rearAnklePitch
+        result.pelvis = lower.pelvis
+        result.leadHip = lower.leadHip
+        result.leadKnee = lower.leadKnee
+        result.rearHip = lower.rearHip
+        result.rearKnee = lower.rearKnee
+
+        result.rootPitch = torso.rootPitch
+        result.rootRoll = torso.rootRoll
+        result.spineX = torso.spineX
+        result.spineY = torso.spineY
+        result.spineZ = torso.spineZ
+        result.spine = torso.spine
+        result.head = torso.head
+        return result
     }
 
     /// Adds only the locomotion deltas that must survive an action transition.
