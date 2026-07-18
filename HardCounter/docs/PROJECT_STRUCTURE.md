@@ -57,6 +57,7 @@ HardCounter/
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
 │   │   ├── Fighter3DPose.swift
+│   │   ├── FighterGroundShadowNode.swift
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
 │   │   ├── FighterAppearance.swift
@@ -74,6 +75,7 @@ HardCounter/
 │   │   ├── NearbyLobbyModels.swift
 │   │   └── NearbyLobbyService.swift
 │   └── Scene/
+│       ├── ArenaVisualPalette.swift
 │       ├── BoxingRingNode.swift
 │       ├── CombatScene.swift
 │       └── QuarterViewProjection.swift
@@ -103,6 +105,7 @@ HardCounter/
 ### 장면 계층
 
 - `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 확대된 경기장에는 데드존 기반의 부드러운 추적을 적용하고 HUD는 고정한다.
+- `ArenaVisualPalette.swift`: 2D 링의 조명 표시와 3D 파이터의 키·림 라이트가 공유하는 색상 팔레트를 정의한다.
 - `BoxingRingNode.swift`: 쿼터 뷰 축을 따르는 캔버스 패널과 봉제선, 조명 면, 로프, 포스트 및 저채도 로우폴리 관중석을 생성한다. 3D 캐릭터보다 배경이 튀지 않도록 색과 명암을 제한한다.
 - `QuarterViewProjection.swift`: 정사각형 링 내부 좌표를 대각선 쿼터 뷰 화면 좌표로 변환하고, 화면 입력을 다시 링 이동 방향으로 역변환한다.
 
@@ -127,6 +130,7 @@ idle → swaying → idle
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
 - `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 만들고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. 머리부터 복싱화까지 들어오는 공통 카메라 프레임과 링 접점 정렬도 담당하며, 판정과 네트워크 상태는 소유하지 않는다.
 - `Fighter3DAppearanceProfile.swift`: 캐릭터별 몸통·어깨·트렁크·글러브·복싱화의 3D 비율을 정의한다. 관절 사이 길이는 공통으로 유지해 외형 변경이 상·하체 분리나 관절 틈을 만들지 않게 한다.
+- `FighterGroundShadowNode.swift`: 발밑 접촉 그림자와 광원 방향을 따르는 연한 투영 그림자를 합성하고 링 깊이에 따른 원근 크기를 적용한다.
 - `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.
 - `Fighter3DPose.swift`: 3D 관절 포즈, 캐릭터 프로필 적용, 대표 기술의 준비·타격 강조, 포즈 보간과 최종 인체 관절 제한을 담당한다. 렌더러의 노드 생성 코드와 독립적으로 조정할 수 있다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.

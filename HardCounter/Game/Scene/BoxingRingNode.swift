@@ -106,7 +106,7 @@ final class BoxingRingNode: SKNode {
             let lightX = size.width * (CGFloat(index) + 1) / 6
             let light = SKShapeNode(rectOf: CGSize(width: 54, height: 6), cornerRadius: 1.5)
             light.position = CGPoint(x: lightX, y: trussY - 1)
-            light.fillColor = SKColor(red: 0.72, green: 0.82, blue: 0.90, alpha: 0.62)
+            light.fillColor = ArenaVisualPalette.overheadLight.withAlphaComponent(0.62)
             light.strokeColor = .clear
             light.glowWidth = 3
             light.zPosition = -6
@@ -167,14 +167,14 @@ final class BoxingRingNode: SKNode {
 
         let coolPool = SKShapeNode(ellipseOf: CGSize(width: 118, height: 38))
         coolPool.position = CGPoint(x: center.x - 76, y: center.y + 25)
-        coolPool.fillColor = SKColor(red: 0.30, green: 0.55, blue: 0.72, alpha: 0.035)
+        coolPool.fillColor = ArenaVisualPalette.coolCanvasLight.withAlphaComponent(0.035)
         coolPool.strokeColor = .clear
         coolPool.zPosition = -0.9
         backgroundLayer.addChild(coolPool)
 
         let warmPool = SKShapeNode(ellipseOf: CGSize(width: 112, height: 35))
         warmPool.position = CGPoint(x: center.x + 82, y: center.y - 20)
-        warmPool.fillColor = SKColor(red: 0.78, green: 0.38, blue: 0.22, alpha: 0.028)
+        warmPool.fillColor = ArenaVisualPalette.warmCanvasLight.withAlphaComponent(0.028)
         warmPool.strokeColor = .clear
         warmPool.zPosition = -0.9
         backgroundLayer.addChild(warmPool)

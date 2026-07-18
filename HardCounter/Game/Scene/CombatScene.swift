@@ -19,8 +19,8 @@ final class CombatScene: SKScene {
         appearance: opponentProfile?.appearance ?? .cpuRival,
         motionStyle: cpuMotionStyle
     )
-    private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
-    private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
+    private let playerShadow = FighterGroundShadowNode()
+    private let cpuShadow = FighterGroundShadowNode()
     private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
     private lazy var cpuHealthBar = SKSpriteNode(
         color: opponentProfile?.color ?? .systemOrange,
@@ -350,8 +350,6 @@ final class CombatScene: SKScene {
         addChild(cameraRig)
         cameraRig.addChild(arenaNode)
         arenaNode.addChild(ringNode)
-        configureShadow(playerShadow)
-        configureShadow(cpuShadow)
         arenaNode.addChild(playerShadow)
         arenaNode.addChild(cpuShadow)
         player.zPosition = 10
@@ -436,14 +434,6 @@ final class CombatScene: SKScene {
         background.zPosition = 9
         addChild(background)
         bar.zPosition = 10
-    }
-
-    private func configureShadow(_ shadow: SKShapeNode) {
-        shadow.fillColor = .black.withAlphaComponent(0.44)
-        shadow.strokeColor = .black.withAlphaComponent(0.16)
-        shadow.lineWidth = 2
-        shadow.glowWidth = 2
-        shadow.zPosition = 5
     }
 
     private func configureNameLabel(
@@ -841,7 +831,7 @@ final class CombatScene: SKScene {
 
     private func applyPerspective(
         to fighter: FighterNode,
-        shadow: SKShapeNode,
+        shadow: FighterGroundShadowNode,
         worldPosition: CGPoint,
         screenPosition: CGPoint
     ) {
@@ -851,8 +841,7 @@ final class CombatScene: SKScene {
         fighter.zPosition = 12 + (1 - progress) * 16
 
         shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 1)
-        shadow.xScale = scale
-        shadow.yScale = scale * 0.72
+        shadow.applyPerspective(scale: scale, depthProgress: progress)
         shadow.zPosition = fighter.zPosition - 1
     }
 
