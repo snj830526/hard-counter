@@ -5,6 +5,8 @@ import SpriteKit
 final class FighterGroundShadowNode: SKNode {
     private let castShadow = SKShapeNode(ellipseOf: CGSize(width: 92, height: 16))
     private let contactShadow = SKShapeNode(ellipseOf: CGSize(width: 58, height: 11))
+    private let leadFootContact = SKShapeNode(ellipseOf: CGSize(width: 25, height: 7))
+    private let rearFootContact = SKShapeNode(ellipseOf: CGSize(width: 25, height: 7))
 
     override init() {
         super.init()
@@ -22,6 +24,14 @@ final class FighterGroundShadowNode: SKNode {
         contactShadow.glowWidth = 1.5
         contactShadow.zPosition = 1
         addChild(contactShadow)
+
+        for (contact, x) in [(leadFootContact, CGFloat(-12)), (rearFootContact, CGFloat(12))] {
+            contact.fillColor = .black.withAlphaComponent(0.58)
+            contact.strokeColor = .clear
+            contact.position = CGPoint(x: x, y: 1)
+            contact.zPosition = 2
+            addChild(contact)
+        }
     }
 
     @available(*, unavailable)
@@ -38,5 +48,7 @@ final class FighterGroundShadowNode: SKNode {
         )
         castShadow.alpha = 0.78 + nearness * 0.18
         contactShadow.xScale = 0.92 + nearness * 0.12
+        leadFootContact.xScale = 0.92 + nearness * 0.10
+        rearFootContact.xScale = 0.92 + nearness * 0.10
     }
 }

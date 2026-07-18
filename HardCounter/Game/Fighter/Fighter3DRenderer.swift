@@ -284,11 +284,25 @@ final class Fighter3DRenderer {
     ) -> Fighter3DPose {
         var pose = guardPose
         let breath = sin(CGFloat(phaseElapsed) * motionProfile.breathFrequency)
+        let idleAmount = max(1 - movementAmount * 2.2, 0)
+        let weightShift = sin(
+            CGFloat(phaseElapsed) * motionProfile.breathFrequency * 0.54 + 0.65
+        ) * idleAmount * motionProfile.idleWeightShift
         pose.spineY += breath * 0.015 * motionProfile.breathAmplitude
         pose.spinePitch += breath * 0.018 * motionProfile.breathAmplitude
+        pose.spineX += weightShift * 0.018
+        pose.pelvisRoll += weightShift * 0.022
+        pose.spineRoll -= weightShift * 0.016
+        pose.head.z += Float(weightShift * 0.012)
 
-        let leadLift = min(max(locomotionFrame.frontAnkleLift / 0.105, 0), 1.20)
-        let rearLift = min(max(locomotionFrame.backAnkleLift / 0.105, 0), 1.20)
+        let leadLift = min(
+            max(locomotionFrame.frontAnkleLift / 0.105, 0) * motionProfile.footLift,
+            1.35
+        )
+        let rearLift = min(
+            max(locomotionFrame.backAnkleLift / 0.105, 0) * motionProfile.footLift,
+            1.35
+        )
         let activeLift = max(leadLift, rearLift)
         let settlingActivity = max(
             activeLift,
@@ -313,7 +327,8 @@ final class Fighter3DRenderer {
         pose.leadAnklePitch = leadLift * 0.11
         pose.rearAnklePitch = rearLift * 0.11
 
-        let guardRhythm = (leadLift - rearLift) * 0.065 * motionProfile.strideCadence
+        let guardRhythm = (leadLift - rearLift) * 0.065
+            * motionProfile.strideCadence * motionProfile.guardRhythm
         pose.leadShoulder.z += Float(guardRhythm)
         pose.leadElbow.z -= Float(guardRhythm * 0.72)
         pose.rearShoulder.z -= Float(guardRhythm * 0.82)
@@ -486,6 +501,13 @@ final class Fighter3DRenderer {
         )
         head.addChildNode(skull)
         attachHair(appearance.hairStyle, material: hair, to: head)
+        attachFaceDetails(
+            appearance.kitStyle,
+            skinShadow: shadowSkin,
+            hair: hair,
+            accent: accent,
+            to: head
+        )
 
         attachArm(
             shoulder: leadShoulder,
@@ -606,6 +628,81 @@ final class Fighter3DRenderer {
             sweep.position = SCNVector3(0.075, 0.20, 0.225)
             sweep.eulerAngles.z = -0.30
             head.addChildNode(sweep)
+        }
+    }
+
+    private func attachFaceDetails(
+        _ style: FighterKitStyle,
+        skinShadow: SCNMaterial,
+        hair: SCNMaterial,
+        accent: SCNMaterial,
+        to head: SCNNode
+    ) {
+        for side: CGFloat in [-1, 1] {
+            let eye = sphere(radius: 0.026, material: hair)
+            eye.scale = SCNVector3(1, 0.62, 0.48)
+            eye.position = SCNVector3(side * 0.075, 0.035, 0.232)
+            head.addChildNode(eye)
+
+            let brow = box(
+                width: style == .pressure ? 0.105 : 0.085,
+                height: style == .pressure ? 0.030 : 0.022,
+                length: 0.022,
+                chamfer: 0.008,
+                material: hair
+            )
+            brow.position = SCNVector3(side * 0.075, 0.098, 0.226)
+            brow.eulerAngles.z = Float(side * (style == .speed ? 0.18 : 0.08))
+            head.addChildNode(brow)
+        }
+
+        let nose = sphere(radius: 0.038, material: skinShadow)
+        nose.scale = SCNVector3(0.62, 0.90, 0.72)
+        nose.position = SCNVector3(0, -0.018, 0.252)
+        head.addChildNode(nose)
+
+        let mouth = box(
+            width: 0.105,
+            height: 0.018,
+            length: 0.022,
+            chamfer: 0.006,
+            material: skinShadow
+        )
+        mouth.position = SCNVector3(0, -0.112, 0.225)
+        head.addChildNode(mouth)
+
+        switch style {
+        case .classic:
+            let browBand = box(
+                width: 0.34,
+                height: 0.045,
+                length: 0.028,
+                chamfer: 0.012,
+                material: accent
+            )
+            browBand.position = SCNVector3(0, 0.157, 0.224)
+            head.addChildNode(browBand)
+        case .pressure:
+            let chinGuard = box(
+                width: 0.17,
+                height: 0.10,
+                length: 0.035,
+                chamfer: 0.025,
+                material: hair
+            )
+            chinGuard.position = SCNVector3(0, -0.178, 0.188)
+            head.addChildNode(chinGuard)
+        case .speed:
+            let cheekMark = box(
+                width: 0.075,
+                height: 0.020,
+                length: 0.025,
+                chamfer: 0.006,
+                material: accent
+            )
+            cheekMark.position = SCNVector3(0.105, -0.070, 0.222)
+            cheekMark.eulerAngles.z = -0.32
+            head.addChildNode(cheekMark)
         }
     }
 
