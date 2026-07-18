@@ -680,10 +680,6 @@ final class Fighter3DRenderer {
             material: skin
         )
         spine.addChildNode(torso)
-        spine.addChildNode(Fighter3DMeshFactory.trapezius(
-            proportions: proportions,
-            material: shadowSkin
-        ))
 
         spine.addChildNode(head)
         head.position = SCNVector3(0, 1.17, 0)

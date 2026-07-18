@@ -42,35 +42,6 @@ enum Fighter3DMeshFactory {
         )
     }
 
-    static func trapezius(
-        proportions: Fighter3DAppearanceProfile,
-        material: SCNMaterial
-    ) -> SCNNode {
-        let root = SCNNode()
-        for side: CGFloat in [-1, 1] {
-            let geometry = SCNBox(
-                width: 0.15,
-                height: 0.39,
-                length: proportions.torsoDepth * 0.72,
-                chamferRadius: 0.035
-            )
-            geometry.widthSegmentCount = 1
-            geometry.heightSegmentCount = 1
-            geometry.lengthSegmentCount = 1
-            geometry.chamferSegmentCount = 1
-            geometry.materials = [material]
-            let muscle = SCNNode(geometry: geometry)
-            muscle.position = SCNVector3(
-                side * proportions.torsoWidth * 0.20,
-                0.84,
-                0
-            )
-            muscle.eulerAngles.z = Float(side * 0.62)
-            root.addChildNode(muscle)
-        }
-        return root
-    }
-
     static func head(
         proportions: Fighter3DAppearanceProfile,
         material: SCNMaterial
