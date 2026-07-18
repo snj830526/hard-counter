@@ -56,6 +56,8 @@ HardCounter/
 │   │   └── CombatContainerView.swift
 │   ├── Fighter/
 │   │   ├── Fighter3DAppearanceProfile.swift
+│   │   ├── Fighter3DDetailFactory.swift
+│   │   ├── Fighter3DMaterialPalette.swift
 │   │   ├── Fighter3DMeshFactory.swift
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
@@ -135,8 +137,10 @@ idle → swaying → idle
 ### 표현 및 입력 계층
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
-- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 만들고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. `FighterLocomotionFrame`의 앞발 선행·뒷발 추종 위상을 공유하고, 스태미너 이벤트를 가드 높이·호흡·하체 무게로만 표현하며, 머리부터 복싱화까지 들어오는 공통 카메라 프레임과 링 접점 정렬도 담당한다. 키·림 조명과 재질별 거칠기·반사율로 로우폴리 실루엣을 분리하되 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 리그를 조립하고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. `FighterLocomotionFrame`의 앞발 선행·뒷발 추종 위상을 공유하고, 스태미너 이벤트를 가드 높이·호흡·하체 무게로만 표현하며, 머리부터 복싱화까지 들어오는 공통 카메라 프레임과 링 접점 정렬도 담당한다. 정적 외형 장식과 재질 생성은 별도 팩토리에 위임하며 판정과 네트워크 상태는 소유하지 않는다.
 - `Fighter3DAppearanceProfile.swift`: 캐릭터별 몸통·어깨·머리·목·트렁크·글러브·복싱화의 3D 비율을 정의한다. 관절 사이 길이는 공통으로 유지해 외형 변경이 상·하체 분리나 관절 틈을 만들지 않게 한다.
+- `Fighter3DDetailFactory.swift`: 트렁크 장식, 헤어와 눈·눈썹·귀·코 등 정적인 캐릭터 세부 노드를 조립한다. 모션 관절과 전투 상태에는 접근하지 않는다.
+- `Fighter3DMaterialPalette.swift`: 선수 외형 색상에서 피부, 음영, 관절, 장비, 헤어와 눈 재질을 한 번만 생성해 메시와 세부 장식이 같은 표면 설정을 공유하게 한다.
 - `Fighter3DMeshFactory.swift`: 모션 리그의 관절 원점을 바꾸지 않고 어깨–허리 몸통, 턱이 있는 머리, 테이퍼형 팔다리, 종아리 근육, 골반형 트렁크와 엄지가 분리된 글러브를 저폴리 메시로 생성한다. 외형 메시 실험이 전투 및 모션 계산으로 번지지 않도록 렌더러에서 분리한다.
 - `FighterGroundShadowNode.swift`: 발밑 접촉 그림자와 광원 방향을 따르는 연한 투영 그림자를 합성하고 링 깊이에 따른 원근 크기를 적용한다.
 - `Fighter3DMotionProfile.swift`: JIN, MASON, LEO와 CPU 라이벌의 가드 높이·기울기·리드핸드 길이·좌우 비대칭, 스탠스 깊이, 무릎 굽힘, 호흡, 보폭, 풋워크 바운스, 골반 회전, 리치, 스웨이 폭, 회복 무게와 대표 기술을 정의한다. 전투 능력치와 분리되어 모션 개성이 피해량이나 판정을 우연히 바꾸지 않는다.

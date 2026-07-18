@@ -427,8 +427,12 @@ final class Fighter3DRenderer {
             pose.head.x -= 0.12
             pose.leadKnee.x += 0.08
             pose.rearKnee.x += 0.05
-            pose.leadHip.x -= 0.16
-            pose.rearHip.x -= 0.14
+            // Fold the thighs farther in front of the hips. The feet stay
+            // under the stance while the pelvis reads behind the chest.
+            pose.leadHip.x -= 0.27
+            pose.rearHip.x -= 0.25
+            pose.leadKnee.x += 0.04
+            pose.rearKnee.x += 0.04
             pose.leadShoulder.x -= 0.13
             pose.rearShoulder.x -= 0.13
         case .outBoxer:
@@ -650,26 +654,7 @@ final class Fighter3DRenderer {
 
     private func buildFighter(in scene: SCNScene, appearance: FighterAppearance) {
         let proportions = Fighter3DAppearanceProfile(appearance: appearance)
-        let skin = material(appearance.skinColor, roughness: 0.66, specular: 0.20)
-        let shadowSkin = material(appearance.skinShadowColor, roughness: 0.72, specular: 0.14)
-        let kit = material(appearance.kitColor, roughness: 0.80, specular: 0.10)
-        let accent = material(
-            appearance.accentColor,
-            roughness: 0.48,
-            specular: 0.32,
-            emission: 0.025
-        )
-        let hair = material(appearance.hairColor, roughness: 0.94, specular: 0.04)
-        let eyeWhite = material(UIColor(white: 0.92, alpha: 1), roughness: 0.74, specular: 0.08)
-        let jointSkin = material(
-            blendedColor(
-                appearance.skinColor,
-                appearance.skinShadowColor,
-                amount: 0.30
-            ),
-            roughness: 0.96,
-            specular: 0.02
-        )
+        let palette = Fighter3DMaterialPalette(appearance: appearance)
 
         scene.rootNode.addChildNode(skeletonRoot)
         skeletonRoot.addChildNode(pelvis)
@@ -677,43 +662,48 @@ final class Fighter3DRenderer {
 
         let shorts = Fighter3DMeshFactory.shorts(
             proportions: proportions,
-            material: kit
+            material: palette.kit
         )
         pelvis.addChildNode(shorts)
-        attachKitDetails(appearance.kitStyle, proportions: proportions, kit: kit, accent: accent, to: pelvis)
+        Fighter3DDetailFactory.attachKit(
+            appearance.kitStyle,
+            proportions: proportions,
+            palette: palette,
+            to: pelvis
+        )
 
         pelvis.addChildNode(spine)
         spine.position.y = 0.13
         let torso = Fighter3DMeshFactory.torso(
             proportions: proportions,
-            material: skin
+            material: palette.skin
         )
         spine.addChildNode(torso)
 
         spine.addChildNode(head)
         head.position = SCNVector3(0, 1.17, 0)
-        let neck = cylinder(radius: proportions.neckRadius, height: 0.23, material: shadowSkin)
+        let neck = Fighter3DMeshFactory.cylinder(
+            radius: proportions.neckRadius,
+            height: 0.23,
+            material: palette.skin
+        )
         neck.position.y = -0.20
         head.addChildNode(neck)
         let skull = Fighter3DMeshFactory.head(
             proportions: proportions,
-            material: skin
+            material: palette.skin
         )
         head.addChildNode(skull)
-        attachHair(
+        Fighter3DDetailFactory.attachHair(
             appearance.hairStyle,
             proportions: proportions,
-            material: hair,
+            palette: palette,
             to: head
         )
-        attachFaceDetails(
+        Fighter3DDetailFactory.attachFace(
             appearance.faceStyle,
             proportions: proportions,
-            skin: skin,
-            skinShadow: shadowSkin,
-            eyeWhite: eyeWhite,
-            hair: hair,
-            accent: accent,
+            palette: palette,
             to: head
         )
 
@@ -722,10 +712,10 @@ final class Fighter3DRenderer {
             elbow: leadElbow,
             x: proportions.shoulderOffset,
             z: 0.13,
-            material: skin,
-            jointMaterial: jointSkin,
-            gloveMaterial: kit,
-            accentMaterial: accent,
+            material: palette.skin,
+            jointMaterial: palette.jointSkin,
+            gloveMaterial: palette.kit,
+            accentMaterial: palette.accent,
             proportions: proportions,
             to: spine
         )
@@ -734,10 +724,10 @@ final class Fighter3DRenderer {
             elbow: rearElbow,
             x: -proportions.shoulderOffset,
             z: -0.13,
-            material: shadowSkin,
-            jointMaterial: jointSkin,
-            gloveMaterial: kit,
-            accentMaterial: accent,
+            material: palette.skin,
+            jointMaterial: palette.jointSkin,
+            gloveMaterial: palette.kit,
+            accentMaterial: palette.accent,
             proportions: proportions,
             to: spine
         )
@@ -747,9 +737,9 @@ final class Fighter3DRenderer {
             ankle: leadAnkle,
             x: proportions.hipOffset,
             z: 0.17 * motionProfile.stanceDepth,
-            material: skin,
-            jointMaterial: jointSkin,
-            shoeMaterial: accent,
+            material: palette.skin,
+            jointMaterial: palette.jointSkin,
+            shoeMaterial: palette.accent,
             proportions: proportions,
             to: pelvis
         )
@@ -759,198 +749,12 @@ final class Fighter3DRenderer {
             ankle: rearAnkle,
             x: -proportions.hipOffset,
             z: -0.17 * motionProfile.stanceDepth,
-            material: shadowSkin,
-            jointMaterial: jointSkin,
-            shoeMaterial: accent,
+            material: palette.skin,
+            jointMaterial: palette.jointSkin,
+            shoeMaterial: palette.accent,
             proportions: proportions,
             to: pelvis
         )
-    }
-
-    private func attachKitDetails(
-        _ style: FighterKitStyle,
-        proportions: Fighter3DAppearanceProfile,
-        kit: SCNMaterial,
-        accent: SCNMaterial,
-        to pelvis: SCNNode
-    ) {
-        let waistbandHeight: CGFloat = style == .pressure ? 0.12 : 0.085
-        let waistband = box(
-            width: proportions.shortsWidth + 0.035,
-            height: waistbandHeight,
-            length: proportions.shortsDepth + 0.025,
-            chamfer: 0.025,
-            material: accent
-        )
-        waistband.position.y = 0.16
-        pelvis.addChildNode(waistband)
-
-        switch style {
-        case .classic:
-            let frontPatch = box(width: 0.13, height: 0.16, length: 0.025, chamfer: 0.01, material: accent)
-            frontPatch.position = SCNVector3(0, -0.06, proportions.shortsDepth / 2 + 0.015)
-            pelvis.addChildNode(frontPatch)
-        case .pressure:
-            for side: CGFloat in [-1, 1] {
-                let panel = box(width: 0.105, height: 0.31, length: 0.025, chamfer: 0.015, material: accent)
-                panel.position = SCNVector3(
-                    side * (proportions.shortsWidth / 2 - 0.07),
-                    -0.06,
-                    proportions.shortsDepth / 2 + 0.015
-                )
-                pelvis.addChildNode(panel)
-            }
-        case .speed:
-            for side: CGFloat in [-1, 1] {
-                let stripe = box(width: 0.045, height: 0.30, length: proportions.shortsDepth + 0.02, chamfer: 0.01, material: accent)
-                stripe.position = SCNVector3(side * (proportions.shortsWidth / 2 + 0.006), -0.04, 0)
-                pelvis.addChildNode(stripe)
-            }
-        }
-    }
-
-    private func attachHair(
-        _ style: FighterHairStyle,
-        proportions: Fighter3DAppearanceProfile,
-        material: SCNMaterial,
-        to head: SCNNode
-    ) {
-        let hairRoot = SCNNode()
-        hairRoot.scale = SCNVector3(
-            proportions.headWidthScale,
-            proportions.headHeightScale,
-            proportions.headDepthScale
-        )
-        head.addChildNode(hairRoot)
-        switch style {
-        case .cropped:
-            let cap = sphere(radius: 0.255, material: material)
-            cap.scale = SCNVector3(0.90, 0.40, 0.94)
-            cap.position.y = 0.17
-            hairRoot.addChildNode(cap)
-
-            let hairline = box(width: 0.34, height: 0.08, length: 0.07, chamfer: 0.025, material: material)
-            hairline.position = SCNVector3(0, 0.15, 0.215)
-            hairRoot.addChildNode(hairline)
-        case .shaved:
-            let scalp = sphere(radius: 0.252, material: material)
-            scalp.scale = SCNVector3(0.89, 0.16, 0.92)
-            scalp.position.y = 0.22
-            hairRoot.addChildNode(scalp)
-        case .swept:
-            let cap = sphere(radius: 0.258, material: material)
-            cap.scale = SCNVector3(0.92, 0.46, 0.96)
-            cap.position.y = 0.17
-            cap.eulerAngles.z = -0.10
-            hairRoot.addChildNode(cap)
-
-            let sweep = box(width: 0.29, height: 0.11, length: 0.10, chamfer: 0.035, material: material)
-            sweep.position = SCNVector3(0.075, 0.20, 0.225)
-            sweep.eulerAngles.z = -0.30
-            hairRoot.addChildNode(sweep)
-        }
-    }
-
-    private func attachFaceDetails(
-        _ style: FighterFaceStyle,
-        proportions: Fighter3DAppearanceProfile,
-        skin: SCNMaterial,
-        skinShadow: SCNMaterial,
-        eyeWhite: SCNMaterial,
-        hair: SCNMaterial,
-        accent: SCNMaterial,
-        to head: SCNNode
-    ) {
-        for side: CGFloat in [-1, 1] {
-            let eye = sphere(radius: 0.034, material: eyeWhite)
-            eye.scale = SCNVector3(1, 0.60, 0.42)
-            eye.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.035 * proportions.headHeightScale,
-                0.230 * proportions.headDepthScale
-            )
-            head.addChildNode(eye)
-
-            let pupil = sphere(radius: 0.015, material: hair)
-            pupil.scale = SCNVector3(0.72, 0.72, 0.36)
-            pupil.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.035 * proportions.headHeightScale,
-                0.248 * proportions.headDepthScale
-            )
-            head.addChildNode(pupil)
-
-            let brow = box(
-                width: style == .rugged ? 0.105 : 0.085,
-                height: style == .rugged ? 0.030 : 0.022,
-                length: 0.022,
-                chamfer: 0.008,
-                material: hair
-            )
-            brow.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.098 * proportions.headHeightScale,
-                0.226 * proportions.headDepthScale
-            )
-            brow.eulerAngles.z = Float(side * (style == .sharp ? 0.18 : 0.08))
-            head.addChildNode(brow)
-
-            let ear = sphere(radius: 0.042, material: skinShadow)
-            ear.scale = SCNVector3(0.52, 1, 0.62)
-            ear.position = SCNVector3(
-                side * 0.235 * proportions.headWidthScale,
-                -0.015,
-                0
-            )
-            head.addChildNode(ear)
-        }
-
-        let nose = sphere(radius: 0.042, material: skin)
-        nose.scale = SCNVector3(0.62, 0.90, 0.72)
-        nose.position = SCNVector3(
-            0,
-            -0.018 * proportions.headHeightScale,
-            0.252 * proportions.headDepthScale
-        )
-        head.addChildNode(nose)
-
-        let mouth = box(
-            width: 0.105,
-            height: 0.018,
-            length: 0.022,
-            chamfer: 0.006,
-            material: skinShadow
-        )
-        mouth.position = SCNVector3(0, -0.112, 0.225)
-        head.addChildNode(mouth)
-
-        switch style {
-        case .focused:
-            let noseBridge = box(width: 0.030, height: 0.085, length: 0.025, chamfer: 0.008, material: skinShadow)
-            noseBridge.position = SCNVector3(0, 0.035, 0.235)
-            head.addChildNode(noseBridge)
-        case .rugged, .veteran:
-            let chinGuard = box(
-                width: 0.17,
-                height: 0.10,
-                length: 0.035,
-                chamfer: 0.025,
-                material: hair
-            )
-            chinGuard.position = SCNVector3(0, -0.178, 0.188)
-            head.addChildNode(chinGuard)
-        case .sharp:
-            let cheekMark = box(
-                width: 0.075,
-                height: 0.020,
-                length: 0.025,
-                chamfer: 0.006,
-                material: accent
-            )
-            cheekMark.position = SCNVector3(0.105, -0.070, 0.222)
-            cheekMark.eulerAngles.z = -0.32
-            head.addChildNode(cheekMark)
-        }
     }
 
     private func attachArm(
@@ -987,7 +791,11 @@ final class Fighter3DRenderer {
             radius: 0.094 * proportions.limbRadiusScale,
             material: material
         ))
-        let cuff = cylinder(radius: 0.105 * proportions.cuffScale, height: 0.16, material: accentMaterial)
+        let cuff = Fighter3DMeshFactory.cylinder(
+            radius: 0.105 * proportions.cuffScale,
+            height: 0.16,
+            material: accentMaterial
+        )
         cuff.position.y = -0.48
         elbow.addChildNode(cuff)
         let glove = Fighter3DMeshFactory.glove(
@@ -1034,10 +842,14 @@ final class Fighter3DRenderer {
         ))
         knee.addChildNode(ankle)
         ankle.position.y = -0.64
-        let boot = cylinder(radius: 0.115 * proportions.cuffScale, height: 0.18, material: shoeMaterial)
+        let boot = Fighter3DMeshFactory.cylinder(
+            radius: 0.115 * proportions.cuffScale,
+            height: 0.18,
+            material: shoeMaterial
+        )
         boot.position.y = -0.04
         ankle.addChildNode(boot)
-        let shoe = box(
+        let shoe = Fighter3DMeshFactory.box(
             width: proportions.shoeWidth,
             height: proportions.shoeHeight,
             length: proportions.shoeLength,
@@ -1048,90 +860,6 @@ final class Fighter3DRenderer {
         ankle.addChildNode(shoe)
     }
 
-    private func sphere(radius: CGFloat, material: SCNMaterial) -> SCNNode {
-        let geometry = SCNSphere(radius: radius)
-        geometry.segmentCount = 8
-        geometry.materials = [material]
-        return SCNNode(geometry: geometry)
-    }
-
-    private func cylinder(radius: CGFloat, height: CGFloat, material: SCNMaterial) -> SCNNode {
-        let geometry = SCNCylinder(radius: radius, height: height)
-        geometry.radialSegmentCount = 8
-        geometry.materials = [material]
-        return SCNNode(geometry: geometry)
-    }
-
-    private func box(
-        width: CGFloat,
-        height: CGFloat,
-        length: CGFloat,
-        chamfer: CGFloat,
-        material: SCNMaterial
-    ) -> SCNNode {
-        let geometry = SCNBox(
-            width: width,
-            height: height,
-            length: length,
-            chamferRadius: chamfer
-        )
-        geometry.chamferSegmentCount = 1
-        geometry.materials = [material]
-        return SCNNode(geometry: geometry)
-    }
-
-    private func material(
-        _ color: UIColor,
-        roughness: CGFloat = 0.82,
-        specular: CGFloat = 0.10,
-        emission: CGFloat = 0
-    ) -> SCNMaterial {
-        let result = SCNMaterial()
-        result.diffuse.contents = color
-        result.roughness.contents = roughness
-        result.metalness.contents = 0.02
-        result.specular.contents = UIColor(white: specular, alpha: 1)
-        if emission > 0 {
-            result.emission.contents = color
-            result.emission.intensity = emission
-        }
-        result.lightingModel = .physicallyBased
-        return result
-    }
-
-    private func blendedColor(
-        _ first: UIColor,
-        _ second: UIColor,
-        amount: CGFloat
-    ) -> UIColor {
-        var firstRed: CGFloat = 0
-        var firstGreen: CGFloat = 0
-        var firstBlue: CGFloat = 0
-        var firstAlpha: CGFloat = 0
-        var secondRed: CGFloat = 0
-        var secondGreen: CGFloat = 0
-        var secondBlue: CGFloat = 0
-        var secondAlpha: CGFloat = 0
-        guard first.getRed(
-            &firstRed,
-            green: &firstGreen,
-            blue: &firstBlue,
-            alpha: &firstAlpha
-        ), second.getRed(
-            &secondRed,
-            green: &secondGreen,
-            blue: &secondBlue,
-            alpha: &secondAlpha
-        ) else { return first }
-
-        let t = min(max(amount, 0), 1)
-        return UIColor(
-            red: firstRed + (secondRed - firstRed) * t,
-            green: firstGreen + (secondGreen - firstGreen) * t,
-            blue: firstBlue + (secondBlue - firstBlue) * t,
-            alpha: firstAlpha + (secondAlpha - firstAlpha) * t
-        )
-    }
 }
 
 private func smooth(_ value: CGFloat) -> CGFloat {
