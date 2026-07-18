@@ -38,6 +38,7 @@ HardCounter/
 │   │   ├── FighterCombatStyle.swift
 │   │   └── FighterStats.swift
 │   ├── Debug/
+│   │   ├── FootworkShowcaseController.swift
 │   │   ├── MotionClipShowcaseController.swift
 │   │   ├── MotionShowcaseController.swift
 │   │   └── SwayShowcaseController.swift
@@ -141,6 +142,7 @@ idle → swaying → idle
 - `FighterPose.swift`: 가드·펀치·스웨이 포즈 데이터와 펀치 프로필에 따른 순수 포즈 변형을 담당한다.
 - `FighterMotionClip.swift`: 시간축 키프레임, 보간 곡선과 루트·발 고정 오프셋을 샘플링한다. 현재 가드 호흡, 리어 스트레이트와 스트레이트 피격 반응부터 이 경로를 사용한다.
 - `MotionClipShowcaseController.swift`: Debug 실행에서 기존 리드 스트레이트와 시간축 리어 스트레이트를 번갈아 재생해 새 모션 경로를 A/B 비교한다.
+- `FootworkShowcaseController.swift`: Debug 실행에서 8방향 이동·급반전·정지 착지와 이동 중 펀치·스웨이 전환을 반복해 3D 하체 위상 보존을 비교한다.
 - `SwayShowcaseController.swift`: Debug 실행에서 좌우 슬립·풀백·전진 실패를 일정한 간격으로 반복해 스웨이 실루엣을 비교한다.
 - `FighterLocomotion.swift`: SpriteKit에 의존하지 않고 가드 호흡, 실제 화면 이동량에 따른 발 고정, 앞발–뒷발 셔플 단계, 무릎·골반·상체의 절차형 오프셋을 공통 프레임 데이터로 계산한다. 2D와 3D 표현이 같은 발 리듬을 소비한다.
 - `CombatControlsNode.swift`: 아날로그 스틱과 펀치/스웨이 버튼을 그리고 멀티터치 입력을 해석한다. 스틱과 버튼의 시각 피드백은 터치 시작 프레임에 즉시 표시한다.
