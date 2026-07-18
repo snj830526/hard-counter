@@ -5,6 +5,7 @@ import SpriteKit
 /// networking continue to use FighterNode; this object only replaces its art.
 final class Fighter3DRenderer {
     let spriteNode: SK3DNode
+    private let motionStyle: Fighter3DMotionStyle
     private let motionProfile: Fighter3DMotionProfile
 
     private let skeletonRoot = SCNNode()
@@ -26,7 +27,6 @@ final class Fighter3DRenderer {
     private var phaseElapsed: TimeInterval = 0
     private var activeHand: PunchHand = .lead
     private var punchProfile = PunchProfile()
-    private var swayDirection: SwayDirection = .back
     private var swayScreenDirection = CGVector(dx: -1, dy: 0)
     private var swayPerformance: CGFloat = 1
     private var opponentScreenDirection = CGVector(dx: 1, dy: 0)
@@ -40,6 +40,7 @@ final class Fighter3DRenderer {
     private var displayedStaminaFraction: CGFloat = 1
 
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
+        self.motionStyle = motionStyle
         motionProfile = motionStyle.profile
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
@@ -74,11 +75,10 @@ final class Fighter3DRenderer {
     }
 
     func prepareSway(
-        _ direction: SwayDirection,
+        _: SwayDirection,
         screenDirection: CGVector,
         performance: CGFloat
     ) {
-        swayDirection = direction
         swayScreenDirection = screenDirection
         swayPerformance = performance
     }
@@ -251,16 +251,18 @@ final class Fighter3DRenderer {
 
         case .swaying:
             let amount = swayEnvelope(progress(CombatTuning.swayDuration))
-            let swayPose = Fighter3DPose.sway(
-                direction: swayDirection,
+            var swayPose = Fighter3DPose.continuousSway(
+                screenDirection: swayScreenDirection,
+                facingDirection: opponentScreenDirection,
                 performance: swayPerformance
             )
                 .aligned(
                     toScreenDirection: swayScreenDirection,
-                    swayDirection: swayDirection,
-                    facingDirection: opponentScreenDirection
+                    facingDirection: opponentScreenDirection,
+                    facingSign: facingSign
                 )
                 .styledSway(with: motionProfile)
+            applyGuardIdentity(to: &swayPose)
             return guardPose.blended(
                 to: swayPose,
                 amount: smooth(amount)
@@ -342,15 +344,126 @@ final class Fighter3DRenderer {
         pose.spineX += screenUpperX * cos(bodyYaw)
         pose.spineZ += screenUpperX * sin(bodyYaw)
         pose.spineY += locomotionFrame.upperBodyPosition.y * 0.007
+        applyFootworkIdentity(
+            to: &pose,
+            movementAmount: movementAmount,
+            leadLift: leadLift,
+            rearLift: rearLift,
+            locomotionFrame: locomotionFrame
+        )
         return pose
     }
 
+    private func applyFootworkIdentity(
+        to pose: inout Fighter3DPose,
+        movementAmount: CGFloat,
+        leadLift: CGFloat,
+        rearLift: CGFloat,
+        locomotionFrame: FighterLocomotionFrame
+    ) {
+        let stepDifference = leadLift - rearLift
+        let rhythm = sin(CGFloat(phaseElapsed) * motionProfile.breathFrequency)
+        switch motionStyle {
+        case .allRounder:
+            // JIN keeps the head over the hips and lets the shoulders roll
+            // against each planted step: compact, readable counter footwork.
+            pose.pelvisRoll += stepDifference * 0.030
+            pose.spineRoll -= stepDifference * 0.040
+            pose.head.z += Float(stepDifference * 0.026)
+            pose.rootY -= movementAmount * 0.012
+        case .pressure:
+            // MASON advances from a loaded crouch. Both knees remain bent and
+            // the torso follows the hips as one heavy unit.
+            let load = max(movementAmount, max(leadLift, rearLift) * 0.72)
+            pose.rootY -= load * 0.055
+            pose.rootZ += load * 0.045
+            pose.leadKnee.x += Float(load * 0.095)
+            pose.rearKnee.x += Float(load * 0.095)
+            pose.spinePitch -= load * 0.035
+            pose.pelvisRoll += stepDifference * 0.018
+        case .outBoxer:
+            // LEO bounces on alternating feet and lets the upper body lag
+            // behind the quick in-out step before snapping back over center.
+            let bounce = max(leadLift, rearLift)
+            pose.rootY += bounce * 0.050 + rhythm * movementAmount * 0.018
+            pose.rootZ -= movementAmount * 0.025
+            pose.pelvisRoll += stepDifference * 0.052
+            pose.spineRoll -= stepDifference * 0.075
+            pose.head.z += Float(stepDifference * 0.045)
+            pose.leadAnklePitch += leadLift * 0.075
+            pose.rearAnklePitch += rearLift * 0.075
+        case .rival:
+            pose.rootY -= movementAmount * 0.028
+            pose.spineRoll -= locomotionFrame.upperBodyRotation * 0.12
+        }
+    }
+
     private var guardPose: Fighter3DPose {
-        Fighter3DPose.guardPose.styled(with: motionProfile)
+        var pose = Fighter3DPose.guardPose.styled(with: motionProfile)
+        applyGuardIdentity(to: &pose)
+        return pose
+    }
+
+    private func applyGuardIdentity(to pose: inout Fighter3DPose) {
+        switch motionStyle {
+        case .allRounder:
+            // Upright orthodox stance: centered head, even knees and a compact
+            // guard. This remains the visual reference for the other styles.
+            pose.pelvis.y += 0.08
+            pose.spine.y -= 0.06
+            pose.leadHip.x -= 0.02
+            pose.rearHip.x += 0.02
+        case .pressure:
+            // Peek-a-boo crouch: compressed legs, head behind both gloves and
+            // the chest leaning into close-range pressure.
+            pose.rootY -= 0.08
+            // Positive pitch is forward in the model's local stance. Keep the
+            // head stacked over the lead knee instead of arching backward.
+            // Hinge at the pelvis, then cancel that rotation at both hip
+            // joints. The legs keep supporting the body while the complete
+            // trunk folds forward instead of sliding toward the opponent.
+            pose.pelvis.x += 0.18
+            pose.spine.x += 0.18
+            pose.head.x -= 0.12
+            pose.leadKnee.x += 0.08
+            pose.rearKnee.x += 0.05
+            pose.leadHip.x -= 0.16
+            pose.rearHip.x -= 0.14
+            pose.leadShoulder.x -= 0.13
+            pose.rearShoulder.x -= 0.13
+        case .outBoxer:
+            // Bladed freestyle stance: tall rear shoulder, offset hips and a
+            // wide base. The gloves remain near the face but are staggered.
+            pose.rootY += 0.035
+            pose.rootZ -= 0.075
+            pose.pelvis.y += 0.34
+            pose.spine.y -= 0.27
+            pose.pelvis.z += 0.055
+            pose.spine.z -= 0.045
+            pose.leadHip.x -= 0.10
+            pose.rearHip.x += 0.08
+            pose.leadKnee.x -= 0.07
+            pose.rearKnee.x += 0.08
+            // A deliberately asymmetric freestyle guard: the lead hand
+            // floats around chest height while the rear glove protects the
+            // cheek. Combined with the bladed hips this must read differently
+            // even when rendered as a solid silhouette.
+            pose.leadShoulder.x += 0.30
+            pose.leadElbow.x += 0.38
+            pose.rearShoulder.x -= 0.10
+            pose.rearElbow.x -= 0.12
+            pose.head.y += 0.08
+        case .rival:
+            pose.rootY -= 0.055
+            pose.rootZ += 0.035
+            pose.spine.x -= 0.08
+            pose.leadKnee.x += 0.09
+            pose.rearKnee.x += 0.09
+        }
     }
 
     private var punchLoadPose: Fighter3DPose {
-        Fighter3DPose.punchLoad(
+        var pose = Fighter3DPose.punchLoad(
             hand: activeHand,
             technique: punchProfile.technique
         ).styled(
@@ -358,10 +471,12 @@ final class Fighter3DRenderer {
             technique: punchProfile.technique,
             signatureIntensity: 0.32
         )
+        applyPunchIdentity(to: &pose, isStrike: false, power: 1)
+        return pose
     }
 
     private func punchStrikePose(power: CGFloat) -> Fighter3DPose {
-        Fighter3DPose.punchStrike(
+        var pose = Fighter3DPose.punchStrike(
             hand: activeHand,
             technique: punchProfile.technique,
             power: power
@@ -370,6 +485,85 @@ final class Fighter3DRenderer {
             technique: punchProfile.technique,
             signatureIntensity: 1
         )
+        applyPunchIdentity(to: &pose, isStrike: true, power: power)
+        return pose
+    }
+
+    private func applyPunchIdentity(
+        to pose: inout Fighter3DPose,
+        isStrike: Bool,
+        power: CGFloat
+    ) {
+        let handSign: CGFloat = activeHand == .lead ? -1 : 1
+        switch motionStyle {
+        case .allRounder:
+            if punchProfile.technique == .uppercut {
+                if isStrike {
+                    pose.rootY += 0.16 * power
+                    pose.rootZ += 0.08 * power
+                    pose.spinePitch += 0.12 * power
+                    pose.leadKnee.x -= Float(0.10 * power)
+                    pose.rearKnee.x -= Float(0.10 * power)
+                } else {
+                    pose.rootY -= 0.11
+                    pose.rootZ -= 0.06
+                    pose.spinePitch += 0.11
+                    pose.leadKnee.x += 0.15
+                    pose.rearKnee.x += 0.15
+                }
+            } else {
+                pose.pelvis.y += Float(handSign * (isStrike ? 0.08 : -0.05))
+                pose.spine.y += Float(handSign * (isStrike ? 0.06 : -0.04))
+            }
+        case .pressure:
+            if punchProfile.technique == .smash {
+                if isStrike {
+                    pose.rootZ += 0.17 * power
+                    pose.rootRoll += handSign * 0.20 * power
+                    pose.pelvis.y += Float(handSign * 0.26 * power)
+                    pose.spine.y += Float(handSign * 0.32 * power)
+                    pose.leadKnee.x -= Float(0.06 * power)
+                    pose.rearKnee.x -= Float(0.04 * power)
+                } else {
+                    pose.rootY -= 0.13
+                    pose.rootZ -= 0.08
+                    pose.rootRoll -= handSign * 0.13
+                    pose.pelvis.y -= Float(handSign * 0.22)
+                    pose.spine.y -= Float(handSign * 0.27)
+                    pose.leadKnee.x += 0.16
+                    pose.rearKnee.x += 0.13
+                }
+            } else {
+                pose.rootY -= isStrike ? 0.035 : 0.075
+                pose.rootZ += isStrike ? 0.07 * power : -0.04
+            }
+        case .outBoxer:
+            if punchProfile.technique == .straight {
+                if isStrike {
+                    pose.rootZ += 0.24 * power
+                    pose.rootY += 0.045 * power
+                    pose.spinePitch -= 0.15 * power
+                    pose.pelvis.y += Float(handSign * 0.22 * power)
+                    pose.spine.y += Float(handSign * 0.18 * power)
+                    if activeHand == .rear {
+                        pose.rearAnklePitch += 0.18 * power
+                    } else {
+                        pose.leadAnklePitch += 0.14 * power
+                    }
+                } else {
+                    pose.rootZ -= 0.12
+                    pose.rootY += 0.025
+                    pose.pelvis.y -= Float(handSign * 0.18)
+                    pose.spine.y -= Float(handSign * 0.15)
+                }
+            } else {
+                pose.rootY += isStrike ? 0.035 : 0.015
+                pose.rootZ += isStrike ? 0.10 * power : -0.055
+            }
+        case .rival:
+            pose.rootY -= isStrike ? 0.015 : 0.055
+            pose.rootZ += isStrike ? 0.08 * power : -0.035
+        }
     }
 
     private func progress(_ duration: TimeInterval) -> CGFloat {

@@ -100,18 +100,28 @@ struct Fighter3DPose {
             pose.rearShoulder = technique == .uppercut
                 ? SCNVector3(-1.12, 0.18, 0.12)
                 : SCNVector3(-1.52, 0.02, 0.05)
-            pose.rearElbow = technique == .smash
-                ? SCNVector3(-0.28, 0, 0.46)
-                : SCNVector3(-0.08, 0, 0.03)
+            if technique == .uppercut {
+                // Fold the forearm upward through the chin line. A nearly
+                // straight elbow made the glove travel down like an overhand.
+                pose.rearElbow = SCNVector3(-1.42, -0.04, 0.12)
+            } else {
+                pose.rearElbow = technique == .smash
+                    ? SCNVector3(-0.28, 0, 0.46)
+                    : SCNVector3(-0.08, 0, 0.03)
+            }
             pose.rearHip.x -= 0.18
             pose.rearKnee.x += 0.08
         } else {
             pose.leadShoulder = technique == .uppercut
                 ? SCNVector3(-1.08, -0.16, -0.10)
                 : SCNVector3(-1.48, -0.02, -0.05)
-            pose.leadElbow = technique == .smash
-                ? SCNVector3(-0.24, 0, -0.42)
-                : SCNVector3(-0.06, 0, -0.03)
+            if technique == .uppercut {
+                pose.leadElbow = SCNVector3(-1.44, 0.04, -0.12)
+            } else {
+                pose.leadElbow = technique == .smash
+                    ? SCNVector3(-0.24, 0, -0.42)
+                    : SCNVector3(-0.06, 0, -0.03)
+            }
             pose.leadHip.x -= 0.14
         }
         return pose
@@ -148,6 +158,46 @@ struct Fighter3DPose {
         pose.leadKnee.x += 0.20
         pose.rearKnee.x += 0.12
         return pose
+    }
+
+    /// Builds the visible sway from the full analog direction. Combat still
+    /// classifies the intent into four defensive outcomes, but presentation
+    /// must not snap to those buckets while the fighter turns around the ring.
+    static func continuousSway(
+        screenDirection: CGVector,
+        facingDirection: CGVector,
+        performance: CGFloat
+    ) -> Fighter3DPose {
+        let inputLength = hypot(screenDirection.dx, screenDirection.dy)
+        let facingLength = hypot(facingDirection.dx, facingDirection.dy)
+        guard inputLength > 0.001, facingLength > 0.001 else {
+            return sway(direction: .back, performance: performance)
+        }
+
+        let input = CGVector(
+            dx: screenDirection.dx / inputLength,
+            dy: screenDirection.dy / inputLength
+        )
+        let facing = CGVector(
+            dx: facingDirection.dx / facingLength,
+            dy: facingDirection.dy / facingLength
+        )
+        let left = CGVector(dx: -facing.dy, dy: facing.dx)
+        let forwardDot = input.dx * facing.dx + input.dy * facing.dy
+        let lateralDot = input.dx * left.dx + input.dy * left.dy
+
+        let depthPose = sway(
+            direction: forwardDot >= 0 ? .forward : .back,
+            performance: performance
+        )
+        let lateralPose = sway(
+            direction: lateralDot >= 0 ? .left : .right,
+            performance: performance
+        )
+        let depthAmount = abs(forwardDot)
+        let lateralAmount = abs(lateralDot)
+        let total = max(depthAmount + lateralAmount, 0.001)
+        return lateralPose.blended(to: depthPose, amount: depthAmount / total)
     }
 
     static func hit(technique: PunchTechnique, strength: CGFloat) -> Fighter3DPose {
@@ -311,40 +361,52 @@ struct Fighter3DPose {
     /// prevents arbitrary direction changes as the fighters rotate in the ring.
     func aligned(
         toScreenDirection direction: CGVector,
-        swayDirection: SwayDirection,
-        facingDirection: CGVector
+        facingDirection: CGVector,
+        facingSign: CGFloat
     ) -> Fighter3DPose {
         let length = hypot(direction.dx, direction.dy)
         guard length > 0.001 else { return self }
 
         var pose = self
         let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
-        let travel: CGFloat
-        switch swayDirection {
-        case .back: travel = 0.46
-        case .forward: travel = 0.36
-        case .left, .right: travel = 0.44
-        }
+        let facingLength = hypot(facingDirection.dx, facingDirection.dy)
+        let facing = facingLength > 0.001
+            ? CGVector(dx: facingDirection.dx / facingLength, dy: facingDirection.dy / facingLength)
+            : CGVector(dx: 1, dy: 0)
+        let forwardDot = unit.dx * facing.dx + unit.dy * facing.dy
+        let depthWeight = abs(forwardDot)
+        let lateralWeight = 1 - depthWeight
+        let depthTravel: CGFloat = forwardDot >= 0 ? 0.36 : 0.46
+        let travel = 0.44 * lateralWeight + depthTravel * depthWeight
         let offset = Fighter3DSwayAlignment.torsoOffset(
             screenDirection: unit,
             facingDirection: facingDirection,
             pelvisYaw: CGFloat(pose.pelvis.y),
+            facingSign: facingSign,
             travel: travel
         )
 
         // The torso node lives below the fighter's yawed skeleton and pelvis.
         // Convert the desired screen-horizontal travel back into that local
         // X/Z plane so diagonal facing never mirrors or suppresses the sway.
+        // Anchor poses contain local root translations authored for a fixed
+        // camera. They would pull a rotated fighter in a second, conflicting
+        // direction. Visible travel is owned exclusively by the analog vector.
         pose.rootX = 0
+        pose.rootZ = 0
         pose.spineX = offset.localX
         pose.spineY = offset.localY
         pose.spineZ = offset.localZ
 
         // Lean across the screen in the same direction as the stick. The hips
         // counter only slightly so the waist remains connected.
-        pose.spine.z = Float(-unit.dx * 0.30 - unit.dy * 0.06)
-        pose.pelvis.z = Float(unit.dx * 0.10 + unit.dy * 0.02)
-        pose.head.z = Float(unit.dx * 0.10)
+        // Roll is local to the fighter and therefore mirrors when the rig
+        // changes sides. Position was already screen-correct, but leaving the
+        // roll unmirrored made the player appear to evade opposite to input
+        // while the CPU looked correct.
+        pose.spine.z = Float(unit.dx * facingSign * 0.30)
+        pose.pelvis.z = Float(-unit.dx * facingSign * 0.10)
+        pose.head.z = Float(-unit.dx * facingSign * 0.10)
         return pose
     }
 
