@@ -32,6 +32,14 @@ enum FighterProfile: String, CaseIterable, Identifiable {
         }
     }
 
+    var combatTraitName: String {
+        switch self {
+        case .allRounder: "카운터 강화 · 어퍼컷 효율"
+        case .pressure: "스매시 위력 · 높은 소모"
+        case .outBoxer: "스트레이트 속도 · 긴 사거리"
+        }
+    }
+
     var color: UIColor {
         switch self {
         case .allRounder: .systemCyan
@@ -57,6 +65,14 @@ enum FighterProfile: String, CaseIterable, Identifiable {
     var motionStyle: Fighter3DMotionStyle {
         switch self {
         case .allRounder: .allRounder
+        case .pressure: .pressure
+        case .outBoxer: .outBoxer
+        }
+    }
+
+    var combatStyle: FighterCombatStyle {
+        switch self {
+        case .allRounder: .balancedCounter
         case .pressure: .pressure
         case .outBoxer: .outBoxer
         }

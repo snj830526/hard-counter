@@ -71,6 +71,11 @@ struct FighterSelectionView: View {
                     .padding(.vertical, 4)
                     .background(.white.opacity(0.08), in: Capsule())
 
+                Text(fighter.combatTraitName)
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(fighter.swiftUIColor.opacity(0.86))
+                    .lineLimit(1)
+
                 VStack(spacing: 5) {
                     statRow(
                         "체력",
@@ -139,7 +144,7 @@ struct FighterSelectionView: View {
 
     private var footer: some View {
         HStack {
-            Text("선택한 선수의 체력·스태미너·스피드가 실제 경기에 적용됩니다")
+            Text("선택한 선수의 능력치와 기술 특성이 실제 경기에 적용됩니다")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()

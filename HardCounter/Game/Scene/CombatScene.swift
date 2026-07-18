@@ -40,7 +40,9 @@ final class CombatScene: SKScene {
 
     private lazy var engine = CombatEngine(
         playerStats: fighterProfile.stats,
-        cpuStats: opponentProfile?.stats ?? .standard
+        cpuStats: opponentProfile?.stats ?? .standard,
+        playerStyle: fighterProfile.combatStyle,
+        cpuStyle: cpuCombatStyle
     )
     private lazy var localInputSource = LocalInputSource(
         fighter: networkConfiguration?.localFighterID ?? .player
@@ -84,13 +86,23 @@ final class CombatScene: SKScene {
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase") {
+        if fighterStyleShowcaseEnabled {
             return fighterProfile.motionStyle
         }
 #endif
         return opponentProfile?.motionStyle ?? .rival
     }
+
+    private var cpuCombatStyle: FighterCombatStyle {
 #if DEBUG
+        if fighterStyleShowcaseEnabled {
+            return fighterProfile.combatStyle
+        }
+#endif
+        return opponentProfile?.combatStyle ?? .rival
+    }
+#if DEBUG
+    private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
@@ -864,7 +876,10 @@ final class CombatScene: SKScene {
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
         return visibleFighterDistance()
-            <= baseVisiblePunchReach(for: attacker) * motionReachScale * techniqueReachScale
+            <= baseVisiblePunchReach(for: attacker)
+                * motionReachScale
+                * techniqueReachScale
+                * CGFloat(profile.reachScale)
     }
 
     private func visibleFighterDistance() -> CGFloat {
@@ -1264,6 +1279,16 @@ final class CombatScene: SKScene {
                 node(for: fighter).show(phase: phase)
             case let .punchStarted(fighter, hand, profile):
                 node(for: fighter).preparePunch(hand, profile: profile)
+#if DEBUG
+                if fighterStyleShowcaseEnabled, fighter == .cpu {
+                    statusLabel.text = String(
+                        format: "PWR %.2f  SPD %.2f  RNG %.2f",
+                        profile.powerScale,
+                        1 / profile.startupScale,
+                        profile.reachScale
+                    )
+                }
+#endif
             case let .punchMissed(fighter, profile):
                 node(for: fighter).playWhiff(profile)
             case let .swayStarted(fighter, direction, screenDirection, performance):

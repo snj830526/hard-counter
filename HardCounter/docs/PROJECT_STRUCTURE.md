@@ -35,6 +35,7 @@ HardCounter/
 │   ├── Combat/
 │   │   ├── CombatEngine.swift
 │   │   ├── CombatTuning.swift
+│   │   ├── FighterCombatStyle.swift
 │   │   └── FighterStats.swift
 │   ├── Debug/
 │   │   ├── MotionClipShowcaseController.swift
@@ -109,6 +110,7 @@ HardCounter/
 - `CombatEngine.swift`: 선수 상태와 전투 단계 전이를 관리한다. 이동 의도와 펀치 리듬으로 펀치 프로필을 만들고 스웨이 방향·유효 시간을 판정하며 SpriteKit 노드에 직접 의존하지 않는다.
 - `CombatTuning.swift`: 피해량, 프레임 시간, 이동 속도, 사거리, 연출 시간 등 조정 가능한 수치를 모은다.
 - `FighterStats.swift`: 선수별 최대 체력, 최대 스태미너와 이동 속도 배율을 정의하며 저스태미너 기준도 최대치 비율로 계산한다.
+- `FighterCombatStyle.swift`: 선수별 기술의 위력, 발동, 활성, 회복, 스태미너 소모와 사거리 배율을 정의한다. 표현용 모션 프로필과 분리되며 양 기기의 `CombatEngine`이 같은 선수 ID에 같은 스타일을 적용한다.
 
 전투 상태는 대략 다음 순서로 흐른다.
 
@@ -154,7 +156,7 @@ idle → swaying → idle
 - 모션 계산은 `FighterLocomotionController`, `FighterPoseResolver`, `FighterMotionClipPlayer`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
 - 시간축 클립은 루트 이동과 양발의 상쇄 오프셋을 함께 기록해 체중 이동 중에도 발이 매트에서 미끄러지지 않게 한다. 검증된 클립만 기존 상태 전환 모션을 단계적으로 대체한다.
 - 3D 스파이크는 `FighterNode` 아래의 표현만 교체한다. 링 좌표, 히트 판정, 입력, CPU와 네트워크 메시지 형식은 2D 렌더러와 공유하므로 실험을 폐기해도 전투 로직에는 영향이 없어야 한다.
-- 캐릭터 능력치는 `FighterStats`, 외형은 `FighterAppearance`, 모션 개성과 대표 기술 연출은 `Fighter3DMotionProfile`이 각각 소유한다. 이후 캐릭터 고유 기술의 실제 전투 규칙을 추가할 때는 표현 프로필을 직접 판정에 사용하지 않고 별도 전투 설정으로 명시적으로 연결한다.
+- 캐릭터 기본 능력치는 `FighterStats`, 기술 규칙은 `FighterCombatStyle`, 외형은 `FighterAppearance`, 모션 개성과 대표 기술 연출은 `Fighter3DMotionProfile`이 각각 소유한다. 전투 규칙과 표현 프로필은 직접 참조하지 않고 `FighterProfile`에서 명시적으로 짝을 맞춘다.
 - 절차형 모션은 마지막 적용 단계에서 관절 제한을 반드시 통과한다. 양쪽 무릎은 캐릭터 로컬 좌표에서 같은 해부학적 방향으로만 접히고 고관절의 좌우 벌림을 제한한다. 스탠스의 앞뒤 차이는 다리 뿌리의 깊이로 표현하며 발목은 고관절과 무릎의 합을 보정하되 과회전하지 않는다.
 - 3D 캐릭터의 발바닥 기준점은 링 좌표와 같은 원점을 사용한다. 호흡은 상체에서 처리하고 스웨이는 골반보다 상체 이동 비중을 크게 두어 발이 접촉 그림자에서 떨어지지 않게 한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
