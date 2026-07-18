@@ -108,6 +108,7 @@ final class CombatScene: SKScene {
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
+    private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
@@ -225,6 +226,8 @@ final class CombatScene: SKScene {
             updateMotionClipShowcase(at: currentTime)
         } else if footworkShowcaseEnabled {
             updateFootworkShowcase(at: currentTime)
+        } else if fatigueShowcaseEnabled {
+            updateFatigueShowcase()
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled || impactShowcaseEnabled {
@@ -471,7 +474,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if footworkShowcaseEnabled {
+            if footworkShowcaseEnabled || fatigueShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
             } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
@@ -949,7 +952,7 @@ final class CombatScene: SKScene {
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
         motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
-            || motionClipShowcaseEnabled
+            || motionClipShowcaseEnabled || fatigueShowcaseEnabled
 #else
         false
 #endif
@@ -1168,6 +1171,15 @@ final class CombatScene: SKScene {
     }
 
 #if DEBUG
+    private func updateFatigueShowcase() {
+        updateStamina(.cpu, stamina: 0)
+        guard statusLabel.text != "CPU EXHAUSTED" else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = .systemRed
+        statusLabel.text = "CPU EXHAUSTED"
+    }
+
     private func updateFootworkShowcase(at time: TimeInterval) {
         let frame = footworkShowcaseController.frame(at: time)
         let towardPlayer = CGVector(
@@ -1416,6 +1428,7 @@ final class CombatScene: SKScene {
     private func updateStamina(_ fighter: FighterID, stamina: Double) {
         let state = engine.state(for: fighter)
         let fraction = CGFloat(stamina / state.stats.maximumStamina)
+        node(for: fighter).updateStamina(fraction: fraction)
         let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
         bar.xScale = fraction
         if stamina <= state.stats.lowStaminaThreshold {
