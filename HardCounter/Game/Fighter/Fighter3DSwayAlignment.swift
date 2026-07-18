@@ -11,7 +11,6 @@ enum Fighter3DSwayAlignment {
         screenDirection: CGVector,
         facingDirection: CGVector,
         pelvisYaw: CGFloat,
-        facingSign: CGFloat,
         travel: CGFloat
     ) -> Fighter3DSwayOffset {
         let inputLength = hypot(screenDirection.dx, screenDirection.dy)
@@ -31,10 +30,10 @@ enum Fighter3DSwayAlignment {
             )
             : CGVector(dx: 1, dy: 0)
         let worldYaw = atan2(facing.dx, -facing.dy) + pelvisYaw
-        // The fighter rig changes handedness when its screen-facing side
-        // changes. CPU starts on the negative side, so preserve that baseline
-        // and mirror the local offset only for the opposite-handed rig.
-        let screenHorizontal = input.dx * travel * 0.82 * -facingSign
+        // worldYaw already contains the fighter's full screen orientation.
+        // Mirroring by facingSign here would apply handedness twice and make
+        // one fighter travel opposite to the stick.
+        let screenHorizontal = input.dx * travel * 0.82
 
         return Fighter3DSwayOffset(
             localX: screenHorizontal * cos(worldYaw),

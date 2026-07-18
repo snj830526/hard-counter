@@ -382,7 +382,6 @@ struct Fighter3DPose {
             screenDirection: unit,
             facingDirection: facingDirection,
             pelvisYaw: CGFloat(pose.pelvis.y),
-            facingSign: facingSign,
             travel: travel
         )
 
