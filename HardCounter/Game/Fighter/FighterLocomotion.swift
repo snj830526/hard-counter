@@ -15,6 +15,8 @@ struct FighterLocomotionFrame {
     var forwardDrive: CGFloat
     var lateralDrive: CGFloat
     var landingAmount: CGFloat
+    var stepProgress: CGFloat
+    var frontFootInitiates: Bool
 }
 
 struct FighterLocomotionController {
@@ -275,7 +277,9 @@ struct FighterLocomotionController {
             movementIntensity: displayedIntensity,
             forwardDrive: forwardDrive,
             lateralDrive: lateralDrive,
-            landingAmount: landing * motionAmplitude
+            landingAmount: landing * motionAmplitude,
+            stepProgress: stepProgress,
+            frontFootInitiates: frontFootInitiates
         )
     }
 
