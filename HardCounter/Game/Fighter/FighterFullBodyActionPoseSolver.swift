@@ -127,6 +127,92 @@ enum FighterFullBodyActionPoseSolver {
             pose.leadKnee.x -= Float(rise * 0.055)
             pose.rearKnee.x -= Float(rise * 0.055)
         }
+        if reach > 0 {
+            solveStrikingArm(
+                in: &pose,
+                hand: hand,
+                technique: technique,
+                reach: min(reach, 1)
+            )
+        }
         return pose
+    }
+
+    private static func solveStrikingArm(
+        in pose: inout Fighter3DPose,
+        hand: PunchHand,
+        technique: PunchTechnique,
+        reach: CGFloat
+    ) {
+        let target: CGPoint
+        switch technique {
+        case .straight:
+            target = CGPoint(x: -1.075, y: -0.055)
+        case .smash:
+            target = CGPoint(x: -0.92, y: 0.085)
+        case .uppercut:
+            target = CGPoint(x: -0.79, y: 0.145)
+        }
+
+        var shoulder = hand == .lead ? pose.leadShoulder : pose.rearShoulder
+        var elbow = hand == .lead ? pose.leadElbow : pose.rearElbow
+        let current = armEndpoint(
+            shoulderAngle: CGFloat(shoulder.x),
+            elbowAngle: CGFloat(elbow.x)
+        )
+        let desired = CGPoint(
+            x: current.x + (target.x - current.x) * reach,
+            y: current.y + (target.y - current.y) * reach
+        )
+        let solution = solveArm(target: desired, bendDirection: -1)
+        shoulder.x = Float(solution.shoulder)
+        elbow.x = Float(solution.elbow)
+        if hand == .lead {
+            pose.leadShoulder = shoulder
+            pose.leadElbow = elbow
+        } else {
+            pose.rearShoulder = shoulder
+            pose.rearElbow = elbow
+        }
+    }
+
+    private static func solveArm(
+        target: CGPoint,
+        bendDirection: CGFloat
+    ) -> (shoulder: CGFloat, elbow: CGFloat) {
+        let upper: CGFloat = 0.58
+        let lower: CGFloat = 0.54
+        let minimumReach = abs(upper - lower) + 0.02
+        let maximumReach = upper + lower - 0.025
+        let distance = max(hypot(target.x, target.y), 0.001)
+        let reach = min(max(distance, minimumReach), maximumReach)
+        let scale = reach / distance
+        let clamped = CGPoint(x: target.x * scale, y: target.y * scale)
+        let cosine = min(max(
+            (reach * reach - upper * upper - lower * lower)
+                / (2 * upper * lower),
+            -1
+        ), 1)
+        let elbow = acos(cosine) * (bendDirection < 0 ? -1 : 1)
+        let direction = atan2(clamped.x, -clamped.y)
+        let shoulder = direction - atan2(
+            lower * sin(elbow),
+            upper + lower * cos(elbow)
+        )
+        return (shoulder, elbow)
+    }
+
+    private static func armEndpoint(
+        shoulderAngle: CGFloat,
+        elbowAngle: CGFloat
+    ) -> CGPoint {
+        let upper: CGFloat = 0.58
+        let lower: CGFloat = 0.54
+        return CGPoint(
+            x: upper * sin(shoulderAngle)
+                + lower * sin(shoulderAngle + elbowAngle),
+            y: -upper * cos(shoulderAngle)
+                - lower * cos(shoulderAngle + elbowAngle)
+        )
     }
 }

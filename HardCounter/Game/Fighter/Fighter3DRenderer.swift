@@ -22,6 +22,8 @@ final class Fighter3DRenderer {
     private let rearHip = SCNNode()
     private let rearKnee = SCNNode()
     private let rearAnkle = SCNNode()
+    private var leadFootIK: SCNIKConstraint?
+    private var rearFootIK: SCNIKConstraint?
 
     private var phase: FighterPhase = .idle
     private var phaseElapsed: TimeInterval = 0
@@ -185,7 +187,11 @@ final class Fighter3DRenderer {
             movementAmount: movementAmount,
             deltaTime: deltaTime
         )
-        apply(pose)
+        apply(
+            pose,
+            locomotionFrame: locomotionFrame,
+            bodyMotion: movement.bodyMotion
+        )
     }
 
     private func applyHitConfirm(to pose: inout Fighter3DPose, amount: CGFloat) {
@@ -906,7 +912,11 @@ final class Fighter3DRenderer {
         )
     }
 
-    private func apply(_ pose: Fighter3DPose) {
+    private func apply(
+        _ pose: Fighter3DPose,
+        locomotionFrame: FighterLocomotionFrame? = nil,
+        bodyMotion: FighterBodyMotionFrame = .neutral
+    ) {
         lastAppliedPose = pose
         let pose = pose.sanitized()
         skeletonRoot.position = SCNVector3(pose.rootX, pose.rootY, pose.rootZ)
@@ -933,6 +943,10 @@ final class Fighter3DRenderer {
             -(pose.rearHip.x + pose.rearKnee.x) + Float(pose.rearAnklePitch),
             minimum: -0.72,
             maximum: 0.72
+        )
+        applyFootPlanting(
+            locomotionFrame: locomotionFrame,
+            bodyMotion: bodyMotion
         )
     }
 
@@ -1088,6 +1102,73 @@ final class Fighter3DRenderer {
             proportions: proportions,
             to: pelvis
         )
+        configureFootIK()
+    }
+
+    private func configureFootIK() {
+        let lead = SCNIKConstraint.inverseKinematicsConstraint(
+            chainRootNode: leadHip
+        )
+        let rear = SCNIKConstraint.inverseKinematicsConstraint(
+            chainRootNode: rearHip
+        )
+        for (constraint, hip, knee, ankle) in [
+            (lead, leadHip, leadKnee, leadAnkle),
+            (rear, rearHip, rearKnee, rearAnkle)
+        ] {
+            constraint.influenceFactor = 0
+            constraint.setMaxAllowedRotationAngle(42, forJoint: hip)
+            constraint.setMaxAllowedRotationAngle(72, forJoint: knee)
+            constraint.setMaxAllowedRotationAngle(18, forJoint: ankle)
+            ankle.constraints = [constraint]
+        }
+        leadFootIK = lead
+        rearFootIK = rear
+    }
+
+    private func applyFootPlanting(
+        locomotionFrame: FighterLocomotionFrame?,
+        bodyMotion: FighterBodyMotionFrame
+    ) {
+        guard let frame = locomotionFrame,
+              let leadFootIK,
+              let rearFootIK else {
+            leadFootIK?.influenceFactor = 0
+            rearFootIK?.influenceFactor = 0
+            return
+        }
+
+        // The internal orthographic camera shows 3.12 SceneKit units over a
+        // 192-point viewport. Locomotion offsets use the legacy rig's point
+        // scale, so a slightly conservative conversion keeps IK corrective
+        // instead of allowing it to redesign the authored stance.
+        let pointToScene: CGFloat = 0.0105
+        let leadBase = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
+        let rearBase = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
+        leadFootIK.targetPosition = SCNVector3(
+            leadBase.x + Float(frame.frontFootOffset.x * pointToScene),
+            leadBase.y + Float(frame.frontFootOffset.y * pointToScene),
+            leadBase.z
+        )
+        rearFootIK.targetPosition = SCNVector3(
+            rearBase.x + Float(frame.backFootOffset.x * pointToScene),
+            rearBase.y + Float(frame.backFootOffset.y * pointToScene),
+            rearBase.z
+        )
+
+        let supportInfluence: CGFloat = 0.82
+        let travellingInfluence: CGFloat = 0.58
+        switch bodyMotion.supportFoot {
+        case .lead:
+            leadFootIK.influenceFactor = supportInfluence
+            rearFootIK.influenceFactor = travellingInfluence
+        case .rear:
+            leadFootIK.influenceFactor = travellingInfluence
+            rearFootIK.influenceFactor = supportInfluence
+        case .both:
+            leadFootIK.influenceFactor = 0.70
+            rearFootIK.influenceFactor = 0.70
+        }
     }
 
     private func attachArm(
