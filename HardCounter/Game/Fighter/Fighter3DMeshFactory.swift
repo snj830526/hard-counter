@@ -156,6 +156,42 @@ enum Fighter3DMeshFactory {
         return root
     }
 
+    static func sphere(radius: CGFloat, material: SCNMaterial) -> SCNNode {
+        let geometry = SCNSphere(radius: radius)
+        geometry.segmentCount = 8
+        geometry.materials = [material]
+        return SCNNode(geometry: geometry)
+    }
+
+    static func cylinder(
+        radius: CGFloat,
+        height: CGFloat,
+        material: SCNMaterial
+    ) -> SCNNode {
+        let geometry = SCNCylinder(radius: radius, height: height)
+        geometry.radialSegmentCount = 8
+        geometry.materials = [material]
+        return SCNNode(geometry: geometry)
+    }
+
+    static func box(
+        width: CGFloat,
+        height: CGFloat,
+        length: CGFloat,
+        chamfer: CGFloat,
+        material: SCNMaterial
+    ) -> SCNNode {
+        let geometry = SCNBox(
+            width: width,
+            height: height,
+            length: length,
+            chamferRadius: chamfer
+        )
+        geometry.chamferSegmentCount = 1
+        geometry.materials = [material]
+        return SCNNode(geometry: geometry)
+    }
+
     private static func facetedBody(
         sections: [Section],
         sides: Int,
