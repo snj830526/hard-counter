@@ -8,9 +8,9 @@ enum ArenaViewTuning {
     static let startingHorizontalOffset: CGFloat = 185
     static let startingDepthOffset: CGFloat = 36
 
-    static let baseZoom: CGFloat = 2.00
-    static let farZoom: CGFloat = 1.72
-    static let closeZoom: CGFloat = 2.12
+    static let baseZoom: CGFloat = 1.80
+    static let farZoom: CGFloat = 1.52
+    static let closeZoom: CGFloat = 1.90
     static let closeSeparation: CGFloat = 46
     static let farSeparation: CGFloat = 275
     static let zoomResponse: CGFloat = 3.8
