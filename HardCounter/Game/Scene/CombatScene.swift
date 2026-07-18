@@ -566,11 +566,16 @@ final class CombatScene: SKScene {
         let movementMultiplier = phaseMultiplier * directionMultiplier
             * staminaFootworkMultiplier(for: .player)
             * fighterProfile.stats.movementSpeedMultiplier
-        let playerIsMoving = movementMultiplier > 0 && hypot(worldMovement.dx, worldMovement.dy) > 0.02
+        let playerVelocity = screenNormalizedWorldVelocity(
+            for: worldMovement,
+            screenSpeed: CombatTuning.playerScreenMoveSpeed
+        )
+        let playerIsMoving = movementMultiplier > 0
+            && hypot(playerVelocity.dx, playerVelocity.dy) > 0.02
 
         if playerIsMoving {
-            playerArenaPosition.x += worldMovement.dx * CombatTuning.playerMoveSpeed * movementMultiplier * deltaTime
-            playerArenaPosition.y += worldMovement.dy * CombatTuning.playerDepthMoveSpeed * movementMultiplier * deltaTime
+            playerArenaPosition.x += playerVelocity.dx * movementMultiplier * deltaTime
+            playerArenaPosition.y += playerVelocity.dy * movementMultiplier * deltaTime
         }
 
         let cpuCanMove = networkConfiguration != nil
@@ -600,13 +605,19 @@ final class CombatScene: SKScene {
                     * directionalFootworkMultiplier(for: cpuWorldMovement, fighter: .cpu)
                     * staminaMultiplier
                     * (opponentProfile?.stats.movementSpeedMultiplier ?? 1)
-                cpuArenaPosition.x += cpuWorldMovement.dx * CombatTuning.playerMoveSpeed * multiplier * deltaTime
-                cpuArenaPosition.y += cpuWorldMovement.dy * CombatTuning.playerDepthMoveSpeed * multiplier * deltaTime
+                let cpuVelocity = screenNormalizedWorldVelocity(
+                    for: cpuWorldMovement,
+                    screenSpeed: CombatTuning.playerScreenMoveSpeed
+                )
+                cpuArenaPosition.x += cpuVelocity.dx * multiplier * deltaTime
+                cpuArenaPosition.y += cpuVelocity.dy * multiplier * deltaTime
             } else {
-                cpuArenaPosition.x += cpuMovement.dx * CombatTuning.cpuMoveSpeed
-                    * staminaMultiplier * deltaTime
-                cpuArenaPosition.y += cpuMovement.dy * CombatTuning.cpuMoveSpeed
-                    * staminaMultiplier * deltaTime
+                let cpuVelocity = screenNormalizedWorldVelocity(
+                    for: cpuMovement,
+                    screenSpeed: CombatTuning.cpuScreenMoveSpeed
+                )
+                cpuArenaPosition.x += cpuVelocity.dx * staminaMultiplier * deltaTime
+                cpuArenaPosition.y += cpuVelocity.dy * staminaMultiplier * deltaTime
             }
         }
 
@@ -712,6 +723,28 @@ final class CombatScene: SKScene {
         }
         return CombatTuning.lateralSpeedMultiplier
             + (CombatTuning.retreatSpeedMultiplier - CombatTuning.lateralSpeedMultiplier) * -forwardDot
+    }
+
+    /// Converts a world direction into velocity whose projected length is
+    /// constant on screen. Quarter-view axes are skewed and have different
+    /// scales, so multiplying world X/Y independently makes diagonals uneven.
+    private func screenNormalizedWorldVelocity(
+        for movement: CGVector,
+        screenSpeed: CGFloat
+    ) -> CGVector {
+        let inputAmount = min(hypot(movement.dx, movement.dy), 1)
+        guard inputAmount > 0.001 else { return .zero }
+
+        let worldUnit = CGVector(
+            dx: movement.dx / inputAmount,
+            dy: movement.dy / inputAmount
+        )
+        let projectedUnit = ringProjection.screenVector(forWorldVector: worldUnit)
+        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        guard screenPointsPerWorldPoint > 0.001 else { return .zero }
+
+        let worldSpeed = screenSpeed * inputAmount / screenPointsPerWorldPoint
+        return CGVector(dx: worldUnit.dx * worldSpeed, dy: worldUnit.dy * worldSpeed)
     }
 
     private func separateFighters() {
