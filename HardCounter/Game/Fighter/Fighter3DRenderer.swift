@@ -41,9 +41,9 @@ final class Fighter3DRenderer {
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
 
-        spriteNode = SK3DNode(viewportSize: CGSize(width: 176, height: 206))
+        spriteNode = SK3DNode(viewportSize: CGSize(width: 192, height: 232))
         spriteNode.scnScene = scene
-        spriteNode.position = CGPoint(x: 0, y: 76)
+        spriteNode.position = CGPoint(x: 0, y: 60)
         spriteNode.zPosition = 20
         spriteNode.isPlaying = true
         spriteNode.loops = true
@@ -302,11 +302,11 @@ final class Fighter3DRenderer {
         let cameraNode = SCNNode()
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
-        camera.orthographicScale = 2.68
+        camera.orthographicScale = 3.12
         camera.zNear = 0.1
         camera.zFar = 100
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 1.45, 6)
+        cameraNode.position = SCNVector3(0, 1.34, 6)
         scene.rootNode.addChildNode(cameraNode)
         spriteNode.pointOfView = cameraNode
     }
