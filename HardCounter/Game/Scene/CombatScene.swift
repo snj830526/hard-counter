@@ -11,11 +11,13 @@ final class CombatScene: SKScene {
     private let ringNode = BoxingRingNode()
     private lazy var player = FighterNode(
         facingRight: true,
-        appearance: fighterProfile.appearance
+        appearance: fighterProfile.appearance,
+        motionStyle: fighterProfile.motionStyle
     )
     private lazy var cpu = FighterNode(
         facingRight: false,
-        appearance: opponentProfile?.appearance ?? .cpuRival
+        appearance: opponentProfile?.appearance ?? .cpuRival,
+        motionStyle: opponentProfile?.motionStyle ?? .rival
     )
     private let playerShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
     private let cpuShadow = SKShapeNode(ellipseOf: CGSize(width: 84, height: 18))
@@ -232,6 +234,12 @@ final class CombatScene: SKScene {
         }
         guard countdownEndsAt == nil else { return }
 
+        // A second finger can press SWAY before UIKit delivers the pending
+        // touchesMoved callback for the stick finger. Re-sample the active
+        // stick from this event so the committed sway uses what the player is
+        // actually holding on this exact frame, not the previous frame.
+        refreshActiveMovement(from: event)
+
         // UIKit delivers simultaneous touches as a Set. Resolve SWAY before
         // PUNCH so a near-simultaneous two-button chain is deterministic and
         // the punch enters the sway buffer instead of randomly starting first.
@@ -278,6 +286,21 @@ final class CombatScene: SKScene {
         case .sway: return 1
         case .punch: return 2
         case .none: return 3
+        }
+    }
+
+    private func refreshActiveMovement(from event: UIEvent?) {
+        guard let activeTouches = event?.allTouches else { return }
+        for touch in activeTouches where touch.phase != .ended && touch.phase != .cancelled {
+            let latestTouch = event?.coalescedTouches(for: touch)?.last ?? touch
+            if localInputSource.updateMovement(
+                touchID: ObjectIdentifier(touch),
+                vector: controls.continuedMovement(at: latestTouch.location(in: self)),
+                at: gameTime
+            ) {
+                refreshMovementIndicator()
+                return
+            }
         }
     }
 
@@ -395,8 +418,10 @@ final class CombatScene: SKScene {
     }
 
     private func configureShadow(_ shadow: SKShapeNode) {
-        shadow.fillColor = .black.withAlphaComponent(0.34)
-        shadow.strokeColor = .clear
+        shadow.fillColor = .black.withAlphaComponent(0.44)
+        shadow.strokeColor = .black.withAlphaComponent(0.16)
+        shadow.lineWidth = 2
+        shadow.glowWidth = 2
         shadow.zPosition = 5
     }
 
@@ -804,9 +829,9 @@ final class CombatScene: SKScene {
         fighter.setScale(scale)
         fighter.zPosition = 12 + (1 - progress) * 16
 
-        shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 2)
+        shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 1)
         shadow.xScale = scale
-        shadow.yScale = scale
+        shadow.yScale = scale * 0.72
         shadow.zPosition = fighter.zPosition - 1
     }
 

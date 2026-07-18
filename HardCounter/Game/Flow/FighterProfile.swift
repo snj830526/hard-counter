@@ -54,6 +54,14 @@ enum FighterProfile: String, CaseIterable, Identifiable {
 
     var swiftUIColor: Color { Color(uiColor: color) }
 
+    var motionStyle: Fighter3DMotionStyle {
+        switch self {
+        case .allRounder: .allRounder
+        case .pressure: .pressure
+        case .outBoxer: .outBoxer
+        }
+    }
+
     var appearance: FighterAppearance {
         switch self {
         case .allRounder:

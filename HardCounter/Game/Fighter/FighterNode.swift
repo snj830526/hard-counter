@@ -47,11 +47,18 @@ final class FighterNode: SKNode {
     private var backAnkleMotionRoot: SKNode { rig.backAnkleMotionRoot }
     private var headAnchor: SKNode { rig.headAnchor }
 
-    init(facingRight: Bool, appearance: FighterAppearance) {
+    init(
+        facingRight: Bool,
+        appearance: FighterAppearance,
+        motionStyle: Fighter3DMotionStyle
+    ) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
         rig = FighterRig(facing: facing, appearance: appearance)
-        threeDRenderer = Fighter3DRenderer(appearance: appearance)
+        threeDRenderer = Fighter3DRenderer(
+            appearance: appearance,
+            motionStyle: motionStyle
+        )
         usesThreeDRenderer = !ProcessInfo.processInfo.arguments.contains("--legacy-2d-fighters")
         super.init()
         addChild(rig.animationRoot)
@@ -161,7 +168,11 @@ final class FighterNode: SKNode {
         activeSwayDirection = direction
         activeSwayScreenDirection = screenDirection
         activeSwayPerformance = CGFloat(performance)
-        threeDRenderer.prepareSway(direction, performance: CGFloat(performance))
+        threeDRenderer.prepareSway(
+            direction,
+            screenDirection: screenDirection,
+            performance: CGFloat(performance)
+        )
     }
 
     private func applyOrientation(_ frame: FighterOrientationFrame) {

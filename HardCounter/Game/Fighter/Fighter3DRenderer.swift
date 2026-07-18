@@ -5,6 +5,7 @@ import SpriteKit
 /// networking continue to use FighterNode; this object only replaces its art.
 final class Fighter3DRenderer {
     let spriteNode: SK3DNode
+    private let motionProfile: Fighter3DMotionProfile
 
     private let skeletonRoot = SCNNode()
     private let pelvis = SCNNode()
@@ -26,6 +27,7 @@ final class Fighter3DRenderer {
     private var activeHand: PunchHand = .lead
     private var punchProfile = PunchProfile()
     private var swayDirection: SwayDirection = .back
+    private var swayScreenDirection = CGVector(dx: -1, dy: 0)
     private var swayPerformance: CGFloat = 1
     private var gaitClock: CGFloat = 0
     private var hitElapsed: TimeInterval?
@@ -34,13 +36,14 @@ final class Fighter3DRenderer {
     private var followThrough: CGFloat = 0
     private var whiffOverreach: CGFloat = 0
 
-    init(appearance: FighterAppearance) {
+    init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
+        motionProfile = motionStyle.profile
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
 
         spriteNode = SK3DNode(viewportSize: CGSize(width: 176, height: 206))
         spriteNode.scnScene = scene
-        spriteNode.position = CGPoint(x: 0, y: 82)
+        spriteNode.position = CGPoint(x: 0, y: 76)
         spriteNode.zPosition = 20
         spriteNode.isPlaying = true
         spriteNode.loops = true
@@ -49,7 +52,7 @@ final class Fighter3DRenderer {
         buildCamera(in: scene)
         buildLights(in: scene)
         buildFighter(in: scene, appearance: appearance)
-        apply(.guardPose)
+        apply(guardPose)
     }
 
     func show(phase newPhase: FighterPhase) {
@@ -67,8 +70,13 @@ final class Fighter3DRenderer {
         punchProfile = profile
     }
 
-    func prepareSway(_ direction: SwayDirection, performance: CGFloat) {
+    func prepareSway(
+        _ direction: SwayDirection,
+        screenDirection: CGVector,
+        performance: CGFloat
+    ) {
         swayDirection = direction
+        swayScreenDirection = screenDirection
         swayPerformance = performance
     }
 
@@ -94,7 +102,7 @@ final class Fighter3DRenderer {
         followThrough = 0
         whiffOverreach = 0
         skeletonRoot.opacity = 1
-        apply(.guardPose)
+        apply(guardPose)
     }
 
     func update(
@@ -118,9 +126,11 @@ final class Fighter3DRenderer {
             movement.screenMovement.dy
         ), 1)
         if displacement > 0.001 {
-            gaitClock += displacement * 0.19
+            gaitClock += displacement * 0.19 * motionProfile.strideCadence
         } else if movementAmount > 0.04 {
-            gaitClock += CGFloat(deltaTime) * (4.8 + movementAmount * 2.2)
+            gaitClock += CGFloat(deltaTime)
+                * (4.8 + movementAmount * 2.2)
+                * motionProfile.strideCadence
         }
 
         var pose = poseForCurrentPhase(movementAmount: movementAmount)
@@ -132,7 +142,7 @@ final class Fighter3DRenderer {
             let hitPose = Fighter3DPose.hit(
                 technique: hitProfile.technique,
                 strength: hitKind == .counter ? 1.25 : 1
-            )
+            ).styled(with: motionProfile, technique: hitProfile.technique)
             let envelope = t < 0.22
                 ? smooth(t / 0.22)
                 : 1 - smooth((t - 0.22) / 0.78)
@@ -156,10 +166,10 @@ final class Fighter3DRenderer {
     private func poseForCurrentPhase(movementAmount: CGFloat) -> Fighter3DPose {
         switch phase {
         case .idle:
-            var pose = Fighter3DPose.guardPose
-            let breath = sin(CGFloat(phaseElapsed) * 4.4)
-            pose.rootY += breath * 0.015
-            pose.spinePitch += breath * 0.018
+            var pose = guardPose
+            let breath = sin(CGFloat(phaseElapsed) * motionProfile.breathFrequency)
+            pose.spineY += breath * 0.015 * motionProfile.breathAmplitude
+            pose.spinePitch += breath * 0.018 * motionProfile.breathAmplitude
             guard movementAmount > 0.035 else { return pose }
 
             let step = sin(gaitClock)
@@ -168,56 +178,82 @@ final class Fighter3DRenderer {
             pose.rootZ += settle * 0.025 * movementAmount
             pose.pelvisRoll += step * 0.055 * movementAmount
             pose.spineRoll -= step * 0.035 * movementAmount
-            pose.leadHip.x += Float(step * 0.36 * movementAmount)
-            pose.rearHip.x -= Float(step * 0.36 * movementAmount)
+            let stride = motionProfile.strideLength
+            pose.leadHip.x += Float(step * 0.36 * movementAmount * stride)
+            pose.rearHip.x -= Float(step * 0.36 * movementAmount * stride)
             pose.leadKnee.x += Float(max(-step, 0) * 0.34 * movementAmount)
             pose.rearKnee.x += Float(max(step, 0) * 0.34 * movementAmount)
             return pose
 
         case .punchStartup:
             let duration = CombatTuning.punchStartup * punchProfile.startupScale
-            return Fighter3DPose.guardPose.blended(
-                to: .punchLoad(hand: activeHand, technique: punchProfile.technique),
+            return guardPose.blended(
+                to: punchLoadPose,
                 amount: smooth(progress(duration))
             )
 
         case .punchActive:
             let duration = CombatTuning.punchActive * punchProfile.activeScale
             let power = CGFloat(min(max(punchProfile.powerScale, 0.7), 1.3))
-            return Fighter3DPose.punchLoad(
-                hand: activeHand,
-                technique: punchProfile.technique
-            ).blended(
-                to: .punchStrike(
-                    hand: activeHand,
-                    technique: punchProfile.technique,
-                    power: power
-                ),
+            return punchLoadPose.blended(
+                to: punchStrikePose(power: power),
                 amount: snap(progress(duration))
             )
 
         case .punchRecovery:
             let duration = CombatTuning.punchRecovery * punchProfile.recoveryScale
-            return Fighter3DPose.punchStrike(
-                hand: activeHand,
-                technique: punchProfile.technique,
-                power: CGFloat(punchProfile.powerScale)
-            ).blended(to: .guardPose, amount: smooth(progress(duration)))
+            let recovery = pow(
+                smooth(progress(duration)),
+                max(motionProfile.recoveryWeight, 0.2)
+            )
+            return punchStrikePose(power: CGFloat(punchProfile.powerScale))
+                .blended(to: guardPose, amount: recovery)
 
         case .swaying:
             let amount = sin(min(progress(CombatTuning.swayDuration), 1) * .pi)
-            return Fighter3DPose.guardPose.blended(
-                to: .sway(direction: swayDirection, performance: swayPerformance),
+            let swayPose = Fighter3DPose.sway(
+                direction: swayDirection,
+                performance: swayPerformance
+            )
+                .aligned(
+                    toScreenDirection: swayScreenDirection,
+                    swayDirection: swayDirection
+                )
+                .styledSway(with: motionProfile)
+            return guardPose.blended(
+                to: swayPose,
                 amount: smooth(amount)
             )
 
         case .hit:
-            return .guardPose
+            return guardPose
 
         case .knockedOut:
             let t = smooth(progress(0.52))
-            return Fighter3DPose.guardPose.blended(to: .knockedOut, amount: t)
+            return guardPose.blended(
+                to: Fighter3DPose.knockedOut.styled(with: motionProfile),
+                amount: t
+            )
         }
+    }
+
+    private var guardPose: Fighter3DPose {
+        Fighter3DPose.guardPose.styled(with: motionProfile)
+    }
+
+    private var punchLoadPose: Fighter3DPose {
+        Fighter3DPose.punchLoad(
+            hand: activeHand,
+            technique: punchProfile.technique
+        ).styled(with: motionProfile, technique: punchProfile.technique)
+    }
+
+    private func punchStrikePose(power: CGFloat) -> Fighter3DPose {
+        Fighter3DPose.punchStrike(
+            hand: activeHand,
+            technique: punchProfile.technique,
+            power: power
+        ).styled(with: motionProfile, technique: punchProfile.technique)
     }
 
     private func progress(_ duration: TimeInterval) -> CGFloat {
@@ -225,10 +261,12 @@ final class Fighter3DRenderer {
     }
 
     private func apply(_ pose: Fighter3DPose) {
+        let pose = pose.sanitized()
         skeletonRoot.position = SCNVector3(pose.rootX, pose.rootY, pose.rootZ)
         skeletonRoot.eulerAngles.x = Float(pose.rootPitch)
         skeletonRoot.eulerAngles.z = Float(pose.rootRoll)
         pelvis.eulerAngles = pose.pelvis
+        spine.position = SCNVector3(pose.spineX, 0.13 + pose.spineY, 0)
         spine.eulerAngles = pose.spine
         head.eulerAngles = pose.head
         leadShoulder.eulerAngles = pose.leadShoulder
@@ -239,8 +277,16 @@ final class Fighter3DRenderer {
         leadKnee.eulerAngles = pose.leadKnee
         rearHip.eulerAngles = pose.rearHip
         rearKnee.eulerAngles = pose.rearKnee
-        leadAnkle.eulerAngles.x = -(pose.leadHip.x + pose.leadKnee.x)
-        rearAnkle.eulerAngles.x = -(pose.rearHip.x + pose.rearKnee.x)
+        leadAnkle.eulerAngles.x = clamp(
+            -(pose.leadHip.x + pose.leadKnee.x),
+            minimum: -0.72,
+            maximum: 0.72
+        )
+        rearAnkle.eulerAngles.x = clamp(
+            -(pose.rearHip.x + pose.rearKnee.x),
+            minimum: -0.72,
+            maximum: 0.72
+        )
     }
 
     private func buildCamera(in scene: SCNScene) {
@@ -357,8 +403,8 @@ final class Fighter3DRenderer {
             hip: leadHip,
             knee: leadKnee,
             ankle: leadAnkle,
-            x: 0.23 * buildScale,
-            z: 0.22,
+            x: 0.20 * buildScale,
+            z: 0.17,
             material: skin,
             shoeMaterial: accent,
             to: pelvis
@@ -367,8 +413,8 @@ final class Fighter3DRenderer {
             hip: rearHip,
             knee: rearKnee,
             ankle: rearAnkle,
-            x: -0.23 * buildScale,
-            z: -0.24,
+            x: -0.20 * buildScale,
+            z: -0.17,
             material: shadowSkin,
             shoeMaterial: accent,
             to: pelvis
@@ -481,6 +527,8 @@ private struct Fighter3DPose {
     var rootZ: CGFloat = 0
     var rootPitch: CGFloat = 0
     var rootRoll: CGFloat = 0
+    var spineX: CGFloat = 0
+    var spineY: CGFloat = 0
     var pelvis = SCNVector3Zero
     var spine = SCNVector3Zero
     var head = SCNVector3Zero
@@ -517,10 +565,10 @@ private struct Fighter3DPose {
         pose.leadElbow = SCNVector3(-1.62, 0.05, -0.22)
         pose.rearShoulder = SCNVector3(-0.72, -0.08, 0.18)
         pose.rearElbow = SCNVector3(-1.72, -0.03, 0.24)
-        pose.leadHip = SCNVector3(-0.22, 0, -0.07)
-        pose.leadKnee = SCNVector3(0.46, 0, 0)
-        pose.rearHip = SCNVector3(0.24, 0, 0.09)
-        pose.rearKnee = SCNVector3(-0.50, 0, 0)
+        pose.leadHip = SCNVector3(-0.16, 0, 0)
+        pose.leadKnee = SCNVector3(0.36, 0, 0)
+        pose.rearHip = SCNVector3(-0.12, 0, 0)
+        pose.rearKnee = SCNVector3(0.34, 0, 0)
         return pose
     }()
 
@@ -537,7 +585,7 @@ private struct Fighter3DPose {
             pose.rearShoulder.y = -0.34
             pose.rearElbow.x = -1.82
             pose.rearHip.x += 0.13
-            pose.rearKnee.x -= 0.16
+            pose.rearKnee.x += 0.12
         } else {
             pose.leadShoulder.x = -0.42
             pose.leadShoulder.y = 0.26
@@ -612,7 +660,7 @@ private struct Fighter3DPose {
             pose.head.x = 0.15
         }
         pose.leadKnee.x += 0.20
-        pose.rearKnee.x -= 0.18
+        pose.rearKnee.x += 0.12
         return pose
     }
 
@@ -641,9 +689,154 @@ private struct Fighter3DPose {
         pose.leadShoulder.x = -0.18
         pose.rearShoulder.x = -0.12
         pose.leadKnee.x = 0.65
-        pose.rearKnee.x = 0.52
+        pose.rearKnee.x = 0.62
         return pose
     }()
+
+    /// Adds presentation personality without changing combat timing, damage or
+    /// hit geometry. The latter remain owned by CombatEngine.
+    func styled(
+        with profile: Fighter3DMotionProfile,
+        technique: PunchTechnique? = nil
+    ) -> Fighter3DPose {
+        var pose = self
+        pose.rootY += profile.guardHeight
+
+        pose.leadKnee.x *= Float(profile.kneeBend)
+        pose.rearKnee.x *= Float(profile.kneeBend)
+
+        let guardShift = Float(profile.guardTightness - 1)
+        pose.leadShoulder.x -= guardShift * 0.10
+        pose.rearShoulder.x -= guardShift * 0.10
+        pose.leadElbow.x -= guardShift * 0.16
+        pose.rearElbow.x -= guardShift * 0.16
+
+        pose.pelvis.y *= Float(profile.hipDrive)
+        pose.spine.y *= Float(profile.hipDrive)
+        if pose.rootZ > 0 {
+            pose.rootZ *= profile.reach
+        }
+
+        if technique == profile.signatureTechnique {
+            pose.rootZ += max(pose.rootZ, 0) * 0.07
+            pose.pelvis.y *= 1.06
+            pose.spine.y *= 1.06
+        }
+        return pose
+    }
+
+    func styledSway(with profile: Fighter3DMotionProfile) -> Fighter3DPose {
+        var pose = styled(with: profile)
+        pose.rootX *= profile.swayRange
+        pose.rootZ *= profile.swayRange
+        pose.spineX *= profile.swayRange
+        pose.spineY *= profile.swayRange
+        pose.spine.z *= Float(profile.swayRange)
+        return pose
+    }
+
+    /// SwayDirection selects the boxing pose, while the continuous stick
+    /// vector owns its visible travel. Keeping those responsibilities separate
+    /// prevents arbitrary direction changes as the fighters rotate in the ring.
+    func aligned(
+        toScreenDirection direction: CGVector,
+        swayDirection: SwayDirection
+    ) -> Fighter3DPose {
+        let length = hypot(direction.dx, direction.dy)
+        guard length > 0.001 else { return self }
+
+        var pose = self
+        let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
+        let travel: CGFloat
+        switch swayDirection {
+        case .back: travel = 0.32
+        case .forward: travel = 0.22
+        case .left, .right: travel = 0.30
+        }
+        pose.rootX = unit.dx * travel * 0.24
+        pose.rootY += unit.dy * travel * 0.10
+        pose.spineX = unit.dx * travel * 0.76
+        pose.spineY = unit.dy * travel * 0.38
+
+        // Lean across the screen in the same direction as the stick. The hips
+        // counter only slightly so the waist remains connected.
+        pose.spine.z = Float(-unit.dx * 0.30 - unit.dy * 0.06)
+        pose.pelvis.z = Float(unit.dx * 0.10 + unit.dy * 0.02)
+        pose.head.z = Float(unit.dx * 0.10)
+        return pose
+    }
+
+    /// Final anatomical guardrail. Procedural layers may add rotations, but a
+    /// rendered legs must always bend in the same anatomical direction.
+    func sanitized() -> Fighter3DPose {
+        var pose = self
+        pose.rootX = clamp(pose.rootX, minimum: -0.52, maximum: 0.52)
+        pose.rootY = clamp(pose.rootY, minimum: -0.82, maximum: 0.20)
+        pose.rootZ = clamp(pose.rootZ, minimum: -0.48, maximum: 0.42)
+        pose.rootPitch = clamp(pose.rootPitch, minimum: -0.42, maximum: 1.52)
+        pose.rootRoll = clamp(pose.rootRoll, minimum: -0.58, maximum: 0.58)
+        pose.spineX = clamp(pose.spineX, minimum: -0.28, maximum: 0.28)
+        pose.spineY = clamp(pose.spineY, minimum: -0.16, maximum: 0.16)
+
+        pose.pelvis = pose.pelvis.clamped(
+            x: -0.42...0.42,
+            y: -0.72...0.72,
+            z: -0.38...0.38
+        )
+        pose.spine = pose.spine.clamped(
+            x: -0.52...0.58,
+            y: -0.92...0.92,
+            z: -0.52...0.52
+        )
+        pose.head = pose.head.clamped(
+            x: -0.52...0.52,
+            y: -0.48...0.48,
+            z: -0.38...0.38
+        )
+
+        pose.leadShoulder = pose.leadShoulder.clamped(
+            x: -1.68...0.10,
+            y: -0.82...0.82,
+            z: -0.72...0.72
+        )
+        pose.rearShoulder = pose.rearShoulder.clamped(
+            x: -1.68...0.10,
+            y: -0.82...0.82,
+            z: -0.72...0.72
+        )
+        pose.leadElbow = pose.leadElbow.clamped(
+            x: -2.06...0.10,
+            y: -0.62...0.62,
+            z: -0.72...0.72
+        )
+        pose.rearElbow = pose.rearElbow.clamped(
+            x: -2.06...0.10,
+            y: -0.62...0.62,
+            z: -0.72...0.72
+        )
+
+        pose.leadHip = pose.leadHip.clamped(
+            x: -0.62...0.62,
+            y: -0.10...0.10,
+            z: -0.035...0.035
+        )
+        pose.rearHip = pose.rearHip.clamped(
+            x: -0.62...0.62,
+            y: -0.10...0.10,
+            z: -0.035...0.035
+        )
+        pose.leadKnee = pose.leadKnee.clamped(
+            x: 0.08...0.96,
+            y: -0.02...0.02,
+            z: -0.02...0.02
+        )
+        pose.rearKnee = pose.rearKnee.clamped(
+            x: 0.08...0.96,
+            y: -0.02...0.02,
+            z: -0.02...0.02
+        )
+        return pose
+    }
 
     func blended(to other: Fighter3DPose, amount: CGFloat) -> Fighter3DPose {
         let t = min(max(amount, 0), 1)
@@ -653,6 +846,8 @@ private struct Fighter3DPose {
             rootZ: mix(rootZ, other.rootZ, t),
             rootPitch: mix(rootPitch, other.rootPitch, t),
             rootRoll: mix(rootRoll, other.rootRoll, t),
+            spineX: mix(spineX, other.spineX, t),
+            spineY: mix(spineY, other.spineY, t),
             pelvis: pelvis.mixed(with: other.pelvis, amount: t),
             spine: spine.mixed(with: other.spine, amount: t),
             head: head.mixed(with: other.head, amount: t),
@@ -676,6 +871,26 @@ private extension SCNVector3 {
             Float(mix(CGFloat(z), CGFloat(other.z), amount))
         )
     }
+
+    func clamped(
+        x xRange: ClosedRange<Float>,
+        y yRange: ClosedRange<Float>,
+        z zRange: ClosedRange<Float>
+    ) -> SCNVector3 {
+        SCNVector3(
+            clamp(x, minimum: xRange.lowerBound, maximum: xRange.upperBound),
+            clamp(y, minimum: yRange.lowerBound, maximum: yRange.upperBound),
+            clamp(z, minimum: zRange.lowerBound, maximum: zRange.upperBound)
+        )
+    }
+}
+
+private func clamp<T: Comparable>(
+    _ value: T,
+    minimum: T,
+    maximum: T
+) -> T {
+    min(max(value, minimum), maximum)
 }
 
 private func mix(_ from: CGFloat, _ to: CGFloat, _ amount: CGFloat) -> CGFloat {
