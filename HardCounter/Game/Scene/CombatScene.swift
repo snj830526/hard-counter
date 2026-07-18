@@ -429,7 +429,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if impactShowcaseEnabled || motionClipShowcaseEnabled {
+            if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {

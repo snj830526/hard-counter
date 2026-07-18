@@ -52,6 +52,7 @@ HardCounter/
 │   │   ├── NetworkCombatContainerView.swift
 │   │   └── CombatContainerView.swift
 │   ├── Fighter/
+│   │   ├── Fighter3DRenderer.swift
 │   │   ├── FighterNode.swift
 │   │   ├── FighterRig.swift
 │   │   ├── FighterAppearance.swift
@@ -119,6 +120,7 @@ idle → swaying → idle
 ### 표현 및 입력 계층
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
+- `Fighter3DRenderer.swift`: 기존 전투 상태를 읽어 저폴리곤 3D 스켈레톤의 가드, 셔플, 펀치, 스웨이, 피격과 KO를 표현하는 실험 렌더러다. 판정과 네트워크 상태는 소유하지 않는다.
 - `FighterRig.swift`: 골반·상체 모션 루트와 허벅지–종아리–발목, 위팔–아래팔 노드 계층을 생성하고 캡슐화한다.
 - `FighterAppearance.swift`: 피부와 음영, 체형, 헤어스타일, 트렁크·글러브·복싱화 색상을 선수별로 정의한다.
 - `FighterGeometry.swift`: 로우 폴리곤 도형, 팔다리 길이와 공통 신체 색상을 제공한다.
@@ -147,6 +149,7 @@ idle → swaying → idle
 - 시각 노드는 전투 이벤트를 받아 표현하되 승패 규칙을 결정하지 않는다.
 - 모션 계산은 `FighterLocomotionController`, `FighterPoseResolver`, `FighterMotionClipPlayer`에서 수행하고, `FighterNode`는 계산 결과를 `FighterRig`에 적용한다.
 - 시간축 클립은 루트 이동과 양발의 상쇄 오프셋을 함께 기록해 체중 이동 중에도 발이 매트에서 미끄러지지 않게 한다. 검증된 클립만 기존 상태 전환 모션을 단계적으로 대체한다.
+- 3D 스파이크는 `FighterNode` 아래의 표현만 교체한다. 링 좌표, 히트 판정, 입력, CPU와 네트워크 메시지 형식은 2D 렌더러와 공유하므로 실험을 폐기해도 전투 로직에는 영향이 없어야 한다.
 - 리그 계층이나 도형을 바꿀 때 모션 규칙을 함께 수정하지 않고, 모션 규칙을 바꿀 때 SpriteKit 노드 생성 코드를 건드리지 않는다.
 - 이동 경계는 링 내부 좌표로 계산하고, 펀치 사거리와 선수 간 최소 간격은 실제 보이는 크기에 맞춰 투영된 화면 거리로 계산한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
