@@ -880,11 +880,12 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
-        return visibleFighterDistance()
-            <= baseVisiblePunchReach(for: attacker)
-                * motionReachScale
+        return visibleFighterDistance() <= maximumVisiblePunchDistance(
+            for: attacker,
+            armReachScale: motionReachScale
                 * techniqueReachScale
                 * CGFloat(profile.reachScale)
+        )
     }
 
     private func visibleFighterDistance() -> CGFloat {
@@ -896,13 +897,18 @@ final class CombatScene: SKScene {
         return hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
     }
 
-    private func baseVisiblePunchReach(for attacker: FighterID) -> CGFloat {
+    private func maximumVisiblePunchDistance(
+        for attacker: FighterID,
+        armReachScale: CGFloat
+    ) -> CGFloat {
         let attackerPosition = attacker == .player ? playerArenaPosition : cpuArenaPosition
         let defenderPosition = attacker == .player ? cpuArenaPosition : playerArenaPosition
-        let attackerScale = perspectiveScale(at: attackerPosition)
-        let defenderScale = perspectiveScale(at: defenderPosition)
-        let averageScale = attackerScale * 0.72 + defenderScale * 0.28
-        return CombatTuning.punchReachAtUnitScale * averageScale
+        let armReach = CombatTuning.punchArmReachAtUnitScale
+            * perspectiveScale(at: attackerPosition)
+            * armReachScale
+        let targetRadius = CombatTuning.punchTargetRadiusAtUnitScale
+            * perspectiveScale(at: defenderPosition)
+        return armReach + targetRadius
     }
 
     private func perspectiveScale(at position: CGPoint) -> CGFloat {
@@ -981,7 +987,13 @@ final class CombatScene: SKScene {
                 dy: -playerToCPUScreenDirection.dy
             ),
             visibleDistance: visibleFighterDistance(),
-            preferredPunchRange: baseVisiblePunchReach(for: .cpu)
+            preferredPunchRange: maximumVisiblePunchDistance(
+                for: .cpu,
+                armReachScale: CGFloat(cpuCombatStyle.modifier(
+                    for: .straight,
+                    motion: .quick
+                ).reach)
+            )
         )
     }
 

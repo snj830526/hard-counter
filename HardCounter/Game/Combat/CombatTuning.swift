@@ -74,7 +74,11 @@ enum CombatTuning {
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
-    static let punchReachAtUnitScale: CGFloat = 108
+    /// Contact geometry at perspective scale 1. The arm reaches from the
+    /// attacker's ring anchor; the target radius belongs to the defender and
+    /// must never be multiplied by the attacker's reach bonus.
+    static let punchArmReachAtUnitScale: CGFloat = 72
+    static let punchTargetRadiusAtUnitScale: CGFloat = 20
     static let retreatingPunchReachScale: CGFloat = 0.92
     static let drivingPunchReachScale: CGFloat = 1.08
     static let counterPunchReachScale: CGFloat = 1.14
