@@ -962,7 +962,14 @@ final class CombatScene: SKScene {
             * ArenaViewTuning.fighterScaleBoost
             * closeupScale
         fighter.setScale(scale)
-        fighter.zPosition = 12 + (1 - progress) * 16
+        // Each fighter is rendered into its own transparent SK3DNode texture,
+        // so SpriteKit can only order complete fighters. Use the projected
+        // screen depth instead of the approximate world diagonal; otherwise a
+        // visually rear fighter can be composited over the nearer silhouette
+        // at certain quarter-view angles and look as if it shows through.
+        let screenDepth = min(max(screenPosition.y / max(size.height, 1), 0), 1)
+        let tieBreaker: CGFloat = fighter === player ? 0.001 : 0
+        fighter.zPosition = 12 + (1 - screenDepth) * 16 + tieBreaker
 
         shadow.position = CGPoint(x: screenPosition.x, y: screenPosition.y - 1)
         shadow.applyPerspective(scale: scale, depthProgress: progress)
