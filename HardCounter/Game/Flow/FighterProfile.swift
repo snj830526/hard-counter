@@ -126,15 +126,15 @@ enum FighterProfile: String, CaseIterable, Identifiable {
             )
         case .pressure:
             FighterStats(
-                maximumHealth: 118,
-                maximumStamina: 52,
-                movementSpeedMultiplier: 0.90
+                maximumHealth: 106,
+                maximumStamina: 50,
+                movementSpeedMultiplier: 0.88
             )
         case .outBoxer:
             FighterStats(
-                maximumHealth: 88,
-                maximumStamina: 72,
-                movementSpeedMultiplier: 1.13
+                maximumHealth: 92,
+                maximumStamina: 68,
+                movementSpeedMultiplier: 1.12
             )
         }
     }

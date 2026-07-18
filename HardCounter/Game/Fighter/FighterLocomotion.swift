@@ -14,6 +14,7 @@ struct FighterLocomotionFrame {
 }
 
 struct FighterLocomotionController {
+    private let cadence: CGFloat
     private var clock: TimeInterval = 0
     private var stepProgress: CGFloat = 1
     private var stepPlaybackRate: CGFloat = 1
@@ -31,6 +32,10 @@ struct FighterLocomotionController {
     private var displayedPelvisRotation: CGFloat = 0
     private var displayedUpperPosition = CGPoint.zero
     private var displayedUpperRotation: CGFloat = 0
+
+    init(cadence: CGFloat = 1) {
+        self.cadence = min(max(cadence, 0.70), 1.35)
+    }
 
     mutating func update(
         input: FighterLocomotionInput,
@@ -96,7 +101,8 @@ struct FighterLocomotionController {
         }
 
         if stepProgress < 1 {
-            let stepDuration = 0.46 - Double(stepIntensity) * 0.08
+            let stepDuration = (0.46 - Double(stepIntensity) * 0.08)
+                / Double(cadence)
             stepProgress = min(
                 stepProgress + CGFloat(deltaTime / stepDuration) * stepPlaybackRate,
                 1

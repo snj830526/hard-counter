@@ -40,18 +40,25 @@ struct FighterCombatStyle {
             }
         case .pressure:
             if technique == .smash {
-                modifier.power *= 1.08
-                modifier.reach *= 1.02
-                modifier.stamina *= 1.10
-                modifier.recovery *= 1.08
+                modifier.power *= 1.06
+                modifier.reach *= 0.96
+                modifier.stamina *= 1.18
+                modifier.recovery *= 1.14
+            } else if technique == .straight {
+                modifier.power *= 0.94
+                modifier.startup *= 1.04
             }
         case .outBoxer:
             if technique == .straight {
-                modifier.power *= 0.96
-                modifier.startup *= 0.90
-                modifier.recovery *= 0.92
-                modifier.stamina *= 0.94
-                modifier.reach *= 1.10
+                modifier.power *= 0.92
+                modifier.startup *= 0.88
+                modifier.recovery *= 0.90
+                modifier.stamina *= 0.92
+                modifier.reach *= 1.08
+            } else {
+                modifier.power *= 0.90
+                modifier.recovery *= 1.12
+                modifier.stamina *= 1.08
             }
         case .rival:
             if technique == .smash {

@@ -11,7 +11,7 @@ final class FighterNode: SKNode {
     private var activeSwayDirection: SwayDirection = .back
     private var activeSwayScreenDirection = CGVector(dx: -1, dy: 0)
     private var activeSwayPerformance: CGFloat = 1
-    private var locomotion = FighterLocomotionController()
+    private var locomotion: FighterLocomotionController
     private var motionClipPlayer = FighterMotionClipPlayer()
     private var appliedPose = FighterPose.guardPose
     private var orientation: FighterOrientationController
@@ -54,6 +54,9 @@ final class FighterNode: SKNode {
     ) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
+        locomotion = FighterLocomotionController(
+            cadence: motionStyle.profile.strideCadence
+        )
         rig = FighterRig(facing: facing, appearance: appearance)
         threeDRenderer = Fighter3DRenderer(
             appearance: appearance,
