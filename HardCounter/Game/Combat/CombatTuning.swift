@@ -23,6 +23,8 @@ enum CombatTuning {
     static let punchActive: TimeInterval = 0.07
     static let punchRecovery: TimeInterval = 0.28
     static let swayDuration: TimeInterval = 0.34
+    static let swayEntryFraction: CGFloat = 0.22
+    static let swayHoldFraction: CGFloat = 0.12
     static let swayEvadeStartup: TimeInterval = 0.05
     static let swayEvadeActiveDuration: TimeInterval = 0.19
     static let counterWindow: TimeInterval = 0.72

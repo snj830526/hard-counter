@@ -76,6 +76,7 @@ final class FighterNode: SKNode {
         currentPhase = phase
         isInNeutralPose = phase == .idle
         threeDRenderer.show(phase: phase)
+        if phase != .swaying { removeAction(forKey: "swayReturn") }
         switch phase {
         case .idle:
             motionClipPlayer.finishAction()
@@ -130,6 +131,14 @@ final class FighterNode: SKNode {
             motionClipPlayer.finishAction()
             actionRoot.position = .zero
             actionRoot.zRotation = 0
+            let entryDuration = CombatTuning.swayDuration
+                * Double(CombatTuning.swayEntryFraction)
+            let holdDuration = CombatTuning.swayDuration
+                * Double(CombatTuning.swayHoldFraction)
+            let returnDuration = max(
+                CombatTuning.swayDuration - entryDuration - holdDuration,
+                0.01
+            )
             transition(
                 to: FighterPoseResolver.sway(
                     activeSwayDirection,
@@ -137,9 +146,19 @@ final class FighterNode: SKNode {
                     facing: facing,
                     performance: activeSwayPerformance
                 ),
-                duration: CombatTuning.swayDuration * 0.30,
+                duration: entryDuration,
                 style: .evasive
             )
+            run(.sequence([
+                .wait(forDuration: entryDuration + holdDuration),
+                .run { [weak self] in
+                    self?.transition(
+                        to: .guardPose,
+                        duration: returnDuration,
+                        style: .settle
+                    )
+                }
+            ]), withKey: "swayReturn")
         case .hit:
             break
         case .knockedOut:

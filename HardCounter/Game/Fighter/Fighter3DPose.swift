@@ -44,10 +44,10 @@ struct Fighter3DPose {
         pose.pelvis = SCNVector3(-0.04, 0.16, 0.02)
         pose.spine = SCNVector3(-0.08, -0.08, -0.02)
         pose.head = SCNVector3(0.08, 0, 0)
-        pose.leadShoulder = SCNVector3(-0.60, 0.10, -0.20)
-        pose.leadElbow = SCNVector3(-1.62, 0.05, -0.22)
-        pose.rearShoulder = SCNVector3(-0.72, -0.08, 0.18)
-        pose.rearElbow = SCNVector3(-1.72, -0.03, 0.24)
+        pose.leadShoulder = SCNVector3(-0.64, 0.08, -0.30)
+        pose.leadElbow = SCNVector3(-1.66, 0.04, -0.30)
+        pose.rearShoulder = SCNVector3(-0.76, -0.06, 0.28)
+        pose.rearElbow = SCNVector3(-1.76, -0.02, 0.32)
         pose.leadHip = SCNVector3(-0.16, 0, 0)
         pose.leadKnee = SCNVector3(0.36, 0, 0)
         pose.rearHip = SCNVector3(-0.12, 0, 0)
@@ -228,6 +228,10 @@ struct Fighter3DPose {
         pose.rearShoulder.x -= guardShift * 0.10
         pose.leadElbow.x -= guardShift * 0.16
         pose.rearElbow.x -= guardShift * 0.16
+        pose.leadShoulder.z -= guardShift * 0.10
+        pose.leadElbow.z -= guardShift * 0.08
+        pose.rearShoulder.z += guardShift * 0.10
+        pose.rearElbow.z += guardShift * 0.08
 
         if technique == nil {
             pose.rootZ += profile.forwardBias

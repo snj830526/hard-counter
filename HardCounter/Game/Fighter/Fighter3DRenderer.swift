@@ -250,7 +250,7 @@ final class Fighter3DRenderer {
                 .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.14)
 
         case .swaying:
-            let amount = sin(min(progress(CombatTuning.swayDuration), 1) * .pi)
+            let amount = swayEnvelope(progress(CombatTuning.swayDuration))
             let swayPose = Fighter3DPose.sway(
                 direction: swayDirection,
                 performance: swayPerformance
@@ -736,4 +736,15 @@ private func smooth(_ value: CGFloat) -> CGFloat {
 private func snap(_ value: CGFloat) -> CGFloat {
     let t = min(max(value, 0), 1)
     return 1 - pow(1 - t, 4)
+}
+
+private func swayEnvelope(_ value: CGFloat) -> CGFloat {
+    let progress = min(max(value, 0), 1)
+    let entryEnd = CombatTuning.swayEntryFraction
+    let holdEnd = min(entryEnd + CombatTuning.swayHoldFraction, 0.72)
+    if progress < entryEnd {
+        return snap(progress / max(entryEnd, 0.001))
+    }
+    if progress < holdEnd { return 1 }
+    return 1 - smooth((progress - holdEnd) / max(1 - holdEnd, 0.001))
 }
