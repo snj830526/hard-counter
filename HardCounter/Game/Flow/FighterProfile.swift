@@ -89,7 +89,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 hairColor: UIColor(red: 0.08, green: 0.07, blue: 0.07, alpha: 1),
                 bodyBuild: .balanced,
                 hairStyle: .cropped,
-                kitStyle: .classic
+                kitStyle: .classic,
+                faceStyle: .focused
             )
         case .pressure:
             FighterAppearance(
@@ -100,7 +101,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 hairColor: UIColor(red: 0.08, green: 0.055, blue: 0.04, alpha: 1),
                 bodyBuild: .heavyweight,
                 hairStyle: .shaved,
-                kitStyle: .pressure
+                kitStyle: .pressure,
+                faceStyle: .rugged
             )
         case .outBoxer:
             FighterAppearance(
@@ -111,7 +113,8 @@ enum FighterProfile: String, CaseIterable, Identifiable {
                 hairColor: UIColor(red: 0.16, green: 0.09, blue: 0.055, alpha: 1),
                 bodyBuild: .lean,
                 hairStyle: .swept,
-                kitStyle: .speed
+                kitStyle: .speed,
+                faceStyle: .sharp
             )
         }
     }

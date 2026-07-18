@@ -43,6 +43,13 @@ enum FighterKitStyle {
     case speed
 }
 
+enum FighterFaceStyle: Equatable {
+    case focused
+    case rugged
+    case sharp
+    case veteran
+}
+
 struct FighterAppearance {
     let skinColor: UIColor
     let skinShadowColor: UIColor
@@ -52,6 +59,7 @@ struct FighterAppearance {
     let bodyBuild: FighterBodyBuild
     let hairStyle: FighterHairStyle
     let kitStyle: FighterKitStyle
+    let faceStyle: FighterFaceStyle
 
     static let cpuRival = FighterAppearance(
         skinColor: UIColor(red: 0.68, green: 0.40, blue: 0.24, alpha: 1),
@@ -61,6 +69,7 @@ struct FighterAppearance {
         hairColor: UIColor(red: 0.10, green: 0.07, blue: 0.05, alpha: 1),
         bodyBuild: .balanced,
         hairStyle: .cropped,
-        kitStyle: .classic
+        kitStyle: .classic,
+        faceStyle: .veteran
     )
 }

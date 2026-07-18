@@ -479,8 +479,8 @@ final class CombatScene: SKScene {
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
             if guardCloseupEnabled {
-                playerArenaPosition = CGPoint(x: 0, y: -48)
-                cpuArenaPosition = CGPoint(x: 0, y: 48)
+                playerArenaPosition = CGPoint(x: -82, y: 0)
+                cpuArenaPosition = CGPoint(x: 82, y: 0)
             } else if footworkShowcaseEnabled || fatigueShowcaseEnabled
                 || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
