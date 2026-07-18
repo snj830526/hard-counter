@@ -83,6 +83,8 @@ final class CombatScene: SKScene {
         turnDotThreshold: -0.12,
         idleThreshold: 0.012
     )
+    private var playerBodyMotion = FighterFullBodyMotionController()
+    private var cpuBodyMotion = FighterFullBodyMotionController()
     private var arenaZoom = ArenaViewTuning.baseZoom
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
@@ -513,6 +515,8 @@ final class CombatScene: SKScene {
         updateFighterMotion(
             playerMovement: .zero,
             cpuMovement: .zero,
+            playerBodyMotion: .neutral,
+            cpuBodyMotion: .neutral,
             previousPlayerPosition: player.position,
             previousCPUPosition: cpu.position,
             deltaTime: 0
@@ -570,8 +574,14 @@ final class CombatScene: SKScene {
             targetMovement = localMovement
         }
         let phaseMultiplier = footworkMultiplier(for: .player)
+        let playerBodyFrame = playerBodyMotion.update(
+            movementIntent: targetMovement,
+            towardOpponent: playerToCPUScreenDirection,
+            phase: engine.state(for: .player).phase,
+            deltaTime: deltaTime
+        )
         let screenMovement = playerMovementSmoother.update(
-            toward: targetMovement,
+            toward: playerBodyFrame.resolvedMovement,
             deltaTime: deltaTime
         )
         let worldMovement = ringProjection.worldDirection(forScreenVector: screenMovement)
@@ -606,8 +616,26 @@ final class CombatScene: SKScene {
                 .movementCommand(for: cpuPerception(at: gameTime))
                 .movementVector ?? .zero
         }
+        let cpuTowardOpponent: CGVector
+        if networkConfiguration != nil {
+            cpuTowardOpponent = CGVector(
+                dx: -playerToCPUScreenDirection.dx,
+                dy: -playerToCPUScreenDirection.dy
+            )
+        } else {
+            cpuTowardOpponent = CGVector(
+                dx: playerArenaPosition.x - cpuArenaPosition.x,
+                dy: playerArenaPosition.y - cpuArenaPosition.y
+            )
+        }
+        let cpuBodyFrame = cpuBodyMotion.update(
+            movementIntent: cpuTargetMovement,
+            towardOpponent: cpuTowardOpponent,
+            phase: engine.state(for: .cpu).phase,
+            deltaTime: deltaTime
+        )
         let cpuMovement = cpuMovementSmoother.update(
-            toward: cpuTargetMovement,
+            toward: cpuBodyFrame.resolvedMovement,
             deltaTime: deltaTime
         )
         if cpuCanMove {
@@ -645,6 +673,8 @@ final class CombatScene: SKScene {
                 ? (networkConfiguration == nil
                     ? ringProjection.screenVector(forWorldVector: cpuMovement)
                     : cpuMovement) : .zero,
+            playerBodyMotion: playerBodyFrame,
+            cpuBodyMotion: cpuBodyFrame,
             previousPlayerPosition: previousPlayerScreenPosition,
             previousCPUPosition: previousCPUScreenPosition,
             deltaTime: deltaTime
@@ -654,6 +684,8 @@ final class CombatScene: SKScene {
     private func updateFighterMotion(
         playerMovement: CGVector,
         cpuMovement: CGVector,
+        playerBodyMotion: FighterBodyMotionFrame,
+        cpuBodyMotion: FighterBodyMotionFrame,
         previousPlayerPosition: CGPoint,
         previousCPUPosition: CGPoint,
         deltaTime: TimeInterval
@@ -668,7 +700,8 @@ final class CombatScene: SKScene {
                     dx: player.position.x - previousPlayerPosition.x,
                     dy: player.position.y - previousPlayerPosition.y
                 ),
-                towardOpponent: playerToCPUScreenDirection
+                towardOpponent: playerToCPUScreenDirection,
+                bodyMotion: playerBodyMotion
             ),
             deltaTime: motionDeltaTime
         )
@@ -682,7 +715,8 @@ final class CombatScene: SKScene {
                 towardOpponent: CGVector(
                     dx: -playerToCPUScreenDirection.dx,
                     dy: -playerToCPUScreenDirection.dy
-                )
+                ),
+                bodyMotion: cpuBodyMotion
             ),
             deltaTime: motionDeltaTime
         )
@@ -1564,6 +1598,8 @@ final class CombatScene: SKScene {
                 controls.endMovement()
                 playerMovementSmoother.reset()
                 cpuMovementSmoother.reset()
+                playerBodyMotion.reset()
+                cpuBodyMotion.reset()
                 controls.showMovement(nil)
                 layoutScene()
                 if networkConfiguration != nil, remoteRematchAccepted {
@@ -1839,6 +1875,8 @@ final class CombatScene: SKScene {
         controls.endMovement()
         playerMovementSmoother.reset()
         cpuMovementSmoother.reset()
+        playerBodyMotion.reset()
+        cpuBodyMotion.reset()
         controls.showMovement(nil)
         localRematchAccepted = false
         remoteRematchAccepted = false

@@ -4,12 +4,14 @@ struct FighterMovementState {
     let screenMovement: CGVector
     let screenDisplacement: CGVector
     let towardOpponent: CGVector
+    let bodyMotion: FighterBodyMotionFrame
 
     static func stationary(towardOpponent: CGVector) -> FighterMovementState {
         FighterMovementState(
             screenMovement: .zero,
             screenDisplacement: .zero,
-            towardOpponent: towardOpponent
+            towardOpponent: towardOpponent,
+            bodyMotion: .neutral
         )
     }
 

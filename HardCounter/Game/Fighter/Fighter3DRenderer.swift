@@ -147,6 +147,10 @@ final class Fighter3DRenderer {
             movementAmount: movementAmount,
             locomotionFrame: locomotionFrame
         )
+        pose = FighterFullBodyPoseSolver.apply(
+            body: movement.bodyMotion,
+            to: pose
+        )
         if let hitElapsed {
             let duration = hitKind == .counter
                 ? CombatTuning.counterHitReaction
