@@ -52,7 +52,11 @@ enum FighterFullBodyActionPoseSolver {
         // Camera-space displacement is canonical and never depends on which
         // side of the ring owns the fighter. Anatomical forward/lateral values
         // only decide how the planted legs and torso carry that displacement.
-        pose.rootY += frame.screenVertical * amount * 0.28
+        // SK3DNode presents SceneKit's projected Y axis opposite to the
+        // SpriteKit stick vector. Invert only the canonical screen-vertical
+        // displacement so forward/back input follows the visible direction;
+        // horizontal input already shares the same sign in both spaces.
+        pose.rootY -= frame.screenVertical * amount * 0.28
         pose.rootY -= 0.14 * compression
         pose.leadHip.x -= Float(leadLoad * 0.055)
         pose.rearHip.x -= Float(rearLoad * 0.055)
