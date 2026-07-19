@@ -12,13 +12,17 @@ final class SharedArena3DRenderer {
     private let cameraNode = SCNNode()
     private let ringHalfWidth: Float = 4.4
     private let ringHalfDepth: Float = 2.55
-    private let wideCameraScale: CGFloat = 4.0
-    private let closeCameraScale: CGFloat = 1.48
+    /// Keep the broadcast lens inside a restrained range. The previous
+    /// 1.48...4.0 span made close exchanges feel oversized and long range
+    /// movement look as though the arena suddenly receded from the viewer.
+    private let wideCameraScale: CGFloat = 3.30
+    private let closeCameraScale: CGFloat = 1.72
+    private let distanceZoomCompression: CGFloat = 0.72
     /// Keeps fighters at their pre-camera-work screen size while allowing the
     /// ring itself to fill roughly twice as much of the display.
     private let fighterPresentationScale: Float = 1.72 / 3.25
     private let floorDepthVerticalFactor: CGFloat = 0.884
-    private var currentCameraScale: CGFloat = 1.72
+    private var currentCameraScale: CGFloat = 1.92
     private var cameraFocus = SIMD2<Float>.zero
 
     init(size: CGSize, player: FighterNode, opponent: FighterNode) {
@@ -384,10 +388,10 @@ final class SharedArena3DRenderer {
         let aspect = max(viewport.viewportSize.width / max(viewport.viewportSize.height, 1), 1)
         let horizontalFit = (horizontalSpan + 1.18) / aspect
         let depthFit = depthSpan * floorDepthVerticalFactor + 1.58
-        let desiredScale = min(
-            max(closeCameraScale, horizontalFit, depthFit),
-            wideCameraScale
-        )
+        let fittedScale = max(closeCameraScale, horizontalFit, depthFit)
+        let compressedScale = closeCameraScale
+            + (fittedScale - closeCameraScale) * distanceZoomCompression
+        let desiredScale = min(max(compressedScale, closeCameraScale), wideCameraScale)
 
         let focusBlend: Float
         let zoomBlend: CGFloat
@@ -396,7 +400,7 @@ final class SharedArena3DRenderer {
             zoomBlend = 1
         } else {
             focusBlend = Float(1 - exp(-deltaTime * 7.0))
-            zoomBlend = CGFloat(1 - exp(-deltaTime * 3.8))
+            zoomBlend = CGFloat(1 - exp(-deltaTime * 2.8))
         }
         cameraFocus += (desiredFocus - cameraFocus) * focusBlend
         currentCameraScale += (desiredScale - currentCameraScale) * zoomBlend
