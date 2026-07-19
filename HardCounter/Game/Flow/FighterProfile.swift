@@ -26,17 +26,17 @@ enum FighterProfile: String, CaseIterable, Identifiable {
 
     var styleName: String {
         switch self {
-        case .allRounder: "밸런스 프레임"
-        case .pressure: "중장갑 압박형"
-        case .outBoxer: "경량 고속형"
+        case .allRounder: "BALANCED FRAME"
+        case .pressure: "HEAVY PRESSURE"
+        case .outBoxer: "LIGHTWEIGHT SPEED"
         }
     }
 
     var combatTraitName: String {
         switch self {
-        case .allRounder: "카운터 강화 · 어퍼컷 효율"
-        case .pressure: "스매시 위력 · 높은 소모"
-        case .outBoxer: "스트레이트 속도 · 긴 사거리"
+        case .allRounder: "Counter boost · Efficient uppercut"
+        case .pressure: "Heavy smash · High energy cost"
+        case .outBoxer: "Fast straight · Extended reach"
         }
     }
 

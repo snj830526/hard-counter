@@ -27,7 +27,7 @@ struct FighterSelectionView: View {
     private var header: some View {
         HStack {
             Button(action: onBack) {
-                Label("모드 선택", systemImage: "chevron.left")
+                Label("SELECT MODE", systemImage: "chevron.left")
                     .font(.system(size: 12, weight: .bold))
             }
             .buttonStyle(.plain)
@@ -37,7 +37,7 @@ struct FighterSelectionView: View {
             VStack(spacing: 2) {
                 Text("SELECT MACHINE")
                     .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("솔로 대전에 출전할 복싱 머신을 선택하세요")
+                Text("Choose a boxing machine for the solo match")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
@@ -89,19 +89,19 @@ struct FighterSelectionView: View {
 
                 VStack(spacing: 5) {
                     statRow(
-                        "체력",
+                        "ARMOR",
                         value: fighter.healthPreview,
                         valueText: "\(fighter.stats.maximumHealth)",
                         color: .red
                     )
                     statRow(
-                        "스태미너",
+                        "ENERGY",
                         value: fighter.staminaPreview,
                         valueText: "\(Int(fighter.stats.maximumStamina))",
                         color: .green
                     )
                     statRow(
-                        "스피드",
+                        "SPEED",
                         value: fighter.speedPreview,
                         valueText: "\(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))",
                         color: .cyan
@@ -181,7 +181,7 @@ struct FighterSelectionView: View {
 
     private var footer: some View {
         HStack {
-            Text("선택한 머신의 프레임 특성과 기술이 실제 경기에 적용됩니다")
+            Text("Frame attributes and techniques apply directly to combat")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()

@@ -230,9 +230,9 @@ final class BoxingRingNode: SKNode {
 
     private func addPostsAndRopes(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
         let ropeColors: [SKColor] = [
-            ArenaVisualPalette.amberSignal,
-            ArenaVisualPalette.raisedMetal,
-            ArenaVisualPalette.cyanSignal
+            ArenaVisualPalette.cyanSignal,
+            ArenaVisualPalette.magentaSignal,
+            ArenaVisualPalette.neonLime
         ]
 
         for level in 0..<3 {
@@ -297,25 +297,26 @@ final class BoxingRingNode: SKNode {
         addLine(
             from: start,
             to: end,
-            color: SKColor.black.withAlphaComponent(0.82),
-            width: width + 2.6,
+            color: SKColor.black.withAlphaComponent(0.72),
+            width: width + 2.8,
             to: layer,
             z: z
         )
-        addLine(
+        let glow = addLineNode(
             from: start,
             to: end,
-            color: color.withAlphaComponent(0.90),
-            width: width,
-            to: layer,
+            color: color.withAlphaComponent(0.70),
+            width: width + 0.15,
             z: z + 0.08
         )
+        glow.glowWidth = width * 0.48
+        layer.addChild(glow)
 
         let dx = end.x - start.x
         let dy = end.y - start.y
         let length = max(hypot(dx, dy), 0.001)
         let normal = CGVector(dx: -dy / length, dy: dx / length)
-        let highlightOffset = width * 0.20
+        let highlightOffset = width * 0.14
         addLine(
             from: CGPoint(
                 x: start.x + normal.dx * highlightOffset,
@@ -325,34 +326,11 @@ final class BoxingRingNode: SKNode {
                 x: end.x + normal.dx * highlightOffset,
                 y: end.y + normal.dy * highlightOffset
             ),
-            color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.28),
-            width: 0.75,
+            color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.48),
+            width: 0.64,
             to: layer,
             z: z + 0.14
         )
-
-        let bandCount = max(Int(length / 82), 2)
-        for index in 1...bandCount {
-            let fraction = CGFloat(index) / CGFloat(bandCount + 1)
-            let center = point(between: start, and: end, fraction: fraction)
-            let halfBand = width * 0.88
-            addLine(
-                from: CGPoint(
-                    x: center.x - normal.dx * halfBand,
-                    y: center.y - normal.dy * halfBand
-                ),
-                to: CGPoint(
-                    x: center.x + normal.dx * halfBand,
-                    y: center.y + normal.dy * halfBand
-                ),
-                color: index.isMultiple(of: 2)
-                    ? ArenaVisualPalette.whiteMark.withAlphaComponent(0.64)
-                    : ArenaVisualPalette.gunmetal.withAlphaComponent(0.94),
-                width: 1.2,
-                to: layer,
-                z: z + 0.18
-            )
-        }
     }
 
     private func addApron(from start: CGPoint, to end: CGPoint, outward: CGVector) {
@@ -511,36 +489,79 @@ final class BoxingRingNode: SKNode {
     }
 
     private func addPost(at point: CGPoint, color: SKColor, to layer: SKNode, z: CGFloat) {
-        let post = SKShapeNode(rectOf: CGSize(width: 10, height: 78), cornerRadius: 2)
+        let postShadow = SKShapeNode(rectOf: CGSize(width: 15, height: 82), cornerRadius: 3)
+        postShadow.position = CGPoint(x: point.x + 2, y: point.y + 36)
+        postShadow.fillColor = SKColor.black.withAlphaComponent(0.72)
+        postShadow.strokeColor = .clear
+        postShadow.zPosition = z - 0.2
+        layer.addChild(postShadow)
+
+        let post = SKShapeNode(rectOf: CGSize(width: 12, height: 78), cornerRadius: 2)
         post.position = CGPoint(x: point.x, y: point.y + 38)
-        post.fillColor = ArenaVisualPalette.gunmetal
-        post.strokeColor = color.withAlphaComponent(0.78)
-        post.lineWidth = 2
+        post.fillColor = ArenaVisualPalette.carbon
+        post.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.82)
+        post.lineWidth = 1.5
         post.zPosition = z
         layer.addChild(post)
 
-        let postSignal = SKShapeNode(rectOf: CGSize(width: 2.5, height: 66), cornerRadius: 1)
-        postSignal.position = CGPoint(x: point.x, y: point.y + 38)
-        postSignal.fillColor = color.withAlphaComponent(0.72)
+        for yOffset in stride(from: CGFloat(9), through: 67, by: 14.5) {
+            let panel = SKShapeNode(rectOf: CGSize(width: 8, height: 10), cornerRadius: 1)
+            panel.position = CGPoint(x: point.x, y: point.y + yOffset)
+            panel.fillColor = ArenaVisualPalette.gunmetal.withAlphaComponent(0.96)
+            panel.strokeColor = SKColor.white.withAlphaComponent(0.08)
+            panel.lineWidth = 0.6
+            panel.zPosition = z + 0.05
+            layer.addChild(panel)
+        }
+
+        let edgeHighlight = SKShapeNode(rectOf: CGSize(width: 1.1, height: 70), cornerRadius: 0.5)
+        edgeHighlight.position = CGPoint(x: point.x - 4.2, y: point.y + 39)
+        edgeHighlight.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.20)
+        edgeHighlight.strokeColor = .clear
+        edgeHighlight.zPosition = z + 0.1
+        layer.addChild(edgeHighlight)
+
+        let postSignal = SKShapeNode(rectOf: CGSize(width: 1.7, height: 58), cornerRadius: 0.8)
+        postSignal.position = CGPoint(x: point.x + 3.7, y: point.y + 37)
+        postSignal.fillColor = color.withAlphaComponent(0.66)
         postSignal.strokeColor = .clear
-        postSignal.glowWidth = 1.5
-        postSignal.zPosition = z + 0.1
+        postSignal.glowWidth = 0.45
+        postSignal.zPosition = z + 0.12
         layer.addChild(postSignal)
+
+        for yOffset in [CGFloat(4), 76] {
+            let collar = SKShapeNode(rectOf: CGSize(width: 17, height: 7), cornerRadius: 1.5)
+            collar.position = CGPoint(x: point.x, y: point.y + yOffset)
+            collar.fillColor = ArenaVisualPalette.raisedMetal
+            collar.strokeColor = SKColor.black.withAlphaComponent(0.72)
+            collar.lineWidth = 1
+            collar.zPosition = z + 0.16
+            layer.addChild(collar)
+        }
 
         let pad = SKShapeNode(rectOf: CGSize(width: 18, height: 30), cornerRadius: 4)
         pad.position = CGPoint(x: point.x, y: point.y + 55)
-        pad.fillColor = color.withAlphaComponent(0.92)
-        pad.strokeColor = SKColor.white.withAlphaComponent(0.34)
+        pad.fillColor = ArenaVisualPalette.carbon
+        pad.strokeColor = color.withAlphaComponent(0.72)
         pad.lineWidth = 1.5
         pad.zPosition = z + 0.2
         layer.addChild(pad)
 
-        let padHighlight = SKShapeNode(rectOf: CGSize(width: 3, height: 22), cornerRadius: 1.5)
-        padHighlight.position = CGPoint(x: point.x - 4, y: point.y + 57)
-        padHighlight.fillColor = SKColor.white.withAlphaComponent(0.20)
-        padHighlight.strokeColor = .clear
+        let padHighlight = SKShapeNode(rectOf: CGSize(width: 10, height: 18), cornerRadius: 2)
+        padHighlight.position = CGPoint(x: point.x, y: point.y + 55)
+        padHighlight.fillColor = ArenaVisualPalette.gunmetal
+        padHighlight.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.14)
+        padHighlight.lineWidth = 0.7
         padHighlight.zPosition = z + 0.3
         layer.addChild(padHighlight)
+
+        let padSignal = SKShapeNode(rectOf: CGSize(width: 6.5, height: 1.6), cornerRadius: 0.7)
+        padSignal.position = CGPoint(x: point.x, y: point.y + 55)
+        padSignal.fillColor = color.withAlphaComponent(0.82)
+        padSignal.strokeColor = .clear
+        padSignal.glowWidth = 0.5
+        padSignal.zPosition = z + 0.4
+        layer.addChild(padSignal)
     }
 
     private func addLine(from start: CGPoint, to end: CGPoint, color: SKColor, width: CGFloat, to layer: SKNode, z: CGFloat) {

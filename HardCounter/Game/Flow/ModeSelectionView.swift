@@ -45,7 +45,7 @@ struct ModeSelectionView: View {
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .tracking(2.4)
                 .foregroundStyle(.white.opacity(0.54))
-            Text("강철의 가드로 거리와 리듬을 지배하라")
+            Text("Control distance and rhythm behind a steel guard")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.78))
                 .padding(.top, 10)
@@ -64,14 +64,14 @@ struct ModeSelectionView: View {
 
             modeButton(
                 title: "SOLO",
-                subtitle: "CPU 라이벌과 1:1 대전",
+                subtitle: "1-on-1 against a CPU rival",
                 symbol: "figure.boxing",
                 tint: .cyan,
                 action: onSelectSolo
             )
             modeButton(
                 title: "NEARBY",
-                subtitle: "가까운 iPhone과 1:1 대전",
+                subtitle: "1-on-1 with a nearby iPhone",
                 symbol: "antenna.radiowaves.left.and.right",
                 tint: .orange,
                 badge: "LOBBY",

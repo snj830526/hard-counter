@@ -441,7 +441,7 @@ final class CombatScene: SKScene {
         restartButton.isHidden = true
         addChild(restartButton)
 
-        restartLabel.text = "다시 하기"
+        restartLabel.text = "PLAY AGAIN"
         restartLabel.fontSize = 18
         restartLabel.fontColor = .white
         restartLabel.verticalAlignmentMode = .center
@@ -1782,7 +1782,7 @@ final class CombatScene: SKScene {
                 statusLabel.zPosition = 161
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
-                restartLabel.text = networkConfiguration == nil ? "다시 하기" : "재대결 요청"
+                restartLabel.text = networkConfiguration == nil ? "PLAY AGAIN" : "REQUEST REMATCH"
                 controls.alpha = 0.35
                 localInputSource.reset(at: gameTime)
                 controls.endMovement()
@@ -2106,16 +2106,16 @@ final class CombatScene: SKScene {
         statusLabel.removeAllActions()
         statusLabel.alpha = 1
         if local {
-            restartLabel.text = "요청 취소"
-            statusLabel.text = "상대의 재대결 수락을 기다리는 중"
+            restartLabel.text = "CANCEL REQUEST"
+            statusLabel.text = "WAITING FOR REMATCH RESPONSE"
             statusLabel.fontColor = .systemYellow
         } else if remote {
-            restartLabel.text = "재대결 수락"
-            statusLabel.text = "상대가 재대결을 요청했습니다"
+            restartLabel.text = "ACCEPT REMATCH"
+            statusLabel.text = "OPPONENT REQUESTED A REMATCH"
             statusLabel.fontColor = .systemGreen
         } else {
-            restartLabel.text = "재대결 요청"
-            statusLabel.text = "재대결을 요청하거나 대전을 종료하세요"
+            restartLabel.text = "REQUEST REMATCH"
+            statusLabel.text = "REQUEST A REMATCH OR LEAVE THE MATCH"
             statusLabel.fontColor = .white
         }
     }

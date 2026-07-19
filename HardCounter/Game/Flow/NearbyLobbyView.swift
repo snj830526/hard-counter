@@ -27,7 +27,7 @@ struct NearbyLobbyView: View {
                 service.stop()
                 onBack()
             } label: {
-                Label("모드 선택", systemImage: "chevron.left")
+                Label("SELECT MODE", systemImage: "chevron.left")
                     .font(.system(size: 12, weight: .bold))
             }
             .buttonStyle(.plain)
@@ -37,7 +37,7 @@ struct NearbyLobbyView: View {
             VStack(spacing: 2) {
                 Text("NEARBY MATCH")
                     .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("가까운 iPhone과 로비를 만들고 복싱 머신을 준비하세요")
+                Text("Create a nearby lobby and ready your boxing machine")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
@@ -59,7 +59,7 @@ struct NearbyLobbyView: View {
         case .browsing:
             browserPanel
         case let .connecting(name):
-            progressPanel(title: "연결 중", detail: "\(name) 로비에 입장하고 있습니다")
+            progressPanel(title: "CONNECTING", detail: "Entering \(name)'s lobby")
         case .connected:
             connectedLobby
         case let .failed(message):
@@ -70,15 +70,15 @@ struct NearbyLobbyView: View {
     private var entryPanel: some View {
         HStack(spacing: 20) {
             entryButton(
-                title: "방 만들기",
-                subtitle: "내 iPhone을 호스트로 열고 상대를 기다립니다",
+                title: "CREATE ROOM",
+                subtitle: "Host on this iPhone and wait for an opponent",
                 symbol: "plus.circle.fill",
                 tint: .cyan,
                 action: service.startHosting
             )
             entryButton(
-                title: "주변 방 찾기",
-                subtitle: "같은 공간에 열린 HARD COUNTER 로비를 찾습니다",
+                title: "FIND NEARBY ROOM",
+                subtitle: "Find an open HARD COUNTER lobby nearby",
                 symbol: "antenna.radiowaves.left.and.right",
                 tint: .orange,
                 action: service.startBrowsing
@@ -99,13 +99,13 @@ struct NearbyLobbyView: View {
                     .font(.system(size: 31, weight: .bold))
                     .foregroundStyle(.cyan)
             }
-            Text("상대를 기다리는 중")
+            Text("WAITING FOR OPPONENT")
                 .font(.system(size: 24, weight: .black, design: .rounded))
-            Text("다른 iPhone에서 주변 방 찾기를 누르고 ‘\(service.localPlayerName)’ 방을 선택하세요")
+            Text("On the other iPhone, choose Find Nearby Room and select ‘\(service.localPlayerName)’")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.58))
                 .multilineTextAlignment(.center)
-            secondaryButton("방 닫기", action: service.stop)
+            secondaryButton("CLOSE ROOM", action: service.stop)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -115,15 +115,15 @@ struct NearbyLobbyView: View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("주변 로비")
+                    Text("NEARBY LOBBIES")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                    Text("방이 보이지 않으면 호스트의 로컬 네트워크 권한과 Wi-Fi를 확인하세요")
+                    Text("If no room appears, check the host's Local Network permission and Wi-Fi")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.white.opacity(0.48))
                 }
                 Spacer()
                 ProgressView().tint(.orange)
-                secondaryButton("검색 취소", action: service.stop)
+                secondaryButton("CANCEL SEARCH", action: service.stop)
             }
 
             if service.rooms.isEmpty {
@@ -131,7 +131,7 @@ struct NearbyLobbyView: View {
                     Image(systemName: "dot.radiowaves.left.and.right")
                         .font(.system(size: 34, weight: .medium))
                         .foregroundStyle(.orange.opacity(0.8))
-                    Text("열린 방을 찾고 있습니다…")
+                    Text("Searching for open rooms…")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(.white.opacity(0.58))
                 }
@@ -150,12 +150,12 @@ struct NearbyLobbyView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(room.name)
                                             .font(.system(size: 15, weight: .black, design: .rounded))
-                                        Text("HARD COUNTER 로비")
+                                        Text("HARD COUNTER LOBBY")
                                             .font(.system(size: 9, weight: .medium))
                                             .foregroundStyle(.white.opacity(0.46))
                                     }
                                     Spacer()
-                                    Text("입장")
+                                    Text("JOIN")
                                         .font(.system(size: 11, weight: .black))
                                     Image(systemName: "chevron.right")
                                 }
@@ -208,13 +208,13 @@ struct NearbyLobbyView: View {
             }
 
             HStack {
-                Text(service.bothPlayersReady ? "양쪽 머신 준비 완료 · 경기를 시작합니다" : "머신을 선택한 뒤 준비 버튼을 누르세요")
+                Text(service.bothPlayersReady ? "BOTH MACHINES READY · STARTING MATCH" : "SELECT A MACHINE, THEN PRESS READY")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(service.bothPlayersReady ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.48))
                 Spacer()
-                secondaryButton("나가기", action: service.stop)
+                secondaryButton("LEAVE", action: service.stop)
                 Button(action: service.toggleReady) {
-                    Text(service.localIsReady ? "준비 취소" : "READY")
+                    Text(service.localIsReady ? "CANCEL READY" : "READY")
                         .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundStyle(service.localIsReady ? .white : .black)
                         .padding(.horizontal, 26)
@@ -298,7 +298,7 @@ struct NearbyLobbyView: View {
                 }
                 .disabled(isReady)
             } else {
-                Text("상대의 머신 선택이 실시간으로 표시됩니다")
+                Text("Your opponent's machine selection updates in real time")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.white.opacity(0.4))
                     .frame(maxWidth: .infinity, minHeight: 29)
@@ -333,7 +333,7 @@ struct NearbyLobbyView: View {
             ProgressView().controlSize(.large).tint(.orange)
             Text(title).font(.system(size: 23, weight: .black, design: .rounded))
             Text(detail).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.52))
-            secondaryButton("취소", action: service.stop)
+            secondaryButton("CANCEL", action: service.stop)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -344,15 +344,15 @@ struct NearbyLobbyView: View {
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 38, weight: .bold))
                 .foregroundStyle(.orange)
-            Text("연결할 수 없습니다")
+            Text("CONNECTION FAILED")
                 .font(.system(size: 23, weight: .black, design: .rounded))
             Text(message)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.56))
                 .multilineTextAlignment(.center)
             HStack {
-                secondaryButton("처음으로", action: service.stop)
-                Button("다시 시도", action: service.retry)
+                secondaryButton("BACK TO START", action: service.stop)
+                Button("TRY AGAIN", action: service.retry)
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
             }

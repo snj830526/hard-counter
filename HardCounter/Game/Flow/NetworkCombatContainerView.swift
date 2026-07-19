@@ -30,7 +30,7 @@ struct NetworkCombatContainerView: View {
                     .onChange(of: proxy.safeAreaInsets) { _, _ in updateSafeArea(from: proxy) }
 
                 Button(action: onExit) {
-                    Label("대전 종료", systemImage: "rectangle.portrait.and.arrow.right")
+                    Label("LEAVE MATCH", systemImage: "rectangle.portrait.and.arrow.right")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.white.opacity(0.72))
                         .padding(.horizontal, 12)

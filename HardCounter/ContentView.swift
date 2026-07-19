@@ -15,6 +15,14 @@ struct ContentView: View {
             _destination = State(initialValue: .nearbyLobby)
             return
         }
+        if arguments.contains("--pressure-showcase") {
+            _destination = State(initialValue: .combat(.pressure))
+            return
+        }
+        if arguments.contains("--outboxer-showcase") {
+            _destination = State(initialValue: .combat(.outBoxer))
+            return
+        }
         let shouldLaunchMotionShowcase = [
             "--footwork-showcase",
             "--motion-showcase",

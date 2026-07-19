@@ -80,8 +80,8 @@ enum CombatTuning {
     /// Contact geometry at perspective scale 1. The arm reaches from the
     /// attacker's ring anchor; the target radius belongs to the defender and
     /// must never be multiplied by the attacker's reach bonus.
-    static let punchArmReachAtUnitScale: CGFloat = 56
-    static let punchTargetRadiusAtUnitScale: CGFloat = 14
+    static let punchArmReachAtUnitScale: CGFloat = 48
+    static let punchTargetRadiusAtUnitScale: CGFloat = 10
     static let retreatingPunchReachScale: CGFloat = 0.90
     static let drivingPunchReachScale: CGFloat = 1.04
     static let counterPunchReachScale: CGFloat = 1.05

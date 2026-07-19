@@ -39,27 +39,27 @@ struct Fighter3DAppearanceProfile {
             hipOffset = 0.20
             limbRadiusScale = 1
         case .heavyweight:
-            torsoWidth = 0.94
-            torsoDepth = 0.46
-            chestWidth = 0.84
-            headWidthScale = 0.98
-            headHeightScale = 1.02
-            headDepthScale = 0.98
-            neckRadius = 0.135
-            shoulderOffset = 0.53
-            hipOffset = 0.23
-            limbRadiusScale = 1.12
+            torsoWidth = 1.08
+            torsoDepth = 0.54
+            chestWidth = 0.96
+            headWidthScale = 1.08
+            headHeightScale = 0.94
+            headDepthScale = 1.05
+            neckRadius = 0.15
+            shoulderOffset = 0.60
+            hipOffset = 0.26
+            limbRadiusScale = 1.28
         case .lean:
-            torsoWidth = 0.72
-            torsoDepth = 0.33
-            chestWidth = 0.62
-            headWidthScale = 0.82
-            headHeightScale = 1.16
-            headDepthScale = 0.88
-            neckRadius = 0.09
-            shoulderOffset = 0.41
-            hipOffset = 0.17
-            limbRadiusScale = 0.89
+            torsoWidth = 0.62
+            torsoDepth = 0.29
+            chestWidth = 0.52
+            headWidthScale = 0.74
+            headHeightScale = 1.22
+            headDepthScale = 0.84
+            neckRadius = 0.08
+            shoulderOffset = 0.36
+            hipOffset = 0.15
+            limbRadiusScale = 0.78
         }
 
         switch appearance.kitStyle {
@@ -76,29 +76,29 @@ struct Fighter3DAppearanceProfile {
             shoeLength = 0.39
             cuffScale = 1
         case .pressure:
-            shortsWidth = 0.70
-            shortsHeight = 0.46
-            shortsDepth = 0.49
-            gloveRadius = 0.185
-            gloveWidthScale = 1.12
-            gloveHeightScale = 0.98
-            gloveDepthScale = 1.18
-            shoeWidth = 0.25
-            shoeHeight = 0.16
-            shoeLength = 0.37
-            cuffScale = 1.18
+            shortsWidth = 0.80
+            shortsHeight = 0.50
+            shortsDepth = 0.56
+            gloveRadius = 0.21
+            gloveWidthScale = 1.22
+            gloveHeightScale = 1.06
+            gloveDepthScale = 1.22
+            shoeWidth = 0.29
+            shoeHeight = 0.18
+            shoeLength = 0.40
+            cuffScale = 1.34
         case .speed:
-            shortsWidth = 0.50
-            shortsHeight = 0.37
-            shortsDepth = 0.36
-            gloveRadius = 0.155
-            gloveWidthScale = 0.92
-            gloveHeightScale = 0.84
-            gloveDepthScale = 1.34
-            shoeWidth = 0.19
-            shoeHeight = 0.12
-            shoeLength = 0.44
-            cuffScale = 0.86
+            shortsWidth = 0.43
+            shortsHeight = 0.34
+            shortsDepth = 0.31
+            gloveRadius = 0.14
+            gloveWidthScale = 0.82
+            gloveHeightScale = 0.78
+            gloveDepthScale = 1.48
+            shoeWidth = 0.17
+            shoeHeight = 0.105
+            shoeLength = 0.49
+            cuffScale = 0.72
         }
     }
 }

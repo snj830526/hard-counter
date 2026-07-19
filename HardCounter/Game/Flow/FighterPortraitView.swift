@@ -35,7 +35,10 @@ struct FighterPortraitView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 38 * shoulderScale, height: 39)
+                .frame(
+                    width: fighter == .pressure ? 48 : 38 * shoulderScale,
+                    height: fighter == .outBoxer ? 43 : 39
+                )
                 .overlay(alignment: .bottom) {
                     Rectangle()
                         .fill(darkMetal)
@@ -49,6 +52,31 @@ struct FighterPortraitView: View {
                         .offset(y: 4)
                 }
                 .offset(y: 12)
+
+            if fighter == .pressure {
+                HStack(spacing: 29) {
+                    armorBlock
+                    armorBlock
+                }
+                .offset(y: 3)
+
+                HStack(spacing: 37) {
+                    Capsule().fill(darkMetal).frame(width: 6, height: 30)
+                    Capsule().fill(darkMetal).frame(width: 6, height: 30)
+                }
+                .offset(y: 15)
+            } else if fighter == .outBoxer {
+                HStack(spacing: 36) {
+                    speedFin.rotationEffect(.degrees(-24))
+                    speedFin.rotationEffect(.degrees(24))
+                }
+                .offset(y: 1)
+
+                speedFin
+                    .frame(height: 25)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: 8, y: -38)
+            }
 
             RoundedRectangle(cornerRadius: 3)
                 .fill(darkMetal)
@@ -67,7 +95,10 @@ struct FighterPortraitView: View {
                 topTrailingRadius: 8
             )
                 .fill(darkMetal)
-                .frame(width: 29, height: 31)
+                .frame(
+                    width: fighter == .pressure ? 36 : (fighter == .outBoxer ? 23 : 29),
+                    height: fighter == .pressure ? 29 : (fighter == .outBoxer ? 35 : 31)
+                )
                 .overlay {
                     Capsule()
                         .fill(armor)
@@ -83,18 +114,36 @@ struct FighterPortraitView: View {
                 }
                 .offset(y: -18)
 
-            glove(color: appearance.kitColor)
+            glove(color: appearance.kitColor, scale: fighter == .pressure ? 1.28 : (fighter == .outBoxer ? 0.82 : 1))
                 .offset(x: -25 * shoulderScale, y: 0)
-            glove(color: appearance.kitColor)
+            glove(color: appearance.kitColor, scale: fighter == .pressure ? 1.28 : (fighter == .outBoxer ? 0.82 : 1))
                 .offset(x: 25 * shoulderScale, y: 1)
         }
         .frame(width: 78, height: 78)
     }
 
-    private func glove(color: UIColor) -> some View {
+    private var armorBlock: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(fighter.swiftUIColor)
+            .frame(width: 17, height: 16)
+            .overlay { RoundedRectangle(cornerRadius: 4).stroke(.black.opacity(0.48), lineWidth: 2) }
+    }
+
+    private var speedFin: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 1,
+            bottomLeadingRadius: 5,
+            bottomTrailingRadius: 1,
+            topTrailingRadius: 5
+        )
+        .fill(fighter.swiftUIColor.opacity(0.92))
+        .frame(width: 5, height: 31)
+    }
+
+    private func glove(color: UIColor, scale: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 5)
             .fill(Color(uiColor: color))
-            .frame(width: 15, height: 13)
+            .frame(width: 15 * scale, height: 13 * scale)
             .overlay { RoundedRectangle(cornerRadius: 5).stroke(.black.opacity(0.38)) }
     }
 

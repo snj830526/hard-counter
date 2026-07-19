@@ -120,15 +120,43 @@ enum Fighter3DDetailFactory {
             }
         case .pressure:
             let breastplate = Fighter3DMeshFactory.box(
-                width: proportions.chestWidth * 1.03,
-                height: 0.44,
-                length: 0.10,
+                width: proportions.chestWidth * 1.08,
+                height: 0.50,
+                length: 0.14,
                 chamfer: 0.065,
                 material: palette.secondaryArmor
             )
             breastplate.position = SCNVector3(0, 0.58, front)
             spine.addChildNode(breastplate)
             for side: CGFloat in [-1, 1] {
+                let pauldron = Fighter3DMeshFactory.box(
+                    width: 0.27,
+                    height: 0.23,
+                    length: proportions.torsoDepth * 0.88,
+                    chamfer: 0.055,
+                    material: side < 0 ? palette.kit : palette.secondaryArmor
+                )
+                pauldron.position = SCNVector3(
+                    side * proportions.chestWidth * 0.61,
+                    0.77,
+                    0.015
+                )
+                pauldron.eulerAngles.z = Float(-side * 0.12)
+                spine.addChildNode(pauldron)
+
+                let hydraulic = Fighter3DMeshFactory.cylinder(
+                    radius: 0.075,
+                    height: 0.42,
+                    material: palette.shadowSkin
+                )
+                hydraulic.position = SCNVector3(
+                    side * proportions.torsoWidth * 0.48,
+                    0.42,
+                    -proportions.torsoDepth * 0.42
+                )
+                hydraulic.eulerAngles.z = Float(side * 0.08)
+                spine.addChildNode(hydraulic)
+
                 let bolt = Fighter3DMeshFactory.cylinder(
                     radius: 0.045,
                     height: 0.04,
@@ -159,7 +187,30 @@ enum Fighter3DDetailFactory {
                 rib.position = SCNVector3(side * 0.19, 0.62 + side * 0.11, front)
                 rib.eulerAngles.z = Float(-side * 0.30)
                 spine.addChildNode(rib)
+
+                let shoulderFin = Fighter3DMeshFactory.box(
+                    width: 0.065,
+                    height: 0.38,
+                    length: 0.34,
+                    chamfer: 0.016,
+                    material: side < 0 ? palette.kit : palette.secondaryArmor
+                )
+                shoulderFin.position = SCNVector3(side * 0.39, 0.74, -0.03)
+                shoulderFin.eulerAngles.z = Float(-side * 0.48)
+                shoulderFin.eulerAngles.x = Float(side * 0.08)
+                spine.addChildNode(shoulderFin)
             }
+
+            let dorsalFin = Fighter3DMeshFactory.box(
+                width: 0.07,
+                height: 0.48,
+                length: 0.30,
+                chamfer: 0.015,
+                material: palette.secondaryArmor
+            )
+            dorsalFin.position = SCNVector3(0, 0.58, -proportions.torsoDepth * 0.66)
+            dorsalFin.eulerAngles.x = -0.22
+            spine.addChildNode(dorsalFin)
         }
         let fightMark = Fighter3DMeshFactory.box(
             width: style == .pressure ? 0.19 : 0.13,
@@ -231,6 +282,16 @@ enum Fighter3DDetailFactory {
                 templeGuard.position = SCNVector3(side * 0.205, 0.035, 0)
                 helmetRoot.addChildNode(templeGuard)
             }
+
+            let browBlock = Fighter3DMeshFactory.box(
+                width: 0.48,
+                height: 0.11,
+                length: 0.31,
+                chamfer: 0.035,
+                material: palette.kit
+            )
+            browBlock.position = SCNVector3(0, 0.095, 0.07)
+            helmetRoot.addChildNode(browBlock)
         case .swept:
             let crown = Fighter3DMeshFactory.box(
                 width: 0.30,
@@ -242,16 +303,18 @@ enum Fighter3DDetailFactory {
             crown.position = SCNVector3(0, 0.19, 0)
             helmetRoot.addChildNode(crown)
 
-            let antenna = Fighter3DMeshFactory.box(
-                width: 0.045,
-                height: 0.29,
-                length: 0.075,
-                chamfer: 0.012,
-                material: palette.eyeWhite
-            )
-            antenna.position = SCNVector3(0.10, 0.34, -0.02)
-            antenna.eulerAngles.z = -0.24
-            helmetRoot.addChildNode(antenna)
+            for side: CGFloat in [-1, 1] {
+                let antenna = Fighter3DMeshFactory.box(
+                    width: 0.038,
+                    height: side < 0 ? 0.25 : 0.34,
+                    length: 0.075,
+                    chamfer: 0.010,
+                    material: side < 0 ? palette.accent : palette.eyeWhite
+                )
+                antenna.position = SCNVector3(side * 0.105, 0.34, -0.02)
+                antenna.eulerAngles.z = Float(-side * 0.26)
+                helmetRoot.addChildNode(antenna)
+            }
         }
     }
 
