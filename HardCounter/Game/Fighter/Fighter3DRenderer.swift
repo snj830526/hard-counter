@@ -8,6 +8,7 @@ final class Fighter3DRenderer {
     private let motionStyle: Fighter3DMotionStyle
     private let motionProfile: Fighter3DMotionProfile
 
+    private let presentationRoot = SCNNode()
     private let skeletonRoot = SCNNode()
     private let pelvis = SCNNode()
     private let spine = SCNNode()
@@ -134,6 +135,19 @@ final class Fighter3DRenderer {
         lastAppliedPose = guardPose
         skeletonRoot.opacity = 1
         apply(guardPose)
+    }
+
+    /// Moves this fighter's live rig into a shared SceneKit stage. Pose updates
+    /// continue to target the same skeleton; only the presentation parent and
+    /// camera change.
+    func attachPresentation(to parent: SCNNode) {
+        presentationRoot.removeFromParentNode()
+        parent.addChildNode(presentationRoot)
+    }
+
+    func setSharedStageTransform(position: SCNVector3, scale: Float) {
+        presentationRoot.position = position
+        presentationRoot.scale = SCNVector3(scale, scale, scale)
     }
 
     func update(
@@ -1067,7 +1081,8 @@ final class Fighter3DRenderer {
         let proportions = Fighter3DAppearanceProfile(appearance: appearance)
         let palette = Fighter3DMaterialPalette(appearance: appearance)
 
-        scene.rootNode.addChildNode(skeletonRoot)
+        scene.rootNode.addChildNode(presentationRoot)
+        presentationRoot.addChildNode(skeletonRoot)
         skeletonRoot.addChildNode(pelvis)
         pelvis.position = SCNVector3(0, 1.34, 0)
 

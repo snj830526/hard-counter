@@ -109,6 +109,8 @@ final class CombatScene: SKScene {
         return opponentProfile?.combatStyle ?? .rival
     }
 #if DEBUG
+    private let sharedThreeDArenaEnabled = !ProcessInfo.processInfo.arguments.contains("--legacy-2d-arena")
+    private var sharedArena3DRenderer: SharedArena3DRenderer?
     private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
@@ -385,6 +387,21 @@ final class CombatScene: SKScene {
         arenaNode.addChild(player)
         arenaNode.addChild(cpu)
 
+#if DEBUG
+        if sharedThreeDArenaEnabled {
+            let renderer = SharedArena3DRenderer(
+                size: size,
+                player: player,
+                opponent: cpu
+            )
+            sharedArena3DRenderer = renderer
+            addChild(renderer.viewport)
+            ringNode.isHidden = true
+            playerShadow.isHidden = true
+            cpuShadow.isHidden = true
+        }
+#endif
+
         addHealthBarBackground(for: playerHealthBar)
         addHealthBarBackground(for: cpuHealthBar)
         addStaminaBarBackground(for: playerStaminaBar, name: "playerStaminaBackground")
@@ -575,6 +592,10 @@ final class CombatScene: SKScene {
             deltaTime: 0
         )
         positionCameraImmediately()
+
+#if DEBUG
+        sharedArena3DRenderer?.layout(size: size)
+#endif
 
         childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
         childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
@@ -934,6 +955,14 @@ final class CombatScene: SKScene {
 
         applyPerspective(to: player, shadow: playerShadow, worldPosition: playerArenaPosition, screenPosition: playerScreenPosition)
         applyPerspective(to: cpu, shadow: cpuShadow, worldPosition: cpuArenaPosition, screenPosition: cpuScreenPosition)
+#if DEBUG
+        sharedArena3DRenderer?.update(
+            player: player,
+            opponent: cpu,
+            playerWorldPosition: playerArenaPosition,
+            opponentWorldPosition: cpuArenaPosition
+        )
+#endif
     }
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {

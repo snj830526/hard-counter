@@ -1,3 +1,4 @@
+import SceneKit
 import SpriteKit
 
 final class FighterNode: SKNode {
@@ -23,6 +24,15 @@ final class FighterNode: SKNode {
     private var damageVisualTier = 0
 
     var committedPunchAimDirection: CGVector { activePunchAimDirection }
+
+    func attachThreeDPresentation(to parent: SCNNode) {
+        threeDRenderer.attachPresentation(to: parent)
+        threeDRenderer.spriteNode.isHidden = true
+    }
+
+    func setThreeDStageTransform(position: SCNVector3, scale: Float = 1) {
+        threeDRenderer.setSharedStageTransform(position: position, scale: scale)
+    }
 
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
