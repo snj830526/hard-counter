@@ -51,7 +51,7 @@ enum CombatTuning {
 
     static let idleMotionHalfCycle: TimeInterval = 0.62
     static let idleReturnDuration: TimeInterval = 0.16
-    static let knockoutDuration: TimeInterval = 0.52
+    static let knockoutDuration: TimeInterval = 0.78
     static let poseResetDuration: TimeInterval = 0.01
     static let healthBarAnimationDuration: TimeInterval = 0.18
     static let impactAnimationDuration: TimeInterval = 0.16

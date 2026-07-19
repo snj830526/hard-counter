@@ -45,6 +45,7 @@ final class Fighter3DRenderer {
     private var targetStaminaFraction: CGFloat = 1
     private var displayedStaminaFraction: CGFloat = 1
     private var lastAppliedPose = Fighter3DPose.guardPose
+    private var knockoutStartPose = Fighter3DPose.guardPose
 
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         self.motionStyle = motionStyle
@@ -70,6 +71,12 @@ final class Fighter3DRenderer {
     func show(phase newPhase: FighterPhase) {
         phase = newPhase
         phaseElapsed = 0
+        if newPhase == .knockedOut {
+            knockoutStartPose = lastAppliedPose
+            hitElapsed = nil
+            followThrough = 0
+            whiffOverreach = 0
+        }
         if newPhase == .idle {
             followThrough = 0
             whiffOverreach = 0
@@ -281,10 +288,25 @@ final class Fighter3DRenderer {
             return movingGuard
 
         case .knockedOut:
-            let t = smooth(progress(0.52))
-            return guardPose.blended(
+            let progress = progress(CombatTuning.knockoutDuration)
+            var bucklePose = knockoutStartPose
+            bucklePose.rootY -= 0.20
+            bucklePose.rootZ -= 0.04
+            bucklePose.rootPitch += 0.10
+            bucklePose.rootRoll -= 0.06
+            bucklePose.spinePitch += 0.12
+            bucklePose.leadKnee.x += 0.30
+            bucklePose.rearKnee.x += 0.34
+            if progress < 0.34 {
+                return knockoutStartPose.blended(
+                    to: bucklePose,
+                    amount: smooth(progress / 0.34)
+                )
+            }
+            let fallProgress = min(max((progress - 0.34) / 0.66, 0), 1)
+            return bucklePose.blended(
                 to: Fighter3DPose.knockedOut.styled(with: motionProfile),
-                amount: t
+                amount: fallProgress * fallProgress
             )
         }
     }
@@ -928,7 +950,7 @@ final class Fighter3DRenderer {
         case .hit:
             responses = (42, 52, 48)
         case .knockedOut:
-            responses = (12, 14, 13)
+            responses = (9, 10, 9)
         }
 
         func amount(for response: CGFloat) -> CGFloat {

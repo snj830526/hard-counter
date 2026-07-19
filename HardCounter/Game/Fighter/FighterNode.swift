@@ -761,6 +761,11 @@ final class FighterNode: SKNode {
 
     private func playKnockout() {
         removeAllActions()
+        // The 3D renderer collapses its articulated rig around the fighter's
+        // ring anchor. Moving and rotating the entire FighterNode as well was
+        // a legacy 2D fall and made the enlarged character launch across the
+        // screen while the camera continued tracking the unchanged anchor.
+        guard !usesThreeDRenderer else { return }
         let fall = SKAction.group([
             .rotate(toAngle: -facing * 1.35, duration: CombatTuning.knockoutDuration, shortestUnitArc: true),
             .moveBy(x: -facing * 34, y: -28, duration: CombatTuning.knockoutDuration)
