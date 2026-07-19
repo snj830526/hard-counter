@@ -1,6 +1,5 @@
 import SceneKit
 import SpriteKit
-import simd
 
 /// Experimental presentation-only renderer. Combat, input, hit detection and
 /// networking continue to use FighterNode; this object only replaces its art.
@@ -28,16 +27,18 @@ final class Fighter3DRenderer {
     private let rearHip = SCNNode()
     private let rearKnee = SCNNode()
     private let rearAnkle = SCNNode()
-    private var leadFootPlantTarget: SCNVector3?
-    private var rearFootPlantTarget: SCNVector3?
-    private var neutralLeadFootPosition: SCNVector3?
-    private var neutralRearFootPosition: SCNVector3?
-    private var leadFootStepStart: SCNVector3?
-    private var rearFootStepStart: SCNVector3?
-    private var previousStepProgress: CGFloat = 1
-    private var previousInitiatingFoot: FighterSupportFoot = .both
-    private var recoveringActionFootPlants = false
-    private var rigGroundingOffset: CGFloat = 0
+    private lazy var footPlanting = Fighter3DFootPlantController(
+        presentationRoot: presentationRoot,
+        skeletonRoot: skeletonRoot,
+        pelvis: pelvis,
+        leadHip: leadHip,
+        leadKnee: leadKnee,
+        leadAnkle: leadAnkle,
+        rearHip: rearHip,
+        rearKnee: rearKnee,
+        rearAnkle: rearAnkle,
+        soleClearance: soleClearance
+    )
     private var armActuators: [SCNNode] = []
     private var legActuators: [SCNNode] = []
     private var powerCore: SCNNode?
@@ -93,25 +94,16 @@ final class Fighter3DRenderer {
         buildLights(in: scene)
         buildFighter(in: scene, appearance: appearance)
         apply(guardPose)
-        calibrateRigGrounding()
+        footPlanting.calibrateRigGrounding()
         apply(guardPose)
-        captureNeutralFootPositions()
+        footPlanting.captureNeutralFootPositions()
     }
 
     func show(phase newPhase: FighterPhase) {
         let previousPhase = phase
         phase = newPhase
         phaseElapsed = 0
-        if newPhase == .idle,
-           previousPhase == .swaying || previousPhase == .hit {
-            // Preserve the world-space contacts captured by the locked action
-            // and release them gradually as the neutral stance returns.
-            leadFootStepStart = leadFootPlantTarget
-            rearFootStepStart = rearFootPlantTarget
-            recoveringActionFootPlants = true
-        } else if newPhase != .idle {
-            recoveringActionFootPlants = false
-        }
+        footPlanting.phaseDidChange(from: previousPhase, to: newPhase)
         if newPhase == .knockedOut {
             knockoutStartPose = lastAppliedPose
             hitElapsed = nil
@@ -170,13 +162,7 @@ final class Fighter3DRenderer {
         targetStaminaFraction = 1
         displayedStaminaFraction = 1
         lastAppliedPose = guardPose
-        leadFootPlantTarget = nil
-        rearFootPlantTarget = nil
-        leadFootStepStart = nil
-        rearFootStepStart = nil
-        previousStepProgress = 1
-        previousInitiatingFoot = .both
-        recoveringActionFootPlants = false
+        footPlanting.reset()
         mechanicalMotion.reset()
         mechanicalMotionResult = .neutral
         skeletonRoot.opacity = 1
@@ -553,88 +539,15 @@ final class Fighter3DRenderer {
     }
 
     private func makeSwayMotionClip() -> Fighter3DMotionClip {
-        let guardPose = guardPose
-        let components = swayMotionComponents()
-        let performance = min(max(swayPerformance, 0.72), 1.20)
-        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
-        let screenHorizontal = swayScreenDirection.dx / swayLength
-        let screenVertical = swayScreenDirection.dy / swayLength
-        let loadFrame = FighterFullBodyActionFrame(
-            forward: components.forward * 0.22,
-            lateral: -components.lateral * 0.18,
-            screenHorizontal: -screenHorizontal * 0.18,
-            screenVertical: -screenVertical * 0.18,
-            intensity: performance,
-            compression: 0.58,
-            weightShift: -components.lateral * 0.35,
-            reach: 0
-        )
-        let loadPose = FighterFullBodyActionPoseSolver.sway(
-            frame: loadFrame,
-            from: guardPose
-        )
-
-        let evadeFrame = FighterFullBodyActionFrame(
-            forward: components.forward,
-            lateral: components.lateral,
-            screenHorizontal: screenHorizontal,
-            screenVertical: screenVertical,
-            intensity: performance * motionProfile.swayRange,
-            compression: 0.88 + abs(components.forward) * 0.18,
-            weightShift: components.lateral,
-            reach: 0
-        )
-        var evadePose = FighterFullBodyActionPoseSolver.sway(
-            frame: evadeFrame,
-            from: guardPose
-        )
-        applyGuardIdentity(to: &evadePose)
-
-        let apexFrame = FighterFullBodyActionFrame(
-            forward: components.forward * 1.12,
-            lateral: components.lateral * 1.14,
-            screenHorizontal: screenHorizontal * 1.14,
-            screenVertical: screenVertical * 1.14,
-            intensity: performance * motionProfile.swayRange,
-            compression: 1.0,
-            weightShift: components.lateral,
-            reach: 0
-        )
-        var apexPose = FighterFullBodyActionPoseSolver.sway(
-            frame: apexFrame,
-            from: guardPose
-        )
-        applyGuardIdentity(to: &apexPose)
-
-        var recoveryPose = apexPose.stagedBlend(
-            to: guardPose,
-            lowerBody: 0.52,
-            torso: 0.40,
-            arms: 0.58
-        )
-        recoveryPose.rootY -= 0.025
-        recoveryPose.leadKnee.x += 0.035
-        recoveryPose.rearKnee.x += 0.035
-
-        return Fighter3DMotionClip(keyframes: [
-            Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
-            Fighter3DMotionKeyframe(position: 0.08, pose: loadPose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.20, pose: evadePose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.34, pose: apexPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 0.48, pose: apexPose, arrivalCurve: .hold),
-            Fighter3DMotionKeyframe(position: 0.87, pose: recoveryPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
-        ])
-    }
-
-    private func swayMotionComponents() -> (forward: CGFloat, lateral: CGFloat) {
-        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
-        let facingLength = max(hypot(opponentScreenDirection.dx, opponentScreenDirection.dy), 0.001)
-        let sway = CGVector(dx: swayScreenDirection.dx / swayLength, dy: swayScreenDirection.dy / swayLength)
-        let facing = CGVector(dx: opponentScreenDirection.dx / facingLength, dy: opponentScreenDirection.dy / facingLength)
-        return (
-            sway.dx * facing.dx + sway.dy * facing.dy,
-            sway.dx * -facing.dy + sway.dy * facing.dx
+        Fighter3DSwayMotionComposer.makeClip(
+            screenDirection: swayScreenDirection,
+            opponentScreenDirection: opponentScreenDirection,
+            performance: swayPerformance,
+            motionProfile: motionProfile,
+            guardPose: guardPose,
+            applyGuardIdentity: { [self] pose in
+                applyGuardIdentity(to: &pose)
+            }
         )
     }
 
@@ -1127,7 +1040,7 @@ final class Fighter3DRenderer {
         let pose = pose.sanitized()
         skeletonRoot.position = SCNVector3(
             pose.rootX,
-            pose.rootY + rigGroundingOffset,
+            pose.rootY + footPlanting.rigGroundingOffset,
             pose.rootZ
         )
         skeletonRoot.eulerAngles.x = Float(pose.rootPitch)
@@ -1156,7 +1069,9 @@ final class Fighter3DRenderer {
         )
         applyMechanicalSecondaryMotion()
         applyKnockoutGrounding()
-        applyFootPlanting(
+        footPlanting.apply(
+            phase: phase,
+            phaseElapsed: phaseElapsed,
             locomotionFrame: locomotionFrame,
             bodyMotion: bodyMotion,
             pose: pose
@@ -1357,312 +1272,6 @@ final class Fighter3DRenderer {
             proportions: proportions,
             to: pelvis
         )
-    }
-
-    private func applyFootPlanting(
-        locomotionFrame: FighterLocomotionFrame?,
-        bodyMotion: FighterBodyMotionFrame,
-        pose: Fighter3DPose
-    ) {
-        guard phase != .knockedOut,
-              let frame = locomotionFrame,
-              let neutralLeadFootPosition,
-              let neutralRearFootPosition else {
-            return
-        }
-
-        // Foot targets own one deterministic step-and-slide path. A custom
-        // two-bone solve below keeps each knee on a fixed anatomical bend
-        // plane; SceneKit's unconstrained 3D IK is deliberately not used.
-        let leadCurrent = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
-        let rearCurrent = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
-        // Neutral foot anchors are stored in fighter space so the complete
-        // shoulder-width base rotates with the boxer. Their vertical contact
-        // remains owned by the presentation-space canvas plane.
-        var desiredLead = skeletonRoot.convertPosition(
-            neutralLeadFootPosition,
-            to: nil
-        )
-        var desiredRear = skeletonRoot.convertPosition(
-            neutralRearFootPosition,
-            to: nil
-        )
-        let groundHeight = presentationRoot.convertPosition(
-            SCNVector3(0, Float(soleClearance), 0),
-            to: nil
-        ).y
-        desiredLead.y = groundHeight
-        desiredRear.y = groundHeight
-        if leadFootPlantTarget == nil { leadFootPlantTarget = desiredLead }
-        if rearFootPlantTarget == nil { rearFootPlantTarget = desiredRear }
-
-        let beganNewStep = frame.stepProgress + 0.001 < previousStepProgress
-            || bodyMotion.initiatingFoot != previousInitiatingFoot
-        if beganNewStep, bodyMotion.initiatingFoot != .both {
-            leadFootStepStart = leadFootPlantTarget ?? leadCurrent
-            rearFootStepStart = rearFootPlantTarget ?? rearCurrent
-        }
-
-        if phase == .swaying || phase == .hit {
-            // These actions lock locomotion. Keep the last planted world
-            // targets rather than snapping both boots below the displaced
-            // action root, which made the legs trail the torso.
-            leadFootPlantTarget = leadFootPlantTarget ?? leadCurrent
-            rearFootPlantTarget = rearFootPlantTarget ?? rearCurrent
-            leadFootStepStart = leadFootPlantTarget
-            rearFootStepStart = rearFootPlantTarget
-        } else if bodyMotion.initiatingFoot == .both {
-            if recoveringActionFootPlants {
-                let recovery = min(max(CGFloat(phaseElapsed / 0.22), 0), 1)
-                leadFootPlantTarget = steppingTarget(
-                    from: leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent,
-                    toward: desiredLead,
-                    progress: recovery,
-                    lift: 0
-                )
-                rearFootPlantTarget = steppingTarget(
-                    from: rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent,
-                    toward: desiredRear,
-                    progress: recovery,
-                    lift: 0
-                )
-                if recovery >= 1 {
-                    recoveringActionFootPlants = false
-                    leadFootStepStart = desiredLead
-                    rearFootStepStart = desiredRear
-                }
-            } else {
-                leadFootPlantTarget = desiredLead
-                rearFootPlantTarget = desiredRear
-                leadFootStepStart = desiredLead
-                rearFootStepStart = desiredRear
-            }
-        } else {
-            let leadStart = leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent
-            let rearStart = rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent
-            let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
-            let initiatingSwing = min(max(
-                (frame.stepProgress - 0.055) / 0.305,
-                0
-            ), 1)
-            switch bodyMotion.initiatingFoot {
-            case .lead:
-                if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
-                    leadFootPlantTarget = steppingTarget(
-                        from: leadStart,
-                        toward: desiredLead,
-                        progress: initiatingSwing,
-                        lift: frame.frontAnkleLift * scale
-                    )
-                }
-                if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
-                    rearFootPlantTarget = steppingTarget(
-                        from: rearStart,
-                        toward: desiredRear,
-                        progress: (frame.stepProgress - 0.54) / 0.32,
-                        lift: frame.backAnkleLift * scale
-                    )
-                }
-            case .rear:
-                if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
-                    rearFootPlantTarget = steppingTarget(
-                        from: rearStart,
-                        toward: desiredRear,
-                        progress: initiatingSwing,
-                        lift: frame.backAnkleLift * scale
-                    )
-                }
-                if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
-                    leadFootPlantTarget = steppingTarget(
-                        from: leadStart,
-                        toward: desiredLead,
-                        progress: (frame.stepProgress - 0.54) / 0.32,
-                        lift: frame.frontAnkleLift * scale
-                    )
-                }
-            case .both:
-                break
-            }
-        }
-
-        leadFootPlantTarget = reachablePlantTarget(
-            leadFootPlantTarget ?? leadCurrent,
-            from: leadCurrent,
-            groundHeight: groundHeight
-        )
-        rearFootPlantTarget = reachablePlantTarget(
-            rearFootPlantTarget ?? rearCurrent,
-            from: rearCurrent,
-            groundHeight: groundHeight
-        )
-        solveAnatomicalLeg(
-            hip: leadHip,
-            knee: leadKnee,
-            ankle: leadAnkle,
-            worldTarget: leadFootPlantTarget ?? leadCurrent,
-            anklePitch: pose.leadAnklePitch
-        )
-        solveAnatomicalLeg(
-            hip: rearHip,
-            knee: rearKnee,
-            ankle: rearAnkle,
-            worldTarget: rearFootPlantTarget ?? rearCurrent,
-            anklePitch: pose.rearAnklePitch
-        )
-        previousStepProgress = frame.stepProgress
-        previousInitiatingFoot = bodyMotion.initiatingFoot
-    }
-
-    /// Deterministic two-bone leg solve. The knee pole is always the fighter's
-    /// local anatomical forward axis, so the thigh and shin can never bow or
-    /// swivel sideways merely to satisfy a planted ankle target.
-    private func solveAnatomicalLeg(
-        hip: SCNNode,
-        knee: SCNNode,
-        ankle: SCNNode,
-        worldTarget: SCNVector3,
-        anklePitch: CGFloat
-    ) {
-        let targetPosition = pelvis.convertPosition(worldTarget, from: nil)
-        let target = SIMD3<Float>(
-            targetPosition.x,
-            targetPosition.y,
-            targetPosition.z
-        )
-        let origin = SIMD3<Float>(
-            hip.position.x,
-            hip.position.y,
-            hip.position.z
-        )
-        let displacement = target - origin
-        let rawDistance = simd_length(displacement)
-        guard rawDistance > 0.001 else { return }
-
-        let thighLength: Float = 0.66
-        let shinLength: Float = 0.64
-        let minimumReach = abs(thighLength - shinLength) + 0.001
-        let maximumReach = thighLength + shinLength - 0.012
-        let distance = min(max(rawDistance, minimumReach), maximumReach)
-        let legAxis = simd_normalize(displacement)
-        let alongAxis = (
-            thighLength * thighLength - shinLength * shinLength
-                + distance * distance
-        ) / (2 * distance)
-        let bendHeight = sqrt(max(
-            thighLength * thighLength - alongAxis * alongAxis,
-            0
-        ))
-
-        let anatomicalForward = SIMD3<Float>(0, 0, 1)
-        var kneePole = anatomicalForward
-            - legAxis * simd_dot(anatomicalForward, legAxis)
-        if simd_length_squared(kneePole) < 0.0001 {
-            kneePole = SIMD3<Float>(0, 1, 0)
-                - legAxis * simd_dot(SIMD3<Float>(0, 1, 0), legAxis)
-        }
-        kneePole = simd_normalize(kneePole)
-
-        let kneePosition = origin + legAxis * alongAxis + kneePole * bendHeight
-        let upperDirection = simd_normalize(kneePosition - origin)
-        let lowerDirection = simd_normalize(target - kneePosition)
-        let boneDown = SIMD3<Float>(0, -1, 0)
-
-        let hipOrientation = simd_quatf(from: boneDown, to: upperDirection)
-        hip.simdOrientation = hipOrientation
-        let lowerInHipSpace = hipOrientation.inverse.act(lowerDirection)
-        let kneeOrientation = simd_quatf(from: boneDown, to: lowerInHipSpace)
-        knee.simdOrientation = kneeOrientation
-
-        let desiredFootOrientation = simd_quatf(
-            angle: Float(anklePitch),
-            axis: SIMD3<Float>(1, 0, 0)
-        )
-        ankle.simdOrientation = (hipOrientation * kneeOrientation).inverse
-            * desiredFootOrientation
-    }
-
-    private func captureNeutralFootPositions() {
-        var leadPosition = leadAnkle.convertPosition(
-            SCNVector3Zero,
-            to: skeletonRoot
-        )
-        var rearPosition = rearAnkle.convertPosition(
-            SCNVector3Zero,
-            to: skeletonRoot
-        )
-        // Maintain a stable shoulder-width base even for the lean body rig.
-        // The Z stagger preserves boxing depth while X prevents a tight-rope
-        // stance that would place the center of mass outside both feet.
-        let minimumHalfWidth: Float = 0.30
-        let minimumHalfStagger: Float = 0.30
-        leadPosition.x = max(abs(leadPosition.x), minimumHalfWidth)
-        rearPosition.x = -max(abs(rearPosition.x), minimumHalfWidth)
-        leadPosition.z = max(abs(leadPosition.z), minimumHalfStagger)
-        rearPosition.z = -max(abs(rearPosition.z), minimumHalfStagger)
-        leadPosition.y = 0
-        rearPosition.y = 0
-        neutralLeadFootPosition = leadPosition
-        neutralRearFootPosition = rearPosition
-    }
-
-    private func calibrateRigGrounding() {
-        let leadPosition = leadAnkle.convertPosition(
-            SCNVector3Zero,
-            to: presentationRoot
-        )
-        let rearPosition = rearAnkle.convertPosition(
-            SCNVector3Zero,
-            to: presentationRoot
-        )
-        let lowestAnkle = CGFloat(min(leadPosition.y, rearPosition.y))
-        rigGroundingOffset = max(soleClearance - lowestAnkle, 0)
-    }
-
-    private func steppingTarget(
-        from start: SCNVector3,
-        toward destination: SCNVector3,
-        progress: CGFloat,
-        lift: CGFloat
-    ) -> SCNVector3 {
-        let t = min(max(progress, 0), 1)
-        // Powered joints break static friction early, then decelerate into
-        // the plant. A symmetric smoothstep left the boot almost stationary
-        // while the arena root had already begun to travel.
-        let amount = 1 - pow(1 - t, 1.45)
-        return SCNVector3(
-            start.x + (destination.x - start.x) * Float(amount),
-            start.y + (destination.y - start.y) * Float(amount) + Float(max(lift, 0)),
-            start.z + (destination.z - start.z) * Float(amount)
-        )
-    }
-
-    /// Prevents a planted target from forcing an impossible leg extension if
-    /// collision resolution or network correction moves the fighter root by a
-    /// large amount in one frame. The target yields only as much as necessary,
-    /// preserving contact without allowing the knee to fold unpredictably.
-    private func reachablePlantTarget(
-        _ target: SCNVector3,
-        from current: SCNVector3,
-        groundHeight: Float
-    ) -> SCNVector3 {
-        let scale = max(abs(presentationRoot.presentation.scale.x), 0.01)
-        let maximumPlanarCorrection = 0.42 * scale
-        let dx = target.x - current.x
-        let dz = target.z - current.z
-        let distance = hypot(dx, dz)
-        var result = target
-        if distance > maximumPlanarCorrection {
-            let retained = maximumPlanarCorrection / distance
-            result.x = current.x + dx * retained
-            result.z = current.z + dz * retained
-        }
-        // Vertical placement is ground-relative, not current-foot-relative.
-        // Root compression can exceed the old per-frame correction cap; that
-        // cap allowed the whole shoe to follow the pelvis under the canvas.
-        // The authored target already contains swing lift, so preserving it
-        // while enforcing the neutral ground plane keeps both plants clean.
-        result.y = max(result.y, groundHeight)
-        return result
     }
 
     private func attachArm(

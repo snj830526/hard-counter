@@ -66,9 +66,11 @@ HardCounter/
 │   │   ├── Fighter3DMaterialPalette.swift
 │   │   ├── Fighter3DMechanicalMotion.swift
 │   │   ├── Fighter3DMeshFactory.swift
+│   │   ├── Fighter3DFootPlanting.swift
 │   │   ├── Fighter3DRenderer.swift
 │   │   ├── Fighter3DMotionProfile.swift
 │   │   ├── Fighter3DPose.swift
+│   │   ├── Fighter3DSwayMotion.swift
 │   │   ├── FighterFullBodyMotion.swift
 │   │   ├── FighterFullBodyActionPoseSolver.swift
 │   │   ├── FighterFullBodyPoseSolver.swift
@@ -158,7 +160,9 @@ idle → swaying → idle
 ### 표현 및 입력 계층
 
 - `FighterNode.swift`: 전투 이벤트를 포즈와 모션으로 연결하는 표현 계층의 조정자다. 방향, 상태 전환, 피격·KO 연출을 관리하지만 리그 생성과 이동 수학은 직접 소유하지 않는다.
-- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 복싱 머신 리그를 조립하고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 재생한다. 공통 전신 포즈를 하체·몸통·팔의 서로 다른 관성으로 적용한 뒤 기계 섀시 보정을 더하며, KO는 링 위치를 이동시키지 않고 무릎 붕괴–무게중심 하강–몸통 낙하 순서로 표현한다. 중립 자세의 바닥 높이를 기준으로 지지발을 고정하고 이동 발만 들어 올리는 SceneKit IK 보정을 마지막에 적용한다. 정적 외형 장식과 재질 생성은 별도 팩토리에 위임하며 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DRenderer.swift`: 기존 전투 상태와 모션 프로필을 읽어 SceneKit 복싱 머신 리그를 조립하고 가드, 셔플, 펀치, 스웨이, 피격과 KO 포즈를 조정한다. 공통 전신 포즈를 하체·몸통·팔의 서로 다른 관성으로 적용한 뒤 기계 섀시 보정을 더하며, KO는 링 위치를 이동시키지 않고 무릎 붕괴–무게중심 하강–몸통 낙하 순서로 표현한다. 정적 외형·재질, 스웨이 클립, 발 접지 해법은 각각 전용 타입에 위임하며 판정과 네트워크 상태는 소유하지 않는다.
+- `Fighter3DFootPlanting.swift`: 중립 발 위치와 세계 좌표 접촉점, 스텝 전환, 액션 중 접지 잠금과 복귀를 소유한다. 완성된 전신 포즈에 마지막으로 해부학적 2본 다리 해법을 적용하되 별도 보행 시계나 링 좌표 이동은 만들지 않는다.
+- `Fighter3DSwayMotion.swift`: 입력된 화면 방향을 상대 축 기준 전후·좌우 성분으로 변환하고 3D 스웨이 클립을 구성한다. 화면상 이동을 표현하는 타입이며 회피 성공 여부나 전투 상태 전이는 판단하지 않는다.
 - `Fighter3DAppearanceProfile.swift`: 캐릭터별 몸통·어깨·헬멧·목·골반 장갑·글러브·부츠의 3D 비율을 정의한다. 관절 사이 길이는 공통으로 유지해 외형 변경이 상·하체 분리나 관절 틈을 만들지 않게 한다.
 - `Fighter3DDetailFactory.swift`: 골반·몸통 장갑, 헬멧, 센서 페이스와 마킹 등 정적인 복싱 머신 세부 노드를 조립한다. 모션 관절과 전투 상태에는 접근하지 않는다.
 - `Fighter3DMaterialPalette.swift`: 선수 외형 색상에서 분체 도장 장갑, 프레임 금속, 매입 관절과 발광 센서 재질을 한 번만 생성해 메시와 세부 장식이 같은 표면 설정을 공유하게 한다.
