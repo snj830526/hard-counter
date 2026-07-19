@@ -1291,14 +1291,23 @@ final class Fighter3DRenderer {
         // plane; SceneKit's unconstrained 3D IK is deliberately not used.
         let leadCurrent = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
         let rearCurrent = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
-        let desiredLead = presentationRoot.convertPosition(
+        // Neutral foot anchors are stored in fighter space so the complete
+        // shoulder-width base rotates with the boxer. Their vertical contact
+        // remains owned by the presentation-space canvas plane.
+        var desiredLead = skeletonRoot.convertPosition(
             neutralLeadFootPosition,
             to: nil
         )
-        let desiredRear = presentationRoot.convertPosition(
+        var desiredRear = skeletonRoot.convertPosition(
             neutralRearFootPosition,
             to: nil
         )
+        let groundHeight = presentationRoot.convertPosition(
+            SCNVector3(0, Float(soleClearance), 0),
+            to: nil
+        ).y
+        desiredLead.y = groundHeight
+        desiredRear.y = groundHeight
         if leadFootPlantTarget == nil { leadFootPlantTarget = desiredLead }
         if rearFootPlantTarget == nil { rearFootPlantTarget = desiredRear }
 
@@ -1361,12 +1370,12 @@ final class Fighter3DRenderer {
         leadFootPlantTarget = reachablePlantTarget(
             leadFootPlantTarget ?? leadCurrent,
             from: leadCurrent,
-            groundHeight: desiredLead.y
+            groundHeight: groundHeight
         )
         rearFootPlantTarget = reachablePlantTarget(
             rearFootPlantTarget ?? rearCurrent,
             from: rearCurrent,
-            groundHeight: desiredRear.y
+            groundHeight: groundHeight
         )
         solveAnatomicalLeg(
             hip: leadHip,
@@ -1457,16 +1466,23 @@ final class Fighter3DRenderer {
     private func captureNeutralFootPositions() {
         var leadPosition = leadAnkle.convertPosition(
             SCNVector3Zero,
-            to: presentationRoot
+            to: skeletonRoot
         )
         var rearPosition = rearAnkle.convertPosition(
             SCNVector3Zero,
-            to: presentationRoot
+            to: skeletonRoot
         )
-        // Both IK targets describe the ankle joint. Pinning their neutral Y to
-        // the sole thickness keeps the actual shoe bottom on the mat at zero.
-        leadPosition.y = Float(soleClearance)
-        rearPosition.y = Float(soleClearance)
+        // Maintain a stable shoulder-width base even for the lean body rig.
+        // The Z stagger preserves boxing depth while X prevents a tight-rope
+        // stance that would place the center of mass outside both feet.
+        let minimumHalfWidth: Float = 0.30
+        let minimumHalfStagger: Float = 0.30
+        leadPosition.x = max(abs(leadPosition.x), minimumHalfWidth)
+        rearPosition.x = -max(abs(rearPosition.x), minimumHalfWidth)
+        leadPosition.z = max(abs(leadPosition.z), minimumHalfStagger)
+        rearPosition.z = -max(abs(rearPosition.z), minimumHalfStagger)
+        leadPosition.y = 0
+        rearPosition.y = 0
         neutralLeadFootPosition = leadPosition
         neutralRearFootPosition = rearPosition
     }
