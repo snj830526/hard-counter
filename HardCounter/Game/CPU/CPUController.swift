@@ -31,7 +31,6 @@ struct CPUController {
     private var lastSelfPhase: FighterPhase = .idle
     private var tacticalMode: TacticalMode = .angle
     private var tacticalModeEndsAt: TimeInterval = 0
-    private var combinationStepsRemaining = 0
     private var hasInitiatedAttack = false
     private var shouldSetUpNextAttackWithSway = false
 
@@ -52,7 +51,6 @@ struct CPUController {
         lastSelfPhase = .idle
         tacticalMode = .pressure
         tacticalModeEndsAt = time
-        combinationStepsRemaining = 0
         hasInitiatedAttack = false
         shouldSetUpNextAttackWithSway = false
     }
@@ -60,6 +58,7 @@ struct CPUController {
     mutating func combatAction(for perception: CPUPerception) -> CombatAction? {
         if nextAttackTime == nil { reset(at: perception.time) }
         observePlayerAttack(perception)
+        schedulePunishIfAvailable(perception)
         scheduleCombinationIfAvailable(perception)
         lastOpponentPhase = perception.opponentState.phase
         lastSelfPhase = perception.selfState.phase
@@ -104,8 +103,14 @@ struct CPUController {
             )
         }
 
+        let opponentIsRecovering = perception.opponentState.phase == .punchRecovery
+
         if isTired {
             movementVector = roll < 0.58 ? away : (roll < 0.92 ? circle : .zero)
+        } else if opponentIsRecovering, distanceScale > 0.70 {
+            // Do not give away a missed punch recovery by circling or pulling
+            // back. Close on a shallow angle so the punish can connect.
+            movementVector = blended(toward, circle, circleAmount: 0.10)
         } else if attackIsDue,
                   distanceScale > 0.92,
                   (!hasInitiatedAttack || tacticalMode == .pressure) {
@@ -149,9 +154,26 @@ struct CPUController {
         guard attackJustStarted,
               perception.selfState.phase == .idle,
               perception.selfState.stamina >= CombatTuning.swayStaminaCost,
+              perception.visibleDistance <= perception.preferredPunchRange * 1.22,
               Double.random(in: 0...1) < difficulty.defenseChance else { return }
         pendingDefenseAt = perception.time
             + Double.random(in: difficulty.defensiveReactionDelay)
+    }
+
+    private mutating func schedulePunishIfAvailable(_ perception: CPUPerception) {
+        let opponentEnteredRecovery = perception.opponentState.phase == .punchRecovery
+            && lastOpponentPhase != .punchRecovery
+        guard opponentEnteredRecovery,
+              perception.selfState.phase == .idle,
+              perception.selfState.stamina > difficulty.staminaReserve,
+              perception.visibleDistance <= perception.preferredPunchRange * 1.18 else { return }
+
+        let punishAt = perception.time
+            + Double.random(in: difficulty.punishReactionDelay)
+        nextAttackTime = min(nextAttackTime ?? punishAt, punishAt)
+        shouldSetUpNextAttackWithSway = false
+        tacticalMode = .pressure
+        tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.72)
     }
 
     private mutating func scheduleCombinationIfAvailable(_ perception: CPUPerception) {
@@ -160,17 +182,10 @@ struct CPUController {
         guard justRecovered else { return }
         let canContinue = perception.selfState.stamina > difficulty.staminaReserve
             && perception.visibleDistance <= perception.preferredPunchRange * 1.10
-        let continuesCombination = combinationStepsRemaining > 0
         guard canContinue,
-              continuesCombination
-                || Double.random(in: 0...1) < difficulty.combinationChance else {
+              Double.random(in: 0...1) < difficulty.combinationChance else {
             beginPostExchangeReset(at: perception.time)
             return
-        }
-        if continuesCombination {
-            combinationStepsRemaining -= 1
-        } else {
-            combinationStepsRemaining = Double.random(in: 0...1) < 0.28 ? 1 : 0
         }
         tacticalMode = .pressure
         tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.9)
@@ -179,7 +194,6 @@ struct CPUController {
     }
 
     private mutating func beginPostExchangeReset(at time: TimeInterval) {
-        combinationStepsRemaining = 0
         tacticalMode = .reset
         let resetEndsAt = time + Double.random(in: difficulty.postExchangeResetDuration)
         tacticalModeEndsAt = resetEndsAt

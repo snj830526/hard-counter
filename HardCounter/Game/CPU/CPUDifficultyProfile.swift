@@ -5,6 +5,7 @@ struct CPUDifficultyProfile {
     let movementDecisionInterval: ClosedRange<TimeInterval>
     let defensiveReactionDelay: ClosedRange<TimeInterval>
     let counterReactionDelay: ClosedRange<TimeInterval>
+    let punishReactionDelay: ClosedRange<TimeInterval>
     let defenseChance: Double
     let counterChance: Double
     let combinationChance: Double
@@ -15,17 +16,18 @@ struct CPUDifficultyProfile {
     let staminaReserve: Double
 
     static let challenger = CPUDifficultyProfile(
-        attackInterval: 1.18...2.00,
-        movementDecisionInterval: 0.34...0.64,
-        defensiveReactionDelay: 0.08...0.15,
-        counterReactionDelay: 0.10...0.18,
-        defenseChance: 0.34,
-        counterChance: 0.44,
-        combinationChance: 0.16,
-        proactiveSwayInterval: 1.25...2.35,
-        proactiveSwayChance: 0.72,
-        postExchangeResetDuration: 1.05...1.70,
-        pressureBias: 0.56,
-        staminaReserve: 13
+        attackInterval: 1.02...1.62,
+        movementDecisionInterval: 0.24...0.46,
+        defensiveReactionDelay: 0.07...0.13,
+        counterReactionDelay: 0.08...0.15,
+        punishReactionDelay: 0.10...0.18,
+        defenseChance: 0.48,
+        counterChance: 0.62,
+        combinationChance: 0.22,
+        proactiveSwayInterval: 1.15...2.00,
+        proactiveSwayChance: 0.76,
+        postExchangeResetDuration: 0.85...1.35,
+        pressureBias: 0.64,
+        staminaReserve: 15
     )
 }
