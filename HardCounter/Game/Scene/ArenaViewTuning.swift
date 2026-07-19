@@ -20,10 +20,14 @@ enum ArenaViewTuning {
     static let zoomResponse: CGFloat = 5.2
 
     static let fighterScaleBoost: CGFloat = 1.43
-    static let playerFocusWeight: CGFloat = 0.58
-    static let cameraFollowResponse: CGFloat = 6.4
-    static let cameraDeadZoneWidthFraction: CGFloat = 0.13
-    static let cameraDeadZoneHeightFraction: CGFloat = 0.11
+    /// Camera emphasis belongs to the fighter controlled on this device. In a
+    /// nearby guest match that is CPU-side, not the host-side player anchor.
+    static let localFighterFocusWeight: CGFloat = 0.62
+    static let cameraFollowResponse: CGFloat = 5.6
+    static let cameraDeadZoneWidthFraction: CGFloat = 0.045
+    static let cameraDeadZoneHeightFraction: CGFloat = 0.040
+    static let cameraHorizontalLookAhead: CGFloat = 24
+    static let cameraVerticalLookAhead: CGFloat = 15
     static let horizontalFitFraction: CGFloat = 0.82
     static let verticalFitFraction: CGFloat = 0.66
 

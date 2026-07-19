@@ -941,10 +941,20 @@ final class CombatScene: SKScene {
     }
 
     private func cameraFocusPoint() -> CGPoint {
-        let playerWeight = ArenaViewTuning.playerFocusWeight
+        let localFighter = networkConfiguration?.localFighterID ?? .player
+        let localPosition = localFighter == .player ? player.position : cpu.position
+        let opponentPosition = localFighter == .player ? cpu.position : player.position
+        let localMovement = localFighter == .player
+            ? playerMovementSmoother.value
+            : cpuMovementSmoother.value
+        let localWeight = ArenaViewTuning.localFighterFocusWeight
         return CGPoint(
-            x: player.position.x * playerWeight + cpu.position.x * (1 - playerWeight),
-            y: player.position.y * playerWeight + cpu.position.y * (1 - playerWeight)
+            x: localPosition.x * localWeight
+                + opponentPosition.x * (1 - localWeight)
+                + localMovement.dx * ArenaViewTuning.cameraHorizontalLookAhead,
+            y: localPosition.y * localWeight
+                + opponentPosition.y * (1 - localWeight)
+                + localMovement.dy * ArenaViewTuning.cameraVerticalLookAhead
         )
     }
 
