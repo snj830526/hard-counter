@@ -43,6 +43,16 @@ final class FighterNode: SKNode {
         threeDRenderer.sharedDamageWorldPosition()
     }
 
+    func threeDHitBodySize(
+        for technique: PunchTechnique
+    ) -> (halfWidth: CGFloat, forwardRadius: CGFloat) {
+        threeDRenderer.sharedHitBodySize(for: technique)
+    }
+
+    func threeDPunchReach(for technique: PunchTechnique) -> CGFloat {
+        threeDRenderer.sharedPunchReach(for: technique)
+    }
+
     func attachDamageEffects(to screenSpaceParent: SKNode) {
         damageEffectRoot.removeFromParent()
         screenSpaceParent.addChild(damageEffectRoot)

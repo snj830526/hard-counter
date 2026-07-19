@@ -12,14 +12,14 @@ struct CPUDifficultyProfile {
     let staminaReserve: Double
 
     static let challenger = CPUDifficultyProfile(
-        attackInterval: 1.28...2.02,
-        movementDecisionInterval: 0.48...0.86,
-        defensiveReactionDelay: 0.04...0.07,
-        counterReactionDelay: 0.07...0.12,
-        defenseChance: 0.42,
-        counterChance: 0.68,
-        combinationChance: 0.22,
-        pressureBias: 0.58,
-        staminaReserve: 11
+        attackInterval: 0.86...1.54,
+        movementDecisionInterval: 0.42...0.76,
+        defensiveReactionDelay: 0.08...0.15,
+        counterReactionDelay: 0.10...0.18,
+        defenseChance: 0.27,
+        counterChance: 0.43,
+        combinationChance: 0.48,
+        pressureBias: 0.66,
+        staminaReserve: 13
     )
 }

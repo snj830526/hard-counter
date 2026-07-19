@@ -12,6 +12,12 @@ struct CPUPerception {
 }
 
 struct CPUController {
+    private enum TacticalMode {
+        case pressure
+        case angle
+        case reset
+    }
+
     private let difficulty: CPUDifficultyProfile
     private var nextAttackTime: TimeInterval?
     private var nextMovementDecisionTime: TimeInterval = 0
@@ -22,6 +28,9 @@ struct CPUController {
     private var circlingDirection: CGFloat = 1
     private var lastOpponentPhase: FighterPhase = .idle
     private var lastSelfPhase: FighterPhase = .idle
+    private var tacticalMode: TacticalMode = .angle
+    private var tacticalModeEndsAt: TimeInterval = 0
+    private var combinationStepsRemaining = 0
 
     init(difficulty: CPUDifficultyProfile = .challenger) {
         self.difficulty = difficulty
@@ -37,6 +46,9 @@ struct CPUController {
         circlingDirection = Bool.random() ? 1 : -1
         lastOpponentPhase = .idle
         lastSelfPhase = .idle
+        tacticalMode = .angle
+        tacticalModeEndsAt = time
+        combinationStepsRemaining = 0
     }
 
     mutating func combatAction(for perception: CPUPerception) -> CombatAction? {
@@ -70,20 +82,41 @@ struct CPUController {
             <= perception.opponentState.stats.lowStaminaThreshold
         let roll = Double.random(in: 0...1)
 
+        if perception.time >= tacticalModeEndsAt {
+            selectTacticalMode(
+                at: perception.time,
+                isTired: isTired,
+                opponentIsTired: opponentIsTired,
+                distanceScale: distanceScale
+            )
+        }
+
         if isTired {
-            movementVector = roll < 0.54 ? away : (roll < 0.90 ? circle : .zero)
+            movementVector = roll < 0.58 ? away : (roll < 0.92 ? circle : .zero)
         } else if distanceScale > 1.35 {
-            movementVector = roll < 0.72 ? toward : (roll < 0.93 ? circle : .zero)
+            movementVector = tacticalMode == .reset
+                ? circle
+                : blended(toward, circle, circleAmount: tacticalMode == .angle ? 0.46 : 0.18)
         } else if distanceScale < 0.66 {
-            movementVector = roll < 0.44 ? away : (roll < 0.88 ? circle : .zero)
+            switch tacticalMode {
+            case .pressure:
+                movementVector = roll < 0.62 ? circle : .zero
+            case .angle:
+                movementVector = roll < 0.76 ? circle : away
+            case .reset:
+                movementVector = roll < 0.72 ? away : circle
+            }
         } else {
             let pressure = min(difficulty.pressureBias + (opponentIsTired ? 0.16 : 0), 0.82)
-            if roll < pressure {
-                movementVector = toward
-            } else if roll < 0.90 {
-                movementVector = circle
-            } else {
-                movementVector = away
+            switch tacticalMode {
+            case .pressure:
+                movementVector = roll < pressure
+                    ? blended(toward, circle, circleAmount: 0.22)
+                    : circle
+            case .angle:
+                movementVector = roll < 0.72 ? circle : (roll < 0.90 ? toward : .zero)
+            case .reset:
+                movementVector = roll < 0.62 ? away : (roll < 0.90 ? circle : .zero)
             }
         }
         return movementVector
@@ -105,9 +138,18 @@ struct CPUController {
             && perception.selfState.phase == .idle
         guard justRecovered,
               perception.selfState.stamina > difficulty.staminaReserve,
-              perception.visibleDistance <= perception.preferredPunchRange * 1.08,
-              Double.random(in: 0...1) < difficulty.combinationChance else { return }
-        let followUp = perception.time + Double.random(in: 0.24...0.40)
+              perception.visibleDistance <= perception.preferredPunchRange * 1.10 else { return }
+        let continuesCombination = combinationStepsRemaining > 0
+        guard continuesCombination
+                || Double.random(in: 0...1) < difficulty.combinationChance else { return }
+        if continuesCombination {
+            combinationStepsRemaining -= 1
+        } else {
+            combinationStepsRemaining = Double.random(in: 0...1) < 0.28 ? 1 : 0
+        }
+        tacticalMode = .pressure
+        tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.9)
+        let followUp = perception.time + Double.random(in: 0.18...0.32)
         nextAttackTime = min(nextAttackTime ?? followUp, followUp)
     }
 
@@ -175,10 +217,12 @@ struct CPUController {
 
         scheduleNextAttack(after: perception.time)
         let distanceScale = perception.visibleDistance / max(perception.preferredPunchRange, 1)
-        let forwardDrive = distanceScale > 0.88 ? 0.34 : 0.08
+        let forwardDrive = distanceScale > 0.88 ? 0.46 : 0.12
+        let lateralDrive = tacticalMode == .angle
+            ? Double.random(in: -0.34...0.34) : Double.random(in: -0.12...0.12)
         return .punch(PunchIntent(
             forwardDrive: Double(forwardDrive),
-            lateralDrive: 0,
+            lateralDrive: lateralDrive,
             movementIntensity: Double(min(distanceScale, 1))
         ))
     }
@@ -191,5 +235,40 @@ struct CPUController {
         let length = hypot(vector.dx, vector.dy)
         guard length > 0.001 else { return CGVector(dx: -1, dy: 0) }
         return CGVector(dx: vector.dx / length, dy: vector.dy / length)
+    }
+
+    private mutating func selectTacticalMode(
+        at time: TimeInterval,
+        isTired: Bool,
+        opponentIsTired: Bool,
+        distanceScale: CGFloat
+    ) {
+        let roll = Double.random(in: 0...1)
+        if isTired {
+            tacticalMode = roll < 0.74 ? .reset : .angle
+        } else if opponentIsTired {
+            tacticalMode = roll < 0.72 ? .pressure : .angle
+        } else if distanceScale > 1.35 {
+            tacticalMode = roll < 0.62 ? .pressure : .angle
+        } else if roll < 0.46 {
+            tacticalMode = .pressure
+        } else if roll < 0.84 {
+            tacticalMode = .angle
+        } else {
+            tacticalMode = .reset
+        }
+        tacticalModeEndsAt = time + Double.random(in: 1.15...2.45)
+        if Bool.random() { circlingDirection *= -1 }
+    }
+
+    private func blended(
+        _ primary: CGVector,
+        _ secondary: CGVector,
+        circleAmount: CGFloat
+    ) -> CGVector {
+        normalized(CGVector(
+            dx: primary.dx * (1 - circleAmount) + secondary.dx * circleAmount,
+            dy: primary.dy * (1 - circleAmount) + secondary.dy * circleAmount
+        ))
     }
 }

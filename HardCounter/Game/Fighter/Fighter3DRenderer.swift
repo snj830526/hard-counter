@@ -9,6 +9,9 @@ final class Fighter3DRenderer {
     private let motionStyle: Fighter3DMotionStyle
     private let motionProfile: Fighter3DMotionProfile
     private let soleClearance: CGFloat
+    private let hitBodyHalfWidth: CGFloat
+    private let hitBodyForwardRadius: CGFloat
+    private let hitStraightReach: CGFloat
 
     private let presentationRoot = SCNNode()
     private let skeletonRoot = SCNNode()
@@ -62,6 +65,10 @@ final class Fighter3DRenderer {
         self.motionStyle = motionStyle
         motionProfile = motionStyle.profile
         let proportions = Fighter3DAppearanceProfile(appearance: appearance)
+        hitBodyHalfWidth = max(proportions.torsoWidth, proportions.chestWidth) * 0.5
+        hitBodyForwardRadius = proportions.torsoDepth * 0.5
+        hitStraightReach = 0.58 + 0.57
+            + proportions.gloveRadius * proportions.gloveHeightScale
         // The ankle target represents the center of the joint, while contact
         // happens at the lowest of the boot cuff and shoe box.
         // Leave a tiny presentation gap above raised seams/markings on the
@@ -188,6 +195,25 @@ final class Fighter3DRenderer {
 
     func sharedDamageWorldPosition() -> SCNVector3 {
         spine.presentation.convertPosition(SCNVector3(0, 0.56, 0), to: nil)
+    }
+
+    func sharedHitBodySize(for technique: PunchTechnique) -> (halfWidth: CGFloat, forwardRadius: CGFloat) {
+        let widthScale: CGFloat
+        let depthScale: CGFloat
+        switch technique {
+        case .straight: (widthScale, depthScale) = (1, 1)
+        case .smash: (widthScale, depthScale) = (1.14, 1.12)
+        case .uppercut: (widthScale, depthScale) = (0.92, 1.05)
+        }
+        return (hitBodyHalfWidth * widthScale, hitBodyForwardRadius * depthScale)
+    }
+
+    func sharedPunchReach(for technique: PunchTechnique) -> CGFloat {
+        switch technique {
+        case .straight: hitStraightReach
+        case .smash: hitStraightReach * 1.10
+        case .uppercut: hitStraightReach * 1.06
+        }
     }
 
     func update(

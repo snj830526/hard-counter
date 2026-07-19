@@ -26,19 +26,14 @@ struct FighterSelectionView: View {
 
     private var header: some View {
         HStack {
-            Button(action: onBack) {
-                Label("SELECT MODE", systemImage: "chevron.left")
-                    .font(.system(size: 12, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.72))
+            FlowBackButton(title: "SELECT MODE", action: onBack)
 
             Spacer()
             VStack(spacing: 2) {
-                Text("SELECT MACHINE")
-                    .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("Choose a boxing machine for the solo match")
-                    .font(.system(size: 10, weight: .medium))
+                Text("CHOOSE YOUR FIGHTER")
+                    .font(FlowTypography.display(21))
+                Text("Select a contender for the next bout")
+                    .font(FlowTypography.supporting(10))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .foregroundStyle(.white)
@@ -55,13 +50,13 @@ struct FighterSelectionView: View {
         } label: {
             VStack(spacing: 8) {
                 HStack {
-                    Text("FRAME // \(fighter.id.uppercased())")
+                    Text("CONTENDER  //  \(fighter.id.uppercased())")
                     Spacer()
                     Circle()
-                        .fill(isSelected ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.18))
+                        .fill(isSelected ? Color(uiColor: ArenaVisualPalette.hudStamina) : .white.opacity(0.18))
                         .frame(width: 5, height: 5)
                 }
-                .font(.system(size: 7, weight: .black, design: .monospaced))
+                .font(FlowTypography.display(7))
                 .tracking(1)
                 .foregroundStyle(.white.opacity(0.40))
 
@@ -69,21 +64,21 @@ struct FighterSelectionView: View {
 
                 VStack(spacing: 1) {
                     Text(fighter.name)
-                        .font(.system(size: 19, weight: .black, design: .rounded))
+                        .font(FlowTypography.display(19))
                     Text(fighter.title)
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .font(FlowTypography.display(8))
                         .tracking(1.2)
                         .foregroundStyle(fighter.swiftUIColor)
                 }
 
                 Text(fighter.styleName)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(FlowTypography.display(10))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(.white.opacity(0.08), in: Capsule())
 
                 Text(fighter.combatTraitName)
-                    .font(.system(size: 8, weight: .bold))
+                    .font(FlowTypography.supporting(8))
                     .foregroundStyle(fighter.swiftUIColor.opacity(0.86))
                     .lineLimit(1)
 
@@ -92,19 +87,19 @@ struct FighterSelectionView: View {
                         "ARMOR",
                         value: fighter.healthPreview,
                         valueText: "\(fighter.stats.maximumHealth)",
-                        color: .red
+                        color: Color(uiColor: ArenaVisualPalette.hudHealth)
                     )
                     statRow(
                         "ENERGY",
                         value: fighter.staminaPreview,
                         valueText: "\(Int(fighter.stats.maximumStamina))",
-                        color: .green
+                        color: Color(uiColor: ArenaVisualPalette.hudStamina)
                     )
                     statRow(
                         "SPEED",
                         value: fighter.speedPreview,
                         valueText: "\(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))",
-                        color: .cyan
+                        color: Color(uiColor: ArenaVisualPalette.hudPlayerAccent)
                     )
                 }
             }
@@ -161,7 +156,7 @@ struct FighterSelectionView: View {
     ) -> some View {
         HStack(spacing: 7) {
             Text(title)
-                .font(.system(size: 9, weight: .bold))
+                .font(FlowTypography.display(9))
                 .foregroundStyle(.white.opacity(0.58))
                 .frame(width: 42, alignment: .leading)
             GeometryReader { proxy in
@@ -173,7 +168,7 @@ struct FighterSelectionView: View {
             }
             .frame(height: 5)
             Text(valueText)
-                .font(.system(size: 8, weight: .black, design: .monospaced))
+                .font(FlowTypography.display(8))
                 .foregroundStyle(.white.opacity(0.72))
                 .frame(width: 22, alignment: .trailing)
         }
@@ -181,8 +176,8 @@ struct FighterSelectionView: View {
 
     private var footer: some View {
         HStack {
-            Text("Frame attributes and techniques apply directly to combat")
-                .font(.system(size: 9, weight: .medium))
+            Text("Fighter attributes and techniques apply directly to combat")
+                .font(FlowTypography.supporting(9))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()
             Button {
@@ -192,7 +187,7 @@ struct FighterSelectionView: View {
                     Text("FIGHT")
                     Image(systemName: "arrow.right")
                 }
-                .font(.system(size: 15, weight: .black, design: .rounded))
+                .font(FlowTypography.display(15))
                 .foregroundStyle(.black)
                 .padding(.horizontal, 28)
                 .frame(height: 42)

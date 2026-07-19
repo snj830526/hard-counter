@@ -7,26 +7,26 @@ final class CombatHUDNode: SKNode {
     let playerHealthBar: SKSpriteNode
     let cpuHealthBar: SKSpriteNode
     let playerHealthDamageBar = SKSpriteNode(
-        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        color: ArenaVisualPalette.hudDamage,
         size: CGSize(width: 216, height: 12)
     )
     let cpuHealthDamageBar = SKSpriteNode(
-        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        color: ArenaVisualPalette.hudDamage,
         size: CGSize(width: 216, height: 12)
     )
     let playerStaminaBar = SKSpriteNode(
-        color: ArenaVisualPalette.greenSignal,
+        color: ArenaVisualPalette.hudStamina,
         size: CGSize(width: 216, height: 5)
     )
     let cpuStaminaBar = SKSpriteNode(
-        color: ArenaVisualPalette.greenSignal,
+        color: ArenaVisualPalette.hudStamina,
         size: CGSize(width: 216, height: 5)
     )
     let statusLabel = CombatTypography.label(weight: .display)
     let playerName = CombatTypography.label(weight: .display)
     let cpuName = CombatTypography.label(weight: .display)
-    let roundLabel = CombatTypography.label(weight: .supporting)
-    private let roundPlate = SKShapeNode()
+    private let playerDetail = CombatTypography.label(weight: .supporting)
+    private let cpuDetail = CombatTypography.label(weight: .supporting)
     let roundEndOverlay = SKSpriteNode(
         color: SKColor.black.withAlphaComponent(0.58),
         size: .zero
@@ -40,16 +40,17 @@ final class CombatHUDNode: SKNode {
     init(
         playerName: String,
         playerColor: SKColor,
+        playerDetail: String? = nil,
         opponentName: String,
         opponentColor: SKColor,
-        isNetworkMatch: Bool
+        opponentDetail: String? = nil
     ) {
         playerHealthBar = SKSpriteNode(
-            color: playerColor,
+            color: ArenaVisualPalette.hudHealth,
             size: CGSize(width: 216, height: 12)
         )
         cpuHealthBar = SKSpriteNode(
-            color: opponentColor,
+            color: ArenaVisualPalette.hudHealth,
             size: CGSize(width: 216, height: 12)
         )
         super.init()
@@ -97,17 +98,12 @@ final class CombatHUDNode: SKNode {
             alignment: .right,
             color: opponentColor
         )
-        configureRoundPlate()
-        roundLabel.text = isNetworkMatch ? "NEARBY  /  ROUND 01" : "ROUND  01"
-        roundLabel.fontSize = 12
-        roundLabel.fontColor = SKColor.white.withAlphaComponent(0.92)
-        roundLabel.horizontalAlignmentMode = .center
-        roundLabel.verticalAlignmentMode = .center
-        roundLabel.zPosition = 20
+        configureDetailLabel(self.playerDetail, text: playerDetail, alignment: .left)
+        configureDetailLabel(cpuDetail, text: opponentDetail, alignment: .right)
         addChild(self.playerName)
         addChild(cpuName)
-        addChild(roundPlate)
-        addChild(roundLabel)
+        addChild(self.playerDetail)
+        addChild(cpuDetail)
 
         roundEndOverlay.zPosition = 150
         roundEndOverlay.isHidden = true
@@ -148,8 +144,8 @@ final class CombatHUDNode: SKNode {
         cpuStaminaBar.position = CGPoint(x: right, y: top - 18)
         playerName.position = CGPoint(x: left, y: top - 37)
         cpuName.position = CGPoint(x: right, y: top - 37)
-        roundPlate.position = CGPoint(x: size.width / 2, y: top)
-        roundLabel.position = CGPoint(x: size.width / 2, y: top + 1)
+        playerDetail.position = CGPoint(x: left, y: top - 50)
+        cpuDetail.position = CGPoint(x: right, y: top - 50)
         statusLabel.position = CGPoint(
             x: size.width / 2,
             y: roundEnded ? size.height * 0.59 : top - 31
@@ -167,7 +163,7 @@ final class CombatHUDNode: SKNode {
             to: background,
             size: background.size,
             signal: bar === playerHealthBar
-                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal,
+                ? ArenaVisualPalette.hudPlayerAccent : ArenaVisualPalette.hudOpponentAccent,
             accentOnLeft: bar === playerHealthBar
         )
         addChild(background)
@@ -182,7 +178,7 @@ final class CombatHUDNode: SKNode {
         background.name = name
         background.zPosition = 9
         let signal = name.hasPrefix("player")
-            ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+            ? ArenaVisualPalette.hudPlayerAccent : ArenaVisualPalette.hudOpponentAccent
         addGaugeFrame(
             to: background,
             size: CGSize(width: 226, height: 8),
@@ -252,7 +248,7 @@ final class CombatHUDNode: SKNode {
         track.colorBlendFactor = 1
         for index in 0..<12 {
             let slash = SKSpriteNode(
-                color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.46),
+                color: ArenaVisualPalette.hudDamage.withAlphaComponent(0.64),
                 size: CGSize(width: 2, height: 16)
             )
             let offset = CGFloat(index) * 18 + 9
@@ -285,30 +281,18 @@ final class CombatHUDNode: SKNode {
         label.addChild(marker)
     }
 
-    private func configureRoundPlate() {
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: -49, y: -13))
-        path.addLine(to: CGPoint(x: -42, y: -19))
-        path.addLine(to: CGPoint(x: 42, y: -19))
-        path.addLine(to: CGPoint(x: 49, y: -13))
-        path.addLine(to: CGPoint(x: 49, y: 13))
-        path.addLine(to: CGPoint(x: 42, y: 19))
-        path.addLine(to: CGPoint(x: -42, y: 19))
-        path.addLine(to: CGPoint(x: -49, y: 13))
-        path.closeSubpath()
-        roundPlate.path = path
-        roundPlate.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.94)
-        roundPlate.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.28)
-        roundPlate.lineWidth = 1
-        roundPlate.zPosition = 18
-
-        let lowerRail = SKSpriteNode(
-            color: ArenaVisualPalette.amberSignal.withAlphaComponent(0.9),
-            size: CGSize(width: 52, height: 2)
-        )
-        lowerRail.position.y = -18
-        lowerRail.zPosition = 1
-        roundPlate.addChild(lowerRail)
+    private func configureDetailLabel(
+        _ label: SKLabelNode,
+        text: String?,
+        alignment: SKLabelHorizontalAlignmentMode
+    ) {
+        label.text = text
+        label.fontSize = 8
+        label.fontColor = SKColor.white.withAlphaComponent(0.46)
+        label.horizontalAlignmentMode = alignment
+        label.verticalAlignmentMode = .bottom
+        label.zPosition = 20
+        label.isHidden = text == nil
     }
 
 }

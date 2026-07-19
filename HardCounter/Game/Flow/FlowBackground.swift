@@ -56,23 +56,31 @@ struct FlowBackground: View {
                 var cyanRail = Path()
                 cyanRail.move(to: CGPoint(x: 0, y: horizon - 7))
                 cyanRail.addLine(to: CGPoint(x: size.width * 0.46, y: horizon + 4))
-                context.stroke(cyanRail, with: .color(.cyan.opacity(0.42)), lineWidth: 3)
+                context.stroke(
+                    cyanRail,
+                    with: .color(Color(uiColor: ArenaVisualPalette.hudPlayerAccent).opacity(0.34)),
+                    lineWidth: 2
+                )
 
                 var amberRail = Path()
                 amberRail.move(to: CGPoint(x: size.width * 0.54, y: horizon + 4))
                 amberRail.addLine(to: CGPoint(x: size.width, y: horizon - 7))
-                context.stroke(amberRail, with: .color(.orange.opacity(0.38)), lineWidth: 3)
+                context.stroke(
+                    amberRail,
+                    with: .color(Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.32)),
+                    lineWidth: 2
+                )
             }
 
             RadialGradient(
-                colors: [.cyan.opacity(0.12), .clear],
+                colors: [Color(uiColor: ArenaVisualPalette.hudPlayerAccent).opacity(0.09), .clear],
                 center: .topLeading,
                 startRadius: 10,
                 endRadius: 390
             )
 
             RadialGradient(
-                colors: [.orange.opacity(0.08), .clear],
+                colors: [Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.07), .clear],
                 center: .bottomTrailing,
                 startRadius: 10,
                 endRadius: 360
@@ -82,7 +90,11 @@ struct FlowBackground: View {
                 Rectangle()
                     .fill(
                         LinearGradient(
-                            colors: [.cyan.opacity(0.75), .white.opacity(0.22), .orange.opacity(0.72)],
+                            colors: [
+                                Color(uiColor: ArenaVisualPalette.hudPlayerAccent).opacity(0.76),
+                                .white.opacity(0.18),
+                                Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.74)
+                            ],
                             startPoint: .leading,
                             endPoint: .trailing
                         )

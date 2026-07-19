@@ -23,22 +23,17 @@ struct NearbyLobbyView: View {
 
     private var header: some View {
         HStack {
-            Button {
+            FlowBackButton(title: "SELECT MODE") {
                 service.stop()
                 onBack()
-            } label: {
-                Label("SELECT MODE", systemImage: "chevron.left")
-                    .font(.system(size: 12, weight: .bold))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.72))
 
             Spacer()
             VStack(spacing: 2) {
                 Text("NEARBY MATCH")
-                    .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("Create a nearby lobby and ready your boxing machine")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FlowTypography.display(21))
+                Text("Create a nearby lobby and ready your fighter")
+                    .font(FlowTypography.supporting(10))
                     .foregroundStyle(.white.opacity(0.5))
             }
             .foregroundStyle(.white)
@@ -73,14 +68,14 @@ struct NearbyLobbyView: View {
                 title: "CREATE ROOM",
                 subtitle: "Host on this iPhone and wait for an opponent",
                 symbol: "plus.circle.fill",
-                tint: .cyan,
+                tint: Color(uiColor: ArenaVisualPalette.hudPlayerAccent),
                 action: service.startHosting
             )
             entryButton(
                 title: "FIND NEARBY ROOM",
                 subtitle: "Find an open HARD COUNTER lobby nearby",
                 symbol: "antenna.radiowaves.left.and.right",
-                tint: .orange,
+                tint: Color(uiColor: ArenaVisualPalette.hudOpponentAccent),
                 action: service.startBrowsing
             )
         }
@@ -92,17 +87,20 @@ struct NearbyLobbyView: View {
             ZStack {
                 Circle().stroke(Color(uiColor: ArenaVisualPalette.gunmetal), lineWidth: 3).frame(width: 100, height: 100)
                 Circle().trim(from: 0.1, to: 0.8)
-                    .stroke(.cyan, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .stroke(
+                        Color(uiColor: ArenaVisualPalette.hudPlayerAccent),
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
                     .frame(width: 100, height: 100)
                     .rotationEffect(.degrees(-90))
                 Image(systemName: "iphone.radiowaves.left.and.right")
                     .font(.system(size: 31, weight: .bold))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudPlayerAccent))
             }
             Text("WAITING FOR OPPONENT")
-                .font(.system(size: 24, weight: .black, design: .rounded))
+                .font(FlowTypography.display(24))
             Text("On the other iPhone, choose Find Nearby Room and select ‘\(service.localPlayerName)’")
-                .font(.system(size: 12, weight: .medium))
+                .font(FlowTypography.supporting(12))
                 .foregroundStyle(.white.opacity(0.58))
                 .multilineTextAlignment(.center)
             secondaryButton("CLOSE ROOM", action: service.stop)
@@ -116,28 +114,31 @@ struct NearbyLobbyView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("NEARBY LOBBIES")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .font(FlowTypography.display(22))
                     Text("If no room appears, check the host's Local Network permission and Wi-Fi")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(FlowTypography.supporting(10))
                         .foregroundStyle(.white.opacity(0.48))
                 }
                 Spacer()
-                ProgressView().tint(.orange)
+                ProgressView().tint(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
                 secondaryButton("CANCEL SEARCH", action: service.stop)
             }
 
             if service.rooms.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 34, weight: .medium))
-                        .foregroundStyle(.orange.opacity(0.8))
+                        .font(FlowTypography.supporting(34))
+                        .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.8))
                     Text("Searching for open rooms…")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(FlowTypography.display(13))
                         .foregroundStyle(.white.opacity(0.58))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(uiColor: ArenaVisualPalette.carbon).opacity(0.88), in: RoundedRectangle(cornerRadius: 5))
-                .overlay { RoundedRectangle(cornerRadius: 5).stroke(.orange.opacity(0.20)) }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.20))
+                }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 9) {
@@ -146,17 +147,17 @@ struct NearbyLobbyView: View {
                                 HStack(spacing: 14) {
                                     Image(systemName: "iphone")
                                         .font(.system(size: 20, weight: .bold))
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(room.name)
-                                            .font(.system(size: 15, weight: .black, design: .rounded))
+                                            .font(FlowTypography.display(15))
                                         Text("HARD COUNTER LOBBY")
-                                            .font(.system(size: 9, weight: .medium))
+                                            .font(FlowTypography.supporting(9))
                                             .foregroundStyle(.white.opacity(0.46))
                                     }
                                     Spacer()
                                     Text("JOIN")
-                                        .font(.system(size: 11, weight: .black))
+                                        .font(FlowTypography.display(11))
                                     Image(systemName: "chevron.right")
                                 }
                                 .foregroundStyle(.white)
@@ -173,7 +174,7 @@ struct NearbyLobbyView: View {
                                     bottomLeadingRadius: 11,
                                     bottomTrailingRadius: 3,
                                     topTrailingRadius: 11
-                                ).stroke(.orange.opacity(0.42)) }
+                                ).stroke(Color(uiColor: ArenaVisualPalette.hudOpponentAccent).opacity(0.42)) }
                             }
                             .buttonStyle(.plain)
                         }
@@ -196,8 +197,8 @@ struct NearbyLobbyView: View {
                     isLocal: true
                 )
                 Text("VS")
-                    .font(.system(size: 24, weight: .black, design: .rounded))
-                    .foregroundStyle(.orange)
+                    .font(FlowTypography.display(24))
+                    .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
                 playerPanel(
                     label: service.role == .host ? "GUEST" : "HOST",
                     name: service.remotePlayerName,
@@ -208,21 +209,21 @@ struct NearbyLobbyView: View {
             }
 
             HStack {
-                Text(service.bothPlayersReady ? "BOTH MACHINES READY · STARTING MATCH" : "SELECT A MACHINE, THEN PRESS READY")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(service.bothPlayersReady ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.48))
+                Text(service.bothPlayersReady ? "BOTH FIGHTERS READY · STARTING MATCH" : "SELECT A FIGHTER, THEN PRESS READY")
+                    .font(FlowTypography.display(10))
+                    .foregroundStyle(service.bothPlayersReady ? Color(uiColor: ArenaVisualPalette.hudStamina) : .white.opacity(0.48))
                 Spacer()
                 secondaryButton("LEAVE", action: service.stop)
                 Button(action: service.toggleReady) {
                     Text(service.localIsReady ? "CANCEL READY" : "READY")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .font(FlowTypography.display(13))
                         .foregroundStyle(service.localIsReady ? .white : .black)
                         .padding(.horizontal, 26)
                         .frame(height: 40)
                         .background(
                             service.localIsReady
                                 ? Color(uiColor: ArenaVisualPalette.gunmetal)
-                                : Color(uiColor: ArenaVisualPalette.greenSignal),
+                                : Color(uiColor: ArenaVisualPalette.hudStamina),
                             in: RoundedRectangle(cornerRadius: 5)
                         )
                 }
@@ -243,17 +244,17 @@ struct NearbyLobbyView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(label)
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .font(FlowTypography.display(8))
                         .tracking(1.2)
                         .foregroundStyle(fighter.swiftUIColor)
                     Text(name)
-                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .font(FlowTypography.display(13))
                         .lineLimit(1)
                 }
                 Spacer()
                 Label(isReady ? "READY" : "SELECTING", systemImage: isReady ? "checkmark.circle.fill" : "ellipsis.circle")
-                    .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(isReady ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.42))
+                    .font(FlowTypography.display(9))
+                    .foregroundStyle(isReady ? Color(uiColor: ArenaVisualPalette.hudStamina) : .white.opacity(0.42))
             }
 
             HStack(spacing: 12) {
@@ -261,15 +262,15 @@ struct NearbyLobbyView: View {
                     .frame(width: 108)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(fighter.name)
-                        .font(.system(size: 25, weight: .black, design: .rounded))
+                        .font(FlowTypography.display(25))
                     Text(fighter.styleName)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(FlowTypography.display(10))
                         .foregroundStyle(.white.opacity(0.58))
                     Text(fighter.combatTraitName)
-                        .font(.system(size: 8, weight: .bold))
+                        .font(FlowTypography.supporting(8))
                         .foregroundStyle(fighter.swiftUIColor.opacity(0.86))
                     Text("HP \(fighter.stats.maximumHealth)  ·  ST \(Int(fighter.stats.maximumStamina))  ·  SP \(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))")
-                        .font(.system(size: 8, weight: .black, design: .monospaced))
+                        .font(FlowTypography.display(8))
                         .foregroundStyle(fighter.swiftUIColor)
                 }
                 Spacer()
@@ -282,7 +283,7 @@ struct NearbyLobbyView: View {
                             service.localFighter = option
                         } label: {
                             Text(option.name)
-                                .font(.system(size: 9, weight: .black, design: .rounded))
+                                .font(FlowTypography.display(9))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 29)
                                 .foregroundStyle(service.localFighter == option ? .black : .white.opacity(0.7))
@@ -298,8 +299,8 @@ struct NearbyLobbyView: View {
                 }
                 .disabled(isReady)
             } else {
-                Text("Your opponent's machine selection updates in real time")
-                    .font(.system(size: 9, weight: .medium))
+                Text("Your opponent's fighter selection updates in real time")
+                    .font(FlowTypography.supporting(9))
                     .foregroundStyle(.white.opacity(0.4))
                     .frame(maxWidth: .infinity, minHeight: 29)
             }
@@ -330,9 +331,9 @@ struct NearbyLobbyView: View {
 
     private func progressPanel(title: String, detail: String) -> some View {
         VStack(spacing: 14) {
-            ProgressView().controlSize(.large).tint(.orange)
-            Text(title).font(.system(size: 23, weight: .black, design: .rounded))
-            Text(detail).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.52))
+            ProgressView().controlSize(.large).tint(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
+            Text(title).font(FlowTypography.display(23))
+            Text(detail).font(FlowTypography.supporting(11)).foregroundStyle(.white.opacity(0.52))
             secondaryButton("CANCEL", action: service.stop)
         }
         .foregroundStyle(.white)
@@ -343,18 +344,18 @@ struct NearbyLobbyView: View {
         VStack(spacing: 13) {
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 38, weight: .bold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
             Text("CONNECTION FAILED")
-                .font(.system(size: 23, weight: .black, design: .rounded))
+                .font(FlowTypography.display(23))
             Text(message)
-                .font(.system(size: 11, weight: .medium))
+                .font(FlowTypography.supporting(11))
                 .foregroundStyle(.white.opacity(0.56))
                 .multilineTextAlignment(.center)
             HStack {
                 secondaryButton("BACK TO START", action: service.stop)
                 Button("TRY AGAIN", action: service.retry)
                     .buttonStyle(.borderedProminent)
-                    .tint(.orange)
+                    .tint(Color(uiColor: ArenaVisualPalette.hudOpponentAccent))
             }
         }
         .foregroundStyle(.white)
@@ -364,11 +365,11 @@ struct NearbyLobbyView: View {
     private var connectionBadge: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(service.isConnected ? Color(uiColor: ArenaVisualPalette.greenSignal) : Color.white.opacity(0.26))
+                .fill(service.isConnected ? Color(uiColor: ArenaVisualPalette.hudStamina) : Color.white.opacity(0.26))
                 .frame(width: 6, height: 6)
             Text(service.isConnected ? "CONNECTED" : "OFFLINE")
         }
-        .font(.system(size: 8, weight: .black, design: .monospaced))
+        .font(FlowTypography.display(8))
         .foregroundStyle(.white.opacity(0.66))
     }
 
@@ -384,9 +385,9 @@ struct NearbyLobbyView: View {
                 Image(systemName: symbol)
                     .font(.system(size: 35, weight: .bold))
                     .foregroundStyle(tint)
-                Text(title).font(.system(size: 22, weight: .black, design: .rounded))
+                Text(title).font(FlowTypography.display(22))
                 Text(subtitle)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FlowTypography.supporting(10))
                     .foregroundStyle(.white.opacity(0.52))
                     .multilineTextAlignment(.center)
             }
@@ -421,7 +422,7 @@ struct NearbyLobbyView: View {
 
     private func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .font(.system(size: 10, weight: .bold))
+            .font(FlowTypography.display(10))
             .buttonStyle(.plain)
             .foregroundStyle(.white.opacity(0.66))
             .padding(.horizontal, 13)

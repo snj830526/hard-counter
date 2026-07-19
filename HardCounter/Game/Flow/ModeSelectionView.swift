@@ -19,10 +19,10 @@ struct ModeSelectionView: View {
 
     private var titlePanel: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("HCML // TERMINAL 01")
-                .font(.system(size: 9, weight: .black, design: .monospaced))
+            Text("HARD COUNTER CHAMPIONSHIP")
+                .font(FlowTypography.display(9))
                 .tracking(2)
-                .foregroundStyle(Color(uiColor: ArenaVisualPalette.greenSignal))
+                .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudStamina))
                 .padding(.horizontal, 8)
                 .frame(height: 22)
                 .background(Color(uiColor: ArenaVisualPalette.carbon), in: RoundedRectangle(cornerRadius: 3))
@@ -30,27 +30,27 @@ struct ModeSelectionView: View {
             Text("HARD")
                 .foregroundStyle(.white)
             Text("COUNTER")
-                .foregroundStyle(Color.cyan)
+                .foregroundStyle(Color(uiColor: ArenaVisualPalette.hudPlayerAccent))
             Rectangle()
                 .fill(
                     LinearGradient(
-                        colors: [.cyan, .white.opacity(0.55), .orange],
+                        colors: [
+                            Color(uiColor: ArenaVisualPalette.hudPlayerAccent),
+                            .white.opacity(0.42),
+                            Color(uiColor: ArenaVisualPalette.hudOpponentAccent)
+                        ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .frame(width: 74, height: 5)
                 .padding(.vertical, 4)
-            Text("QUARTER-VIEW MECHA BOXING")
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .tracking(2.4)
-                .foregroundStyle(.white.opacity(0.54))
             Text("Control distance and rhythm behind a steel guard")
-                .font(.system(size: 15, weight: .semibold))
+                .font(FlowTypography.supporting(15))
                 .foregroundStyle(.white.opacity(0.78))
-                .padding(.top, 10)
+                .padding(.top, 12)
         }
-        .font(.system(size: 48, weight: .black, design: .rounded))
+        .font(FlowTypography.display(48))
         .lineSpacing(-8)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -58,7 +58,7 @@ struct ModeSelectionView: View {
     private var modePanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("SELECT MODE")
-                .font(.system(size: 14, weight: .black, design: .monospaced))
+                .font(FlowTypography.display(14))
                 .tracking(2)
                 .foregroundStyle(.white.opacity(0.58))
 
@@ -66,14 +66,14 @@ struct ModeSelectionView: View {
                 title: "SOLO",
                 subtitle: "1-on-1 against a CPU rival",
                 symbol: "figure.boxing",
-                tint: .cyan,
+                tint: Color(uiColor: ArenaVisualPalette.hudPlayerAccent),
                 action: onSelectSolo
             )
             modeButton(
                 title: "NEARBY",
                 subtitle: "1-on-1 with a nearby iPhone",
                 symbol: "antenna.radiowaves.left.and.right",
-                tint: .orange,
+                tint: Color(uiColor: ArenaVisualPalette.hudOpponentAccent),
                 badge: "LOBBY",
                 action: onSelectNearby
             )
@@ -101,10 +101,10 @@ struct ModeSelectionView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(title)
-                            .font(.system(size: 21, weight: .black, design: .rounded))
+                            .font(FlowTypography.display(21))
                         if let badge {
                             Text(badge)
-                                .font(.system(size: 8, weight: .black, design: .monospaced))
+                                .font(FlowTypography.display(8))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
                                 .background(tint.opacity(0.22), in: Capsule())
@@ -112,7 +112,7 @@ struct ModeSelectionView: View {
                         }
                     }
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FlowTypography.supporting(12))
                         .foregroundStyle(.white.opacity(0.55))
                 }
 
@@ -127,7 +127,7 @@ struct ModeSelectionView: View {
             .background(
                 LinearGradient(
                     colors: [
-                        Color(uiColor: ArenaVisualPalette.raisedMetal).opacity(0.72),
+                        Color(uiColor: ArenaVisualPalette.raisedMetal).opacity(0.54),
                         Color(uiColor: ArenaVisualPalette.carbon).opacity(0.96)
                     ],
                     startPoint: .topLeading,

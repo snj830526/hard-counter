@@ -60,7 +60,7 @@ enum CombatTuning {
     static let knockoutDuration: TimeInterval = 0.78
     static let poseResetDuration: TimeInterval = 0.01
     static let healthBarAnimationDuration: TimeInterval = 0.18
-    static let impactAnimationDuration: TimeInterval = 0.16
+    static let impactAnimationDuration: TimeInterval = 0.30
     static let statusFadeDuration: TimeInterval = 0.15
     static let counterReadyDuration: TimeInterval = 0.55
     static let counterTitleInDuration: TimeInterval = 0.12

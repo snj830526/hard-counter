@@ -12,6 +12,12 @@ enum ArenaVisualPalette {
     static let magentaSignal = UIColor(red: 1.00, green: 0.12, blue: 0.72, alpha: 1)
     static let greenSignal = UIColor(red: 0.20, green: 0.86, blue: 0.58, alpha: 1)
     static let dangerSignal = UIColor(red: 0.96, green: 0.20, blue: 0.16, alpha: 1)
+    static let hudHealth = UIColor(red: 0.78, green: 0.82, blue: 0.78, alpha: 1)
+    static let hudStamina = UIColor(red: 0.68, green: 0.57, blue: 0.31, alpha: 1)
+    static let hudStaminaLow = UIColor(red: 0.70, green: 0.32, blue: 0.20, alpha: 1)
+    static let hudDamage = UIColor(red: 0.49, green: 0.14, blue: 0.13, alpha: 1)
+    static let hudPlayerAccent = UIColor(red: 0.18, green: 0.56, blue: 0.66, alpha: 1)
+    static let hudOpponentAccent = UIColor(red: 0.72, green: 0.37, blue: 0.17, alpha: 1)
     static let overheadLight = UIColor(red: 0.76, green: 0.90, blue: 1.00, alpha: 1)
     static let coolCanvasLight = cyanSignal
     static let warmCanvasLight = amberSignal

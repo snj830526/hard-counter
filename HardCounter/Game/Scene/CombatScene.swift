@@ -22,11 +22,12 @@ final class CombatScene: SKScene {
     private let playerShadow = FighterGroundShadowNode()
     private let cpuShadow = FighterGroundShadowNode()
     private lazy var hud = CombatHUDNode(
-        playerName: networkConfiguration?.hostName ?? fighterProfile.name,
+        playerName: fighterProfile.name,
         playerColor: fighterProfile.color,
-        opponentName: networkConfiguration?.guestName ?? "CPU RIVAL",
+        playerDetail: networkConfiguration.map { "HOST  ·  \($0.hostName)" },
+        opponentName: opponentProfile?.name ?? "CPU RIVAL",
         opponentColor: opponentProfile?.color ?? .systemOrange,
-        isNetworkMatch: networkConfiguration != nil
+        opponentDetail: networkConfiguration.map { "GUEST  ·  \($0.guestName)" }
     )
     private var playerHealthBar: SKSpriteNode { hud.playerHealthBar }
     private var cpuHealthBar: SKSpriteNode { hud.cpuHealthBar }
@@ -1198,6 +1199,7 @@ final class CombatScene: SKScene {
                 attackerWorldPosition: attackerWorld,
                 defenderWorldPosition: defenderWorld,
                 committedScreenAim: attackerNode.committedPunchAimDirection,
+                attacker: attackerNode,
                 defender: defenderNode,
                 profile: profile,
                 reachScale: motionReachScale
@@ -1841,11 +1843,11 @@ final class CombatScene: SKScene {
         let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
         bar.xScale = fraction
         if stamina <= state.stats.lowStaminaThreshold {
-            bar.color = ArenaVisualPalette.dangerSignal
+            bar.color = ArenaVisualPalette.hudStaminaLow
         } else if stamina <= state.stats.maximumStamina * 0.50 {
-            bar.color = ArenaVisualPalette.amberSignal
+            bar.color = ArenaVisualPalette.hudStamina.withAlphaComponent(0.78)
         } else {
-            bar.color = ArenaVisualPalette.greenSignal
+            bar.color = ArenaVisualPalette.hudStamina
         }
     }
 
@@ -1863,7 +1865,10 @@ final class CombatScene: SKScene {
             y: attackerNode.position.y * 0.22 + defenderNode.position.y * 0.78
                 + 70 * averageScale
         )
-        let contactPoint = pendingPunchContactPoints.removeValue(forKey: attacker) ?? fallback
+        let projectedContact = pendingPunchContactPoints.removeValue(forKey: attacker)
+        let contactPoint = projectedContact.map {
+            frame.insetBy(dx: -24, dy: -24).contains($0) ? $0 : fallback
+        } ?? fallback
         let color: SKColor
         switch (kind, profile.technique) {
         case (.counter, _): color = .systemYellow
@@ -1872,10 +1877,17 @@ final class CombatScene: SKScene {
         case (_, .uppercut): color = .systemCyan
         }
 
+        combatArena3DRenderer?.showImpact(
+            on: defenderNode,
+            technique: profile.technique,
+            color: color,
+            isCounter: kind == .counter
+        )
+
         let root = SKNode()
         root.position = contactPoint
-        root.zPosition = 60
-        root.setScale(0.52 * impactPresentationScale)
+        root.zPosition = 130
+        root.setScale(0.72 * impactPresentationScale)
 
         let radius: CGFloat
         switch (kind, profile.technique) {
@@ -1885,9 +1897,9 @@ final class CombatScene: SKScene {
         case (_, .uppercut): radius = 28
         }
         let burst = SKShapeNode(path: impactBurstPath(radius: radius))
-        burst.fillColor = color.withAlphaComponent(kind == .counter ? 0.28 : 0.18)
-        burst.strokeColor = color.withAlphaComponent(0.88)
-        burst.lineWidth = kind == .counter ? 4.8 : 2.8
+        burst.fillColor = color.withAlphaComponent(kind == .counter ? 0.42 : 0.30)
+        burst.strokeColor = color.withAlphaComponent(0.96)
+        burst.lineWidth = kind == .counter ? 5.2 : 3.4
         burst.glowWidth = kind == .counter ? 7 : 4
         root.addChild(burst)
 
@@ -1897,6 +1909,14 @@ final class CombatScene: SKScene {
         core.glowWidth = 5
         core.zPosition = 2
         root.addChild(core)
+
+        let shockRing = SKShapeNode(circleOfRadius: radius * 0.64)
+        shockRing.fillColor = .clear
+        shockRing.strokeColor = color.withAlphaComponent(0.72)
+        shockRing.lineWidth = kind == .counter ? 4 : 2.4
+        shockRing.glowWidth = 4
+        shockRing.zPosition = 1
+        root.addChild(shockRing)
 
         let direction = CGVector(
             dx: defenderNode.position.x - attackerNode.position.x,
@@ -1919,9 +1939,10 @@ final class CombatScene: SKScene {
 
         impactPresentationLayer.addChild(root)
         root.run(.sequence([
+            .wait(forDuration: 0.035),
             .group([
                 .scale(
-                    to: 1.28 * impactPresentationScale,
+                    to: 1.42 * impactPresentationScale,
                     duration: CombatTuning.impactAnimationDuration
                 ),
                 .fadeOut(withDuration: CombatTuning.impactAnimationDuration)
@@ -2006,7 +2027,7 @@ final class CombatScene: SKScene {
     ) {
         let root = SKNode()
         root.position = contactPoint
-        root.zPosition = 62
+        root.zPosition = 132
         root.setScale(impactPresentationScale)
         impactPresentationLayer.addChild(root)
 

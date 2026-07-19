@@ -29,16 +29,7 @@ struct NetworkCombatContainerView: View {
                     .onAppear { updateSafeArea(from: proxy) }
                     .onChange(of: proxy.safeAreaInsets) { _, _ in updateSafeArea(from: proxy) }
 
-                Button(action: onExit) {
-                    Label("LEAVE MATCH", systemImage: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.72))
-                        .padding(.horizontal, 12)
-                        .frame(height: 28)
-                        .background(.black.opacity(0.42), in: Capsule())
-                        .overlay { Capsule().stroke(.white.opacity(0.14)) }
-                }
-                .buttonStyle(.plain)
+                CombatMenuButton(title: "LEAVE MATCH", action: onExit)
                 .padding(.bottom, max(proxy.safeAreaInsets.bottom, 6))
             }
         }
