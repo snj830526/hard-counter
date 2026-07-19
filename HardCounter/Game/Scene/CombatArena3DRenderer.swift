@@ -144,25 +144,33 @@ final class CombatArena3DRenderer {
 
         let forward = simd_dot(delta, stageAim)
         let lateral = abs(delta.x * stageAim.y - delta.y * stageAim.x)
-        let baseReach: CGFloat
+        let armReach: CGFloat
+        let targetForwardRadius: CGFloat
         let targetHalfWidth: CGFloat
         switch profile.technique {
         case .straight:
-            baseReach = 1.16
+            armReach = 1.16
+            targetForwardRadius = 0.22
             targetHalfWidth = 0.34
         case .smash:
-            // Technique reach multipliers are applied by CombatScene. These
-            // bases keep the final reach just beyond the shared arena's
-            // no-overlap distance, including the visually deeper ring axis.
-            baseReach = 1.30
+            armReach = 1.30
+            targetForwardRadius = 0.26
             targetHalfWidth = 0.50
         case .uppercut:
-            baseReach = 1.34
+            armReach = 1.34
+            targetForwardRadius = 0.24
             targetHalfWidth = 0.42
         }
         let presentationScale = CGFloat(fighterPresentationScale)
+        // The fist travels by the scaled arm reach, then meets the near face
+        // of the defender's visible body volume. Keeping the target radius
+        // outside reachScale prevents a long-reach style from silently making
+        // the opponent larger while still accepting surface-level contact.
+        let maximumForward = (
+            armReach * reachScale + targetForwardRadius
+        ) * presentationScale
         guard CGFloat(forward) >= -0.04 * presentationScale,
-              CGFloat(forward) <= baseReach * presentationScale * reachScale,
+              CGFloat(forward) <= maximumForward,
               CGFloat(lateral) <= targetHalfWidth * presentationScale else { return nil }
         return bodyContactPoint(for: defender, technique: profile.technique)
     }
