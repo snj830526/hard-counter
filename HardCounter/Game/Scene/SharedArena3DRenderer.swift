@@ -53,15 +53,61 @@ final class SharedArena3DRenderer {
         return CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
     }
 
-    func stageDistance(from start: CGPoint, to end: CGPoint) -> CGFloat {
-        let a = stagePosition(start)
-        let b = stagePosition(end)
-        return CGFloat(hypot(b.x - a.x, b.z - a.z))
+    func bodyContactPoint(for fighter: FighterNode, technique: PunchTechnique) -> CGPoint {
+        project(fighter.threeDBodyWorldPosition(for: technique))
     }
 
-    func bodyContactPoint(forWorldPosition world: CGPoint) -> CGPoint {
-        let floor = screenPoint(forWorldPosition: world)
-        return CGPoint(x: floor.x, y: floor.y + 72)
+    func damageEffectPoint(for fighter: FighterNode) -> CGPoint {
+        project(fighter.threeDDamageWorldPosition())
+    }
+
+    /// Resolves a punch in the same horizontal stage plane that renders both
+    /// fighters. A forward/lateral test is used instead of a generous radial
+    /// distance so a nearby opponent behind the committed punch cannot be hit.
+    func punchContactPoint(
+        attackerWorldPosition: CGPoint,
+        defenderWorldPosition: CGPoint,
+        committedScreenAim: CGVector,
+        defender: FighterNode,
+        profile: PunchProfile,
+        reachScale: CGFloat
+    ) -> CGPoint? {
+        let attacker = stagePosition(attackerWorldPosition)
+        let defenderPosition = stagePosition(defenderWorldPosition)
+        let delta = SIMD2<Float>(
+            defenderPosition.x - attacker.x,
+            defenderPosition.z - attacker.z
+        )
+        let screenAimLength = hypot(committedScreenAim.dx, committedScreenAim.dy)
+        guard simd_length(delta) > 0.001, screenAimLength > 0.001 else { return nil }
+
+        let worldAim = worldDirection(forScreenVector: committedScreenAim)
+        var stageAim = SIMD2<Float>(
+            Float(worldAim.dx / QuarterViewProjection.halfWidth) * ringHalfWidth,
+            Float(worldAim.dy / QuarterViewProjection.halfDepth) * ringHalfDepth
+        )
+        guard simd_length(stageAim) > 0.001 else { return nil }
+        stageAim = simd_normalize(stageAim)
+
+        let forward = simd_dot(delta, stageAim)
+        let lateral = abs(delta.x * stageAim.y - delta.y * stageAim.x)
+        let baseReach: CGFloat
+        let targetHalfWidth: CGFloat
+        switch profile.technique {
+        case .straight:
+            baseReach = 1.16
+            targetHalfWidth = 0.34
+        case .smash:
+            baseReach = 1.22
+            targetHalfWidth = 0.50
+        case .uppercut:
+            baseReach = 1.12
+            targetHalfWidth = 0.42
+        }
+        guard forward >= -0.04,
+              CGFloat(forward) <= baseReach * reachScale,
+              CGFloat(lateral) <= targetHalfWidth else { return nil }
+        return bodyContactPoint(for: defender, technique: profile.technique)
     }
 
     func worldDirection(forScreenVector vector: CGVector) -> CGVector {
@@ -113,7 +159,40 @@ final class SharedArena3DRenderer {
         )
     }
 
+    private func project(_ worldPosition: SCNVector3) -> CGPoint {
+        let projected = viewport.projectPoint(SIMD3<Float>(
+            worldPosition.x,
+            worldPosition.y,
+            worldPosition.z
+        ))
+        return CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+    }
+
     private func buildRing() {
+        let venueFloor = SCNNode(geometry: SCNPlane(width: 18, height: 12))
+        venueFloor.geometry?.materials = [material(
+            UIColor(red: 0.018, green: 0.025, blue: 0.032, alpha: 1),
+            roughness: 0.96,
+            metalness: 0.08
+        )]
+        venueFloor.eulerAngles.x = -.pi / 2
+        venueFloor.position.y = -0.24
+        scene.rootNode.addChildNode(venueFloor)
+
+        let apron = SCNNode(geometry: SCNBox(
+            width: CGFloat(ringHalfWidth * 2 + 0.42),
+            height: 0.28,
+            length: CGFloat(ringHalfDepth * 2 + 0.42),
+            chamferRadius: 0.10
+        ))
+        apron.geometry?.materials = [material(
+            ArenaVisualPalette.gunmetal,
+            roughness: 0.84,
+            metalness: 0.66
+        )]
+        apron.position.y = -0.20
+        scene.rootNode.addChildNode(apron)
+
         let matMaterial = material(
             UIColor(red: 0.075, green: 0.098, blue: 0.115, alpha: 1),
             roughness: 0.88,
@@ -128,6 +207,39 @@ final class SharedArena3DRenderer {
         mat.geometry?.materials = [matMaterial]
         mat.position.y = -0.08
         scene.rootNode.addChildNode(mat)
+
+        let markingMaterial = material(
+            ArenaVisualPalette.cyanSignal.withAlphaComponent(0.30),
+            roughness: 0.72,
+            metalness: 0.12,
+            emission: ArenaVisualPalette.cyanSignal.withAlphaComponent(0.035)
+        )
+        let centerMark = SCNNode(geometry: SCNTorus(ringRadius: 0.72, pipeRadius: 0.022))
+        centerMark.geometry?.materials = [markingMaterial]
+        centerMark.position.y = 0.001
+        scene.rootNode.addChildNode(centerMark)
+        for x in stride(from: -3.3 as Float, through: 3.3, by: 1.1) {
+            let line = SCNNode(geometry: SCNBox(
+                width: 0.012,
+                height: 0.008,
+                length: CGFloat(ringHalfDepth * 2 - 0.22),
+                chamferRadius: 0.003
+            ))
+            line.geometry?.materials = [markingMaterial]
+            line.position = SCNVector3(x, 0.001, 0)
+            scene.rootNode.addChildNode(line)
+        }
+        for z in stride(from: -1.8 as Float, through: 1.8, by: 0.9) {
+            let line = SCNNode(geometry: SCNBox(
+                width: CGFloat(ringHalfWidth * 2 - 0.22),
+                height: 0.008,
+                length: 0.012,
+                chamferRadius: 0.003
+            ))
+            line.geometry?.materials = [markingMaterial]
+            line.position = SCNVector3(0, 0.001, z)
+            scene.rootNode.addChildNode(line)
+        }
 
         let postMaterial = material(
             ArenaVisualPalette.gunmetal,
@@ -150,6 +262,21 @@ final class SharedArena3DRenderer {
             post.geometry?.materials = [postMaterial]
             post.position = SCNVector3(corner.x, 1.02, corner.z)
             scene.rootNode.addChildNode(post)
+
+            let pad = SCNNode(geometry: SCNBox(
+                width: 0.30,
+                height: 0.62,
+                length: 0.30,
+                chamferRadius: 0.07
+            ))
+            pad.geometry?.materials = [material(
+                ArenaVisualPalette.cyanSignal,
+                roughness: 0.78,
+                metalness: 0.42,
+                emission: ArenaVisualPalette.cyanSignal.withAlphaComponent(0.06)
+            )]
+            pad.position = SCNVector3(corner.x, 1.06, corner.z)
+            scene.rootNode.addChildNode(pad)
         }
 
         let ropeColors = [

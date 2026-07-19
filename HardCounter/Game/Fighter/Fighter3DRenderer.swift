@@ -150,6 +150,25 @@ final class Fighter3DRenderer {
         presentationRoot.scale = SCNVector3(scale, scale, scale)
     }
 
+    /// Live presentation-space anchors used by the shared arena. These come
+    /// from the animated rig rather than an estimated offset above the feet.
+    func sharedBodyWorldPosition(for technique: PunchTechnique = .straight) -> SCNVector3 {
+        let localPoint: SCNVector3
+        switch technique {
+        case .straight:
+            localPoint = SCNVector3(0, 0.62, 0)
+        case .smash:
+            localPoint = SCNVector3(0, 0.82, 0)
+        case .uppercut:
+            localPoint = SCNVector3(0, 1.08, 0)
+        }
+        return spine.presentation.convertPosition(localPoint, to: nil)
+    }
+
+    func sharedDamageWorldPosition() -> SCNVector3 {
+        spine.presentation.convertPosition(SCNVector3(0, 0.56, 0), to: nil)
+    }
+
     func update(
         movement: FighterMovementState,
         orientation: FighterOrientationFrame,

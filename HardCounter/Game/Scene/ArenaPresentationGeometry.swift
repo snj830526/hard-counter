@@ -42,11 +42,4 @@ struct ArenaPresentationGeometry {
         return hypot(projected.dx, projected.dy) * arenaZoom
     }
 
-    func sharedStageDistance(from start: CGPoint, to end: CGPoint) -> CGFloat? {
-        sharedArena?.stageDistance(from: start, to: end)
-    }
-
-    func sharedBodyContactPoint(at position: CGPoint) -> CGPoint? {
-        sharedArena?.bodyContactPoint(forWorldPosition: position)
-    }
 }

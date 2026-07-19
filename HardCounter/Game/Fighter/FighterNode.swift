@@ -35,6 +35,14 @@ final class FighterNode: SKNode {
         threeDRenderer.setSharedStageTransform(position: position, scale: scale)
     }
 
+    func threeDBodyWorldPosition(for technique: PunchTechnique = .straight) -> SCNVector3 {
+        threeDRenderer.sharedBodyWorldPosition(for: technique)
+    }
+
+    func threeDDamageWorldPosition() -> SCNVector3 {
+        threeDRenderer.sharedDamageWorldPosition()
+    }
+
     func attachDamageEffects(to screenSpaceParent: SKNode) {
         damageEffectRoot.removeFromParent()
         screenSpaceParent.addChild(damageEffectRoot)
@@ -49,6 +57,12 @@ final class FighterNode: SKNode {
             y: position.y + 62 * fighterScale
         )
         damageEffectRoot.setScale(fighterScale)
+    }
+
+    func updateDamageEffectAnchor(_ position: CGPoint, scale: CGFloat = 1) {
+        guard usesScreenSpaceDamageEffects else { return }
+        damageEffectRoot.position = position
+        damageEffectRoot.setScale(scale)
     }
 
     private var animationRoot: SKNode { rig.animationRoot }

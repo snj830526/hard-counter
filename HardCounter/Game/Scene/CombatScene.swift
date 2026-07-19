@@ -109,8 +109,8 @@ final class CombatScene: SKScene {
 #endif
         return opponentProfile?.combatStyle ?? .rival
     }
-#if DEBUG
     private let sharedThreeDArenaEnabled = !ProcessInfo.processInfo.arguments.contains("--legacy-2d-arena")
+#if DEBUG
     private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
@@ -387,7 +387,6 @@ final class CombatScene: SKScene {
         arenaNode.addChild(player)
         arenaNode.addChild(cpu)
 
-#if DEBUG
         if sharedThreeDArenaEnabled {
             let renderer = SharedArena3DRenderer(
                 size: size,
@@ -402,7 +401,6 @@ final class CombatScene: SKScene {
             playerShadow.isHidden = true
             cpuShadow.isHidden = true
         }
-#endif
 
         addHealthBarBackground(for: playerHealthBar)
         addHealthBarBackground(for: cpuHealthBar)
@@ -944,6 +942,13 @@ final class CombatScene: SKScene {
         cpuArenaPosition = clampedToRing(cpuArenaPosition)
         separateFighters()
 
+        sharedArena3DRenderer?.update(
+            player: player,
+            opponent: cpu,
+            playerWorldPosition: playerArenaPosition,
+            opponentWorldPosition: cpuArenaPosition
+        )
+
         let playerScreenPosition = presentationGeometry.screenPoint(
             forWorldPosition: playerArenaPosition
         )
@@ -960,20 +965,23 @@ final class CombatScene: SKScene {
 
         applyPerspective(to: player, shadow: playerShadow, worldPosition: playerArenaPosition, screenPosition: playerScreenPosition)
         applyPerspective(to: cpu, shadow: cpuShadow, worldPosition: cpuArenaPosition, screenPosition: cpuScreenPosition)
-        player.updateDamageEffectScreenPosition(
-            playerScreenPosition,
-            fighterScale: player.xScale
-        )
-        cpu.updateDamageEffectScreenPosition(
-            cpuScreenPosition,
-            fighterScale: cpu.xScale
-        )
-        sharedArena3DRenderer?.update(
-            player: player,
-            opponent: cpu,
-            playerWorldPosition: playerArenaPosition,
-            opponentWorldPosition: cpuArenaPosition
-        )
+        if let sharedArena3DRenderer {
+            player.updateDamageEffectAnchor(
+                sharedArena3DRenderer.damageEffectPoint(for: player)
+            )
+            cpu.updateDamageEffectAnchor(
+                sharedArena3DRenderer.damageEffectPoint(for: cpu)
+            )
+        } else {
+            player.updateDamageEffectScreenPosition(
+                playerScreenPosition,
+                fighterScale: player.xScale
+            )
+            cpu.updateDamageEffectScreenPosition(
+                cpuScreenPosition,
+                fighterScale: cpu.xScale
+            )
+        }
     }
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {
@@ -1262,54 +1270,25 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
-        if let stageDistance = presentationGeometry.sharedStageDistance(
-            from: attacker == .player ? playerArenaPosition : cpuArenaPosition,
-            to: attacker == .player ? cpuArenaPosition : playerArenaPosition
-        ) {
+        if let sharedArena3DRenderer {
             let attackerWorld = attacker == .player
                 ? playerArenaPosition : cpuArenaPosition
             let defenderWorld = attacker == .player
                 ? cpuArenaPosition : playerArenaPosition
-            let baseReach: CGFloat
-            let minimumAimDot: CGFloat
-            switch profile.technique {
-            case .straight:
-                baseReach = 1.16
-                minimumAimDot = 0.50
-            case .smash:
-                baseReach = 1.22
-                minimumAimDot = -0.05
-            case .uppercut:
-                baseReach = 1.12
-                minimumAimDot = -0.12
-            }
-            let maximumReach = baseReach
-                * motionReachScale
-                * techniqueReachScale
-                * CGFloat(profile.reachScale)
-            guard stageDistance <= maximumReach else {
-                pendingPunchContactPoints[attacker] = nil
-                return false
-            }
-
             let attackerNode = attacker == .player ? player : cpu
-            let screenDelta = presentationScreenDirection(forWorldVector: CGVector(
-                dx: defenderWorld.x - attackerWorld.x,
-                dy: defenderWorld.y - attackerWorld.y
-            ))
-            let deltaLength = hypot(screenDelta.dx, screenDelta.dy)
-            let aim = attackerNode.committedPunchAimDirection
-            let aimLength = hypot(aim.dx, aim.dy)
-            guard deltaLength > 0.001, aimLength > 0.001 else { return false }
-            let aimDot = screenDelta.dx / deltaLength * aim.dx / aimLength
-                + screenDelta.dy / deltaLength * aim.dy / aimLength
-            guard aimDot >= minimumAimDot else {
-                pendingPunchContactPoints[attacker] = nil
-                return false
-            }
-            pendingPunchContactPoints[attacker] = presentationGeometry
-                .sharedBodyContactPoint(at: defenderWorld)
-            return true
+            let defenderNode = attacker == .player ? cpu : player
+            let contactPoint = sharedArena3DRenderer.punchContactPoint(
+                attackerWorldPosition: attackerWorld,
+                defenderWorldPosition: defenderWorld,
+                committedScreenAim: attackerNode.committedPunchAimDirection,
+                defender: defenderNode,
+                profile: profile,
+                reachScale: motionReachScale
+                    * techniqueReachScale
+                    * CGFloat(profile.reachScale)
+            )
+            pendingPunchContactPoints[attacker] = contactPoint
+            return contactPoint != nil
         }
         let attackerNode = attacker == .player ? player : cpu
         let defenderNode = attacker == .player ? cpu : player
@@ -1961,7 +1940,7 @@ final class CombatScene: SKScene {
         let root = SKNode()
         root.position = contactPoint
         root.zPosition = 60
-        root.setScale(0.52 / arenaZoom)
+        root.setScale(0.52 * impactPresentationScale)
 
         let radius: CGFloat
         switch (kind, profile.technique) {
@@ -2003,10 +1982,13 @@ final class CombatScene: SKScene {
             power: CGFloat(profile.powerScale)
         )
 
-        arenaNode.addChild(root)
+        impactPresentationLayer.addChild(root)
         root.run(.sequence([
             .group([
-                .scale(to: 1.28 / arenaZoom, duration: CombatTuning.impactAnimationDuration),
+                .scale(
+                    to: 1.28 * impactPresentationScale,
+                    duration: CombatTuning.impactAnimationDuration
+                ),
                 .fadeOut(withDuration: CombatTuning.impactAnimationDuration)
             ]),
             .removeFromParent()
@@ -2090,8 +2072,8 @@ final class CombatScene: SKScene {
         let root = SKNode()
         root.position = contactPoint
         root.zPosition = 62
-        root.setScale(1 / arenaZoom)
-        arenaNode.addChild(root)
+        root.setScale(impactPresentationScale)
+        impactPresentationLayer.addChild(root)
 
         let baseAngle = atan2(direction.dy, direction.dx)
         let count = isCounter ? 14 : 9
@@ -2182,13 +2164,23 @@ final class CombatScene: SKScene {
         let distance = baseDistance * techniqueScale / arenaZoom
         let dx = direction.dx / length * distance
         let dy = direction.dy / length * distance + (profile.technique == .uppercut ? distance * 0.45 : 0)
-        arenaNode.removeAction(forKey: "shake")
-        arenaNode.run(.sequence([
+        let shakeNode = sharedArena3DRenderer?.viewport ?? arenaNode
+        let restingPosition = shakeNode.position
+        shakeNode.removeAction(forKey: "shake")
+        shakeNode.run(.sequence([
             .moveBy(x: dx, y: dy, duration: CombatTuning.cameraShakeDuration * 0.16),
             .moveBy(x: -dx * 1.75, y: -dy * 1.75, duration: CombatTuning.cameraShakeDuration * 0.23),
             .moveBy(x: dx * 1.20, y: dy * 1.20, duration: CombatTuning.cameraShakeDuration * 0.21),
-            .move(to: .zero, duration: CombatTuning.cameraShakeDuration * 0.40)
+            .move(to: restingPosition, duration: CombatTuning.cameraShakeDuration * 0.40)
         ]), withKey: "shake")
+    }
+
+    private var impactPresentationLayer: SKNode {
+        sharedArena3DRenderer == nil ? arenaNode : self
+    }
+
+    private var impactPresentationScale: CGFloat {
+        sharedArena3DRenderer == nil ? 1 / arenaZoom : 1
     }
 
     private func showCounterTitle() {
