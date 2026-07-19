@@ -83,9 +83,14 @@ HardCounter/
 │   │   ├── NearbyLobbyModels.swift
 │   │   └── NearbyLobbyService.swift
 │   └── Scene/
+│       ├── Arena3DCameraController.swift
+│       ├── Arena3DRingNode.swift
+│       ├── ArenaPresentationGeometry.swift
 │       ├── ArenaVisualPalette.swift
 │       ├── ArenaViewTuning.swift
 │       ├── BoxingRingNode.swift
+│       ├── CombatArena3DRenderer.swift
+│       ├── CombatHUDNode.swift
 │       ├── CombatScene.swift
 │       └── QuarterViewProjection.swift
 └── docs/
@@ -113,7 +118,12 @@ HardCounter/
 
 ### 장면 계층
 
-- `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트, HUD와 라운드 재시작을 연결한다. 선수 간 거리에 따라 동적 줌과 데드존 추적을 적용하되 HUD는 고정한다.
+- `CombatScene.swift`: 게임 루프와 객체 조정자다. 입력 소스가 만든 공통 명령, 이동, 화면상 히트 거리, 전투 이벤트와 라운드 재시작을 연결하고 렌더링 구현은 전용 객체에 위임한다.
+- `CombatArena3DRenderer.swift`: 공통 SceneKit 전투 화면을 조정한다. 선수의 링 좌표를 3D 스테이지 변환으로 반영하고 좌표 투영, 선수 분리 거리와 기술별 타격 접촉점을 제공하되 링 메시와 카메라 추적은 직접 만들지 않는다.
+- `Arena3DRingNode.swift`: 3D 매트, 에이프런, 포스트, 코너 패드와 로프의 SceneKit 노드 계층 및 재질을 소유한다.
+- `Arena3DCameraController.swift`: 두 선수의 가로·깊이 간격으로 직교 카메라 초점과 배율을 계산하고 부드럽게 추적한다. 링 생성과 타격 판정에는 관여하지 않는다.
+- `CombatHUDNode.swift`: 체력·스태미너 게이지, 선수 이름, 상태 문구와 라운드 종료 오버레이를 소유하고 안전 영역 기준으로 배치한다. 아레나 카메라 계층 밖에 있어 화면에 고정된다.
+- `ArenaPresentationGeometry.swift`: 2D 쿼터 뷰와 공통 3D 아레나 사이의 화면/링 좌표 변환 경계를 제공한다.
 - `ArenaVisualPalette.swift`: 2D 링의 조명 표시와 3D 파이터의 키·림 라이트가 공유하는 색상 팔레트를 정의한다.
 - `ArenaViewTuning.swift`: 링의 실제 이동 면적, 시작 위치, 원·근거리 카메라 배율, 근접 줌이 시작되는 거리, 선수 화면 크기와 추적 데드존을 한곳에서 조정한다. 카메라는 발 앵커 사이 거리뿐 아니라 두 선수의 머리·어깨·발 실루엣 전체를 안전 영역에 맞추며, 가독성을 위한 선수 확대는 전투 판정 스케일과 분리한다.
 - `BoxingRingNode.swift`: 쿼터 뷰 축을 따르는 캔버스 패널과 봉제선, 중앙 마크, 로프 그림자, 코너 패드, 포스트 및 저채도 로우폴리 관중석을 생성한다. 3D 캐릭터보다 배경이 튀지 않도록 색과 명암을 제한한다.
@@ -192,5 +202,5 @@ idle → swaying → idle
 - 캐릭터 외형 비율은 `Fighter3DAppearanceProfile`을 거친다. 체형별로 굵기와 관절 뿌리 위치는 달라질 수 있지만 팔·다리 마디 길이는 리그와 일치시켜 관절 연결을 보존한다.
 - 이동 경계는 링 내부 좌표로 계산한다. 펀치 판정은 투영된 화면 거리에서 공격자의 팔 길이와 수비자의 몸통 반경을 별도로 더하며, 공격자의 리치 배율은 팔 길이에만 적용한다.
 - 조정 수치는 가능한 한 `CombatTuning` 한 곳에서 관리한다.
-- `CombatScene`이 지나치게 커지면 입력, 이동/충돌, HUD를 별도 객체로 분리한다.
+- `CombatScene`의 다음 구조 개선은 입력과 이동/충돌 조정을 별도 객체로 분리하는 순서로 진행한다. HUD와 3D 링·카메라·전투 프레젠테이션은 이미 전용 객체로 분리되어 있다.
 - 온라인 기능을 추가할 때도 `CombatEngine`을 서버 또는 동기화 계층에서 재사용할 수 있어야 한다.
