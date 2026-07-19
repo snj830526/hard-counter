@@ -31,13 +31,13 @@ enum FighterBodyBuild: Equatable {
     }
 }
 
-enum FighterHairStyle {
+enum FighterHairStyle: Equatable {
     case cropped
     case shaved
     case swept
 }
 
-enum FighterKitStyle {
+enum FighterKitStyle: Equatable {
     case classic
     case pressure
     case speed

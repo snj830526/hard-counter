@@ -135,7 +135,9 @@ final class CombatScene: SKScene {
 
     init(size: CGSize, fighter: FighterProfile) {
         fighterProfile = fighter
-        opponentProfile = nil
+        opponentProfile = FighterProfile.allCases
+            .filter { $0 != fighter }
+            .randomElement() ?? .pressure
         networkConfiguration = nil
         nearbyService = nil
         super.init(size: size)

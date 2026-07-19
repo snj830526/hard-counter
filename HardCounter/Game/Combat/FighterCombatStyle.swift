@@ -8,6 +8,9 @@ struct FighterCombatStyle {
         case balancedCounter
         case pressure
         case outBoxer
+        case endurance
+        case burst
+        case tactician
         case rival
     }
 
@@ -17,6 +20,9 @@ struct FighterCombatStyle {
     static let balancedCounter = FighterCombatStyle(archetype: .balancedCounter)
     static let pressure = FighterCombatStyle(archetype: .pressure)
     static let outBoxer = FighterCombatStyle(archetype: .outBoxer)
+    static let endurance = FighterCombatStyle(archetype: .endurance)
+    static let burst = FighterCombatStyle(archetype: .burst)
+    static let tactician = FighterCombatStyle(archetype: .tactician)
     static let rival = FighterCombatStyle(archetype: .rival)
 
     func modifier(
@@ -59,6 +65,24 @@ struct FighterCombatStyle {
                 modifier.power *= 0.90
                 modifier.recovery *= 1.12
                 modifier.stamina *= 1.08
+            }
+        case .endurance:
+            modifier.power *= 0.94
+            modifier.stamina *= 0.82
+            modifier.recovery *= 0.96
+        case .burst:
+            modifier.power *= 1.06
+            modifier.startup *= 0.92
+            modifier.stamina *= 1.18
+            modifier.recovery *= 1.12
+        case .tactician:
+            modifier.power *= 0.94
+            if motion == .counter {
+                modifier.power *= 1.08
+                modifier.startup *= 0.90
+                modifier.recovery *= 0.88
+            } else if technique == .straight {
+                modifier.startup *= 0.94
             }
         case .rival:
             if technique == .smash {

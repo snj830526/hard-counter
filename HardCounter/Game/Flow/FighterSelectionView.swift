@@ -11,11 +11,16 @@ struct FighterSelectionView: View {
 
             VStack(spacing: 14) {
                 header
-                HStack(spacing: 14) {
-                    ForEach(FighterProfile.allCases) { fighter in
-                        fighterCard(fighter)
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 14) {
+                        ForEach(FighterProfile.allCases) { fighter in
+                            fighterCard(fighter)
+                                .frame(width: 224)
+                        }
                     }
+                    .padding(.horizontal, 2)
                 }
+                .scrollIndicators(.hidden)
                 .frame(maxHeight: .infinity)
                 footer
             }
@@ -86,19 +91,19 @@ struct FighterSelectionView: View {
                     statRow(
                         "ARMOR",
                         value: fighter.healthPreview,
-                        valueText: "\(fighter.stats.maximumHealth)",
+                        valueText: "\(fighter.balance.health)",
                         color: Color(uiColor: ArenaVisualPalette.hudHealth)
                     )
                     statRow(
                         "ENERGY",
                         value: fighter.staminaPreview,
-                        valueText: "\(Int(fighter.stats.maximumStamina))",
+                        valueText: "\(fighter.balance.stamina)",
                         color: Color(uiColor: ArenaVisualPalette.hudStamina)
                     )
                     statRow(
                         "SPEED",
                         value: fighter.speedPreview,
-                        valueText: "\(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))",
+                        valueText: "\(fighter.balance.speed)",
                         color: Color(uiColor: ArenaVisualPalette.hudPlayerAccent)
                     )
                 }

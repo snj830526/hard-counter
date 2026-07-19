@@ -41,7 +41,7 @@ enum CombatTuning {
     static let swayMotionAmplitude: CGFloat = 1.13
     static let hitReactionAmplitude: CGFloat = 1.14
 
-    static let cpuInitialDelay: TimeInterval = 1.2
+    static let cpuInitialDelay: TimeInterval = 0.75
 
     static let hudTopPadding: CGFloat = 20
     static let hudHorizontalPadding: CGFloat = 24

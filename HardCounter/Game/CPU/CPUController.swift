@@ -81,6 +81,7 @@ struct CPUController {
         let opponentIsTired = perception.opponentState.stamina
             <= perception.opponentState.stats.lowStaminaThreshold
         let roll = Double.random(in: 0...1)
+        let attackIsDue = perception.time >= (nextAttackTime ?? .infinity)
 
         if perception.time >= tacticalModeEndsAt {
             selectTacticalMode(
@@ -93,6 +94,10 @@ struct CPUController {
 
         if isTired {
             movementVector = roll < 0.58 ? away : (roll < 0.92 ? circle : .zero)
+        } else if attackIsDue, distanceScale > 0.92 {
+            // Once an attack is due, take the initiative and finish closing
+            // distance instead of circling forever just outside punch range.
+            movementVector = blended(toward, circle, circleAmount: 0.12)
         } else if distanceScale > 1.35 {
             movementVector = tacticalMode == .reset
                 ? circle
@@ -206,8 +211,9 @@ struct CPUController {
         guard let nextAttackTime,
               perception.time >= nextAttackTime,
               perception.selfState.phase == .idle else { return nil }
-        guard perception.visibleDistance <= perception.preferredPunchRange * 1.08 else {
-            self.nextAttackTime = perception.time + 0.22
+        guard perception.visibleDistance <= perception.preferredPunchRange * 1.10 else {
+            // Keep the attack ready while footwork closes the final gap.
+            self.nextAttackTime = perception.time
             return nil
         }
         guard perception.selfState.stamina >= CombatTuning.straightStaminaCost else {

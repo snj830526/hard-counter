@@ -10,6 +10,8 @@ struct FighterPortraitView: View {
         let limbScale = appearance.bodyBuild.limbScale
         let armor = fighter.swiftUIColor
         let darkMetal = Color(red: 0.06, green: 0.08, blue: 0.11)
+        let isPressureKit = appearance.kitStyle == .pressure
+        let isSpeedKit = appearance.kitStyle == .speed
 
         ZStack {
             Circle()
@@ -36,8 +38,8 @@ struct FighterPortraitView: View {
                     )
                 )
                 .frame(
-                    width: fighter == .pressure ? 48 : 38 * shoulderScale,
-                    height: fighter == .outBoxer ? 43 : 39
+                    width: isPressureKit ? 48 : 38 * shoulderScale,
+                    height: isSpeedKit ? 43 : 39
                 )
                 .overlay(alignment: .bottom) {
                     Rectangle()
@@ -53,7 +55,7 @@ struct FighterPortraitView: View {
                 }
                 .offset(y: 12)
 
-            if fighter == .pressure {
+            if isPressureKit {
                 HStack(spacing: 29) {
                     armorBlock
                     armorBlock
@@ -65,7 +67,7 @@ struct FighterPortraitView: View {
                     Capsule().fill(darkMetal).frame(width: 6, height: 30)
                 }
                 .offset(y: 15)
-            } else if fighter == .outBoxer {
+            } else if isSpeedKit {
                 HStack(spacing: 36) {
                     speedFin.rotationEffect(.degrees(-24))
                     speedFin.rotationEffect(.degrees(24))
@@ -96,14 +98,14 @@ struct FighterPortraitView: View {
             )
                 .fill(darkMetal)
                 .frame(
-                    width: fighter == .pressure ? 36 : (fighter == .outBoxer ? 23 : 29),
-                    height: fighter == .pressure ? 29 : (fighter == .outBoxer ? 35 : 31)
+                    width: isPressureKit ? 36 : (isSpeedKit ? 23 : 29),
+                    height: isPressureKit ? 29 : (isSpeedKit ? 35 : 31)
                 )
                 .overlay {
                     Capsule()
                         .fill(armor)
                         .shadow(color: armor, radius: 2)
-                        .frame(width: fighter == .pressure ? 24 : 20, height: 4)
+                        .frame(width: isPressureKit ? 24 : 20, height: 4)
                         .offset(y: -3)
                 }
                 .overlay(alignment: .bottom) {
@@ -114,9 +116,9 @@ struct FighterPortraitView: View {
                 }
                 .offset(y: -18)
 
-            glove(color: appearance.kitColor, scale: fighter == .pressure ? 1.28 : (fighter == .outBoxer ? 0.82 : 1))
+            glove(color: appearance.kitColor, scale: isPressureKit ? 1.28 : (isSpeedKit ? 0.82 : 1))
                 .offset(x: -25 * shoulderScale, y: 0)
-            glove(color: appearance.kitColor, scale: fighter == .pressure ? 1.28 : (fighter == .outBoxer ? 0.82 : 1))
+            glove(color: appearance.kitColor, scale: isPressureKit ? 1.28 : (isSpeedKit ? 0.82 : 1))
                 .offset(x: 25 * shoulderScale, y: 1)
         }
         .frame(width: 78, height: 78)

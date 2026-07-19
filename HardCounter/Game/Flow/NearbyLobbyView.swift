@@ -269,7 +269,7 @@ struct NearbyLobbyView: View {
                     Text(fighter.combatTraitName)
                         .font(FlowTypography.supporting(8))
                         .foregroundStyle(fighter.swiftUIColor.opacity(0.86))
-                    Text("HP \(fighter.stats.maximumHealth)  ·  ST \(Int(fighter.stats.maximumStamina))  ·  SP \(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))")
+                    Text("HP \(fighter.balance.health)  ·  EN \(fighter.balance.stamina)  ·  SP \(fighter.balance.speed)")
                         .font(FlowTypography.display(8))
                         .foregroundStyle(fighter.swiftUIColor)
                 }
