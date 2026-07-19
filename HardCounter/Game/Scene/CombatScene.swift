@@ -696,7 +696,7 @@ final class CombatScene: SKScene {
             cpuTargetMovement = networkConfiguration.localFighterID == .cpu ? localMovement : remoteMovement
         } else if let showcaseMovement = footworkShowcaseMovement(at: gameTime) {
             cpuTargetMovement = presentationWorldDirection(
-                forScreenVector: showcaseMovement
+                forScreenVector: cameraShowcaseOpponentMovement(showcaseMovement)
             )
         } else if cpuCanMove {
             cpuTargetMovement = cpuInputSource
@@ -1467,6 +1467,15 @@ final class CombatScene: SKScene {
         return footworkShowcaseController.frame(at: time).screenMovement
 #else
         return nil
+#endif
+    }
+
+    private func cameraShowcaseOpponentMovement(_ movement: CGVector) -> CGVector {
+#if DEBUG
+        guard cameraShowcaseEnabled else { return movement }
+        return CGVector(dx: -movement.dx, dy: -movement.dy)
+#else
+        return movement
 #endif
     }
 
