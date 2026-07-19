@@ -1362,9 +1362,7 @@ final class CombatScene: SKScene {
                 sequence: sequence,
                 kind: .sway,
                 x: Double(intent.screenDirection.dx),
-                y: Double(intent.screenDirection.dy),
-                swayDirection: networkName(for: intent.direction),
-                isTowardOpponent: intent.isTowardOpponent
+                y: Double(intent.screenDirection.dy)
             )
         }
     }
@@ -1387,14 +1385,14 @@ final class CombatScene: SKScene {
                 issuedAt: gameTime
             ))
         case .sway:
-            guard let name = input.swayDirection, let direction = swayDirection(named: name) else { return }
+            let screenDirection = CGVector(dx: input.x, dy: input.y)
+            let intent = resolvedSwayIntent(
+                for: remoteFighter,
+                screenDirection: screenDirection
+            )
             execute(FighterCommand(
                 fighter: remoteFighter,
-                payload: .action(.sway(SwayIntent(
-                    direction: direction,
-                    isTowardOpponent: input.isTowardOpponent,
-                    screenDirection: CGVector(dx: input.x, dy: input.y)
-                ))),
+                payload: .action(.sway(intent)),
                 issuedAt: gameTime
             ))
         }
@@ -1457,23 +1455,25 @@ final class CombatScene: SKScene {
         }
     }
 
-    private func networkName(for direction: SwayDirection) -> String {
-        switch direction {
-        case .left: "left"
-        case .right: "right"
-        case .back: "back"
-        case .forward: "forward"
-        }
-    }
-
-    private func swayDirection(named name: String) -> SwayDirection? {
-        switch name {
-        case "left": .left
-        case "right": .right
-        case "back": .back
-        case "forward": .forward
-        default: nil
-        }
+    private func resolvedSwayIntent(
+        for fighter: FighterID,
+        screenDirection: CGVector
+    ) -> SwayIntent {
+        let towardOpponent = fighter == .player
+            ? CGVector(
+                dx: cpuArenaPosition.x - playerArenaPosition.x,
+                dy: cpuArenaPosition.y - playerArenaPosition.y
+            )
+            : CGVector(
+                dx: playerArenaPosition.x - cpuArenaPosition.x,
+                dy: playerArenaPosition.y - cpuArenaPosition.y
+            )
+        return SwayInputResolver.resolve(
+            movement: screenDirection,
+            towardOpponent: ringProjection.screenVector(
+                forWorldVector: towardOpponent
+            )
+        )
     }
 
 #if DEBUG

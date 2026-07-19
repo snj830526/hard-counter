@@ -335,6 +335,7 @@ final class Fighter3DRenderer {
                 forward: -0.18,
                 lateral: handSign * 0.18,
                 screenHorizontal: 0,
+                screenVertical: 0,
                 intensity: power,
                 compression: 0.72,
                 weightShift: activeHand == .rear ? -0.82 : 0.68,
@@ -367,6 +368,7 @@ final class Fighter3DRenderer {
                 forward: 0.72,
                 lateral: handSign * 0.20,
                 screenHorizontal: 0,
+                screenVertical: 0,
                 intensity: power,
                 compression: 0.48,
                 weightShift: activeHand == .rear ? -0.25 : 0.28,
@@ -382,6 +384,7 @@ final class Fighter3DRenderer {
                 forward: 1,
                 lateral: handSign * 0.30,
                 screenHorizontal: 0,
+                screenVertical: 0,
                 intensity: power,
                 compression: punchProfile.technique == .uppercut ? 0.12 : 0.20,
                 weightShift: activeHand == .rear ? 0.72 : -0.42,
@@ -440,10 +443,12 @@ final class Fighter3DRenderer {
         let performance = min(max(swayPerformance, 0.72), 1.20)
         let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
         let screenHorizontal = swayScreenDirection.dx / swayLength
+        let screenVertical = swayScreenDirection.dy / swayLength
         let loadFrame = FighterFullBodyActionFrame(
             forward: components.forward * 0.22,
             lateral: -components.lateral * 0.18,
             screenHorizontal: -screenHorizontal * 0.18,
+            screenVertical: -screenVertical * 0.18,
             intensity: performance,
             compression: 0.58,
             weightShift: -components.lateral * 0.35,
@@ -458,6 +463,7 @@ final class Fighter3DRenderer {
             forward: components.forward,
             lateral: components.lateral,
             screenHorizontal: screenHorizontal,
+            screenVertical: screenVertical,
             intensity: performance * motionProfile.swayRange,
             compression: 0.88 + abs(components.forward) * 0.18,
             weightShift: components.lateral,
@@ -473,6 +479,7 @@ final class Fighter3DRenderer {
             forward: components.forward * 1.12,
             lateral: components.lateral * 1.14,
             screenHorizontal: screenHorizontal * 1.14,
+            screenVertical: screenVertical * 1.14,
             intensity: performance * motionProfile.swayRange,
             compression: 1.0,
             weightShift: components.lateral,

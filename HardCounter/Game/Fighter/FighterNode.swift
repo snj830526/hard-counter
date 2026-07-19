@@ -190,17 +190,9 @@ final class FighterNode: SKNode {
         activeSwayDirection = direction
         activeSwayScreenDirection = screenDirection
         activeSwayPerformance = CGFloat(performance)
-        // The near-side 3D rig is authored with the opposite camera-space
-        // handedness from the far-side rig. Combat intent must remain in the
-        // original screen direction for evade success and networking; only
-        // the presentation vector is calibrated for the rig currently facing
-        // right. This also follows the fighters correctly after they cross.
-        let rendererScreenDirection = facing > 0
-            ? CGVector(dx: -screenDirection.dx, dy: -screenDirection.dy)
-            : screenDirection
         threeDRenderer.prepareSway(
             direction,
-            screenDirection: rendererScreenDirection,
+            screenDirection: screenDirection,
             performance: CGFloat(performance)
         )
     }

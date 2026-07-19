@@ -8,6 +8,7 @@ struct FighterFullBodyActionFrame {
     let forward: CGFloat
     let lateral: CGFloat
     let screenHorizontal: CGFloat
+    let screenVertical: CGFloat
     let intensity: CGFloat
     let compression: CGFloat
     let weightShift: CGFloat
@@ -17,6 +18,7 @@ struct FighterFullBodyActionFrame {
         forward: 0,
         lateral: 0,
         screenHorizontal: 0,
+        screenVertical: 0,
         intensity: 0,
         compression: 0,
         weightShift: 0,
@@ -43,6 +45,10 @@ enum FighterFullBodyActionPoseSolver {
         // lateral intent loads the lead side in the rig's local stance.
         let leadLoad = max(sideLoad, 0) + max(forward, 0) * 0.25
         let rearLoad = max(-sideLoad, 0) + max(-forward, 0) * 0.20
+        // Camera-space displacement is canonical and never depends on which
+        // side of the ring owns the fighter. Anatomical forward/lateral values
+        // only decide how the planted legs and torso carry that displacement.
+        pose.rootY += frame.screenVertical * amount * 0.28
         pose.rootY -= 0.14 * compression
         pose.leadHip.x -= Float(leadLoad * 0.055)
         pose.rearHip.x -= Float(rearLoad * 0.055)
@@ -56,7 +62,7 @@ enum FighterFullBodyActionPoseSolver {
         // Root position belongs to the renderer's parent coordinate space, so
         // screen-horizontal intent must not be mirrored through fighter-local
         // handedness. Local lateral still owns the anatomical weight transfer.
-        pose.rootX += frame.screenHorizontal * amount * 0.26
+        pose.rootX += frame.screenHorizontal * amount * 0.30
         pose.rootZ += forward * 0.22
         pose.pelvisRoll += lateral * 0.13
         pose.pelvis.x += Float(-forward * 0.16 + compression * 0.055)
@@ -65,7 +71,7 @@ enum FighterFullBodyActionPoseSolver {
         // Spine position remains untouched. Rotation around the connected
         // waist creates the visible arc and the head counters just enough to
         // keep the eyes on the opponent.
-        pose.spineRoll += lateral * 0.32
+        pose.spineRoll += lateral * 0.24
         pose.spinePitch += -forward * 0.29 + compression * 0.045
         pose.spine.y -= Float(lateral * 0.085)
         pose.head.z -= Float(lateral * 0.17)
