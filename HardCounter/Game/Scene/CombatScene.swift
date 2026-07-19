@@ -113,6 +113,7 @@ final class CombatScene: SKScene {
 #if DEBUG
     private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
+    private let uppercutShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--uppercut-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
@@ -120,7 +121,9 @@ final class CombatScene: SKScene {
     private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
     private let guardCloseupEnabled = ProcessInfo.processInfo.arguments.contains("--guard-closeup")
     private let damageShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--damage-showcase")
-    private var motionShowcaseController = MotionShowcaseController()
+    private var motionShowcaseController = MotionShowcaseController(
+        uppercutOnly: ProcessInfo.processInfo.arguments.contains("--uppercut-showcase")
+    )
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
     private var footworkShowcaseController = FootworkShowcaseController()
@@ -251,7 +254,7 @@ final class CombatScene: SKScene {
             updateDamageShowcase()
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
-        } else if motionShowcaseEnabled || impactShowcaseEnabled {
+        } else if motionShowcaseEnabled || uppercutShowcaseEnabled || impactShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
         } else {
             updateCPUCombat(at: currentTime)
@@ -557,7 +560,8 @@ final class CombatScene: SKScene {
                 || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
-            } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
+            } else if impactShowcaseEnabled || motionShowcaseEnabled || uppercutShowcaseEnabled
+                || motionClipShowcaseEnabled || swayShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -22, y: 0)
                 cpuArenaPosition = CGPoint(x: 22, y: 0)
             } else {
@@ -1388,7 +1392,7 @@ final class CombatScene: SKScene {
 
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
-        motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
+        motionShowcaseEnabled || uppercutShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
             || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
             || damageShowcaseEnabled
 #else

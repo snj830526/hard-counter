@@ -25,6 +25,11 @@ struct MotionShowcaseController {
     private var demoIndex = 0
     private var nextDemoAt: TimeInterval?
     private var punchAt: TimeInterval?
+    private let demos: [Demo]
+
+    init(uppercutOnly: Bool = false) {
+        demos = uppercutOnly ? [.uppercut] : Demo.allCases
+    }
 
     mutating func reset(at time: TimeInterval) {
         demoIndex = 0
@@ -47,7 +52,6 @@ struct MotionShowcaseController {
         if nextDemoAt == nil { reset(at: time) }
         guard let nextDemoAt, time >= nextDemoAt, state.phase == .idle else { return nil }
 
-        let demos = Demo.allCases
         let demo = demos[demoIndex % demos.count]
         demoIndex += 1
         self.nextDemoAt = nil

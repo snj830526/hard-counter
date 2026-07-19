@@ -98,10 +98,13 @@ final class SharedArena3DRenderer {
             baseReach = 1.16
             targetHalfWidth = 0.34
         case .smash:
-            baseReach = 1.22
+            // Technique reach multipliers are applied by CombatScene. These
+            // bases keep the final reach just beyond the shared arena's
+            // no-overlap distance, including the visually deeper ring axis.
+            baseReach = 1.30
             targetHalfWidth = 0.50
         case .uppercut:
-            baseReach = 1.12
+            baseReach = 1.34
             targetHalfWidth = 0.42
         }
         guard forward >= -0.04,
