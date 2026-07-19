@@ -685,15 +685,15 @@ final class Fighter3DRenderer {
         if movingLead {
             pushPose.rearKnee.x -= Float(0.075 * intensity)
             pushPose.rearAnklePitch += 0.09 * intensity
-            pushPose.leadHip.x += Float((0.13 + forward * 0.15) * stride * intensity)
-            pushPose.leadHip.z += Float(lateral * 0.13 * intensity)
-            pushPose.leadKnee.x += Float(0.27 * intensity)
+            pushPose.leadHip.x += Float((0.22 + forward * 0.24) * stride * intensity)
+            pushPose.leadHip.z += Float(lateral * 0.20 * intensity)
+            pushPose.leadKnee.x += Float(0.40 * intensity)
         } else {
             pushPose.leadKnee.x -= Float(0.075 * intensity)
             pushPose.leadAnklePitch += 0.09 * intensity
-            pushPose.rearHip.x += Float((0.13 + forward * 0.15) * stride * intensity)
-            pushPose.rearHip.z += Float(lateral * 0.13 * intensity)
-            pushPose.rearKnee.x += Float(0.27 * intensity)
+            pushPose.rearHip.x += Float((0.22 + forward * 0.24) * stride * intensity)
+            pushPose.rearHip.z += Float(lateral * 0.20 * intensity)
+            pushPose.rearKnee.x += Float(0.40 * intensity)
         }
 
         var travelPose = pushPose
@@ -703,13 +703,13 @@ final class Fighter3DRenderer {
         travelPose.pelvisRoll -= supportSign * 0.055 * intensity
         travelPose.spineRoll += supportSign * 0.043 * intensity
         if movingLead {
-            travelPose.leadHip.x += Float(0.08 * stride * intensity)
-            travelPose.leadKnee.x += Float(0.12 * intensity)
-            travelPose.leadAnklePitch += 0.12 * intensity
+            travelPose.leadHip.x += Float(0.14 * stride * intensity)
+            travelPose.leadKnee.x += Float(0.20 * intensity)
+            travelPose.leadAnklePitch += 0.17 * intensity
         } else {
-            travelPose.rearHip.x += Float(0.08 * stride * intensity)
-            travelPose.rearKnee.x += Float(0.12 * intensity)
-            travelPose.rearAnklePitch += 0.12 * intensity
+            travelPose.rearHip.x += Float(0.14 * stride * intensity)
+            travelPose.rearKnee.x += Float(0.20 * intensity)
+            travelPose.rearAnklePitch += 0.17 * intensity
         }
 
         var catchPose = guardPose
@@ -720,13 +720,13 @@ final class Fighter3DRenderer {
         catchPose.pelvisRoll -= supportSign * 0.032 * intensity
         catchPose.spineRoll += supportSign * 0.025 * intensity
         if movingLead {
-            catchPose.rearHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
-            catchPose.rearKnee.x += Float(0.23 * intensity)
-            catchPose.rearAnklePitch += 0.09 * intensity
+            catchPose.rearHip.x += Float((0.15 + forward * 0.14) * stride * intensity)
+            catchPose.rearKnee.x += Float(0.34 * intensity)
+            catchPose.rearAnklePitch += 0.13 * intensity
         } else {
-            catchPose.leadHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
-            catchPose.leadKnee.x += Float(0.23 * intensity)
-            catchPose.leadAnklePitch += 0.09 * intensity
+            catchPose.leadHip.x += Float((0.15 + forward * 0.14) * stride * intensity)
+            catchPose.leadKnee.x += Float(0.34 * intensity)
+            catchPose.leadAnklePitch += 0.13 * intensity
         }
 
         var settlePose = guardPose
@@ -1287,8 +1287,12 @@ final class Fighter3DRenderer {
             (rear, rearHip, rearKnee, rearAnkle)
         ] {
             constraint.influenceFactor = 0
-            constraint.setMaxAllowedRotationAngle(42, forJoint: hip)
-            constraint.setMaxAllowedRotationAngle(72, forJoint: knee)
+            // A wide hip solve lets SceneKit reach old plant targets by
+            // bowing both thighs outward. Keep the hip column narrow so the
+            // knees track over the shoes in an 11-shaped stance; the authored
+            // X-axis flexion still provides the large travelling step.
+            constraint.setMaxAllowedRotationAngle(26, forJoint: hip)
+            constraint.setMaxAllowedRotationAngle(68, forJoint: knee)
             constraint.setMaxAllowedRotationAngle(18, forJoint: ankle)
             ankle.constraints = [constraint]
         }
@@ -1459,7 +1463,7 @@ final class Fighter3DRenderer {
         groundHeight: Float
     ) -> SCNVector3 {
         let scale = max(abs(presentationRoot.presentation.scale.x), 0.01)
-        let maximumPlanarCorrection = 0.30 * scale
+        let maximumPlanarCorrection = 0.42 * scale
         let dx = target.x - current.x
         let dz = target.z - current.z
         let distance = hypot(dx, dz)

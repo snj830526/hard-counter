@@ -39,8 +39,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.54...0.80,
                 amplitudeBase: 0.70,
                 amplitudeGain: 1.02,
-                strideScale: 1.15,
-                liftScale: 1.00,
+                strideScale: 1.45,
+                liftScale: 1.18,
                 crouchScale: 1.00,
                 loadScale: 1.00,
                 catchScale: 1.00,
@@ -52,8 +52,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.56...0.84,
                 amplitudeBase: 0.76,
                 amplitudeGain: 1.08,
-                strideScale: 1.12,
-                liftScale: 0.70,
+                strideScale: 1.38,
+                liftScale: 0.95,
                 crouchScale: 1.22,
                 loadScale: 1.24,
                 catchScale: 1.18,
@@ -65,8 +65,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.48...0.72,
                 amplitudeBase: 0.64,
                 amplitudeGain: 1.10,
-                strideScale: 1.38,
-                liftScale: 1.28,
+                strideScale: 1.62,
+                liftScale: 1.44,
                 crouchScale: 0.72,
                 loadScale: 0.82,
                 catchScale: 0.76,
@@ -78,8 +78,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.54...0.81,
                 amplitudeBase: 0.72,
                 amplitudeGain: 1.04,
-                strideScale: 1.18,
-                liftScale: 0.88,
+                strideScale: 1.46,
+                liftScale: 1.08,
                 crouchScale: 1.08,
                 loadScale: 1.10,
                 catchScale: 1.12,
@@ -292,24 +292,24 @@ struct FighterLocomotionController {
             frontFootOffset: CGPoint(
                 x: frontFootPlantOffset.x
                     + localDirectionX * frontLift * motionAmplitude
-                        * 4.25 * footwork.strideScale,
+                        * 5.40 * footwork.strideScale,
                 y: frontFootPlantOffset.y + frontLift * motionAmplitude
-                    * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
+                    * (7.4 + stepDirection.dy * 2.0) * footwork.liftScale
             ),
             backFootOffset: CGPoint(
                 x: backFootPlantOffset.x
                     + localDirectionX * backLift * motionAmplitude
-                        * 4.25 * footwork.strideScale,
+                        * 5.40 * footwork.strideScale,
                 y: backFootPlantOffset.y + backLift * motionAmplitude
-                    * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
+                    * (7.4 + stepDirection.dy * 2.0) * footwork.liftScale
             ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
             pelvisRotation: displayedPelvisRotation,
             upperBodyPosition: displayedUpperPosition,
             upperBodyRotation: displayedUpperRotation,
-            frontAnkleLift: frontLift * motionAmplitude * 0.105 * footwork.liftScale,
-            backAnkleLift: backLift * motionAmplitude * 0.105 * footwork.liftScale,
+            frontAnkleLift: frontLift * motionAmplitude * 0.145 * footwork.liftScale,
+            backAnkleLift: backLift * motionAmplitude * 0.145 * footwork.liftScale,
             movementIntensity: displayedIntensity,
             forwardDrive: forwardDrive,
             lateralDrive: lateralDrive,

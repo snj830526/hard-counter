@@ -51,10 +51,12 @@ struct Fighter3DPose {
         pose.leadElbow = SCNVector3(-2.10, 0.01, 1.15)
         pose.rearShoulder = SCNVector3(-1.00, -0.03, 0.04)
         pose.rearElbow = SCNVector3(-2.12, -0.01, -0.98)
-        pose.leadHip = SCNVector3(-0.16, 0, 0)
-        pose.leadKnee = SCNVector3(0.36, 0, 0)
-        pose.rearHip = SCNVector3(-0.12, 0, 0)
-        pose.rearKnee = SCNVector3(0.34, 0, 0)
+        // Keep the resting leg columns nearly parallel. Action clips add the
+        // larger single-leg flexion only while that foot is travelling.
+        pose.leadHip = SCNVector3(-0.11, 0, 0)
+        pose.leadKnee = SCNVector3(0.27, 0, 0)
+        pose.rearHip = SCNVector3(-0.09, 0, 0)
+        pose.rearKnee = SCNVector3(0.25, 0, 0)
         return pose
     }()
 

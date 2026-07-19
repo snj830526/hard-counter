@@ -110,7 +110,7 @@ struct FighterFullBodyMotionController {
         // One full boxing shuffle now has enough time for two distinct weighty
         // footfalls: initiating foot, plant, then trailing foot. Root travel
         // speed remains stat-driven; only the presentation cadence slows down.
-        let stepDuration = (0.86 - Double(committedIntensity) * 0.06)
+        let stepDuration = (1.24 - Double(committedIntensity) * 0.08)
             / Double(cadence)
         stepProgress = min(
             stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20)),
