@@ -17,25 +17,43 @@ struct Fighter3DMaterialPalette {
     let marking: SCNMaterial
 
     init(appearance: FighterAppearance) {
+        let paintedArmor = Self.mixed(
+            appearance.kitColor,
+            with: UIColor.white,
+            amount: 0.14
+        )
         let frameMetal = Self.mixed(
             appearance.kitColor,
-            with: UIColor(red: 0.25, green: 0.29, blue: 0.34, alpha: 1),
-            amount: 0.88
+            with: UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1),
+            amount: 0.52
         )
-        let insetMetal = UIColor(red: 0.040, green: 0.050, blue: 0.067, alpha: 1)
-        let jointMetal = UIColor(red: 0.025, green: 0.032, blue: 0.045, alpha: 1)
+        let insetMetal = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1),
+            amount: 0.74
+        )
+        let jointMetal = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.16, green: 0.18, blue: 0.22, alpha: 1),
+            amount: 0.82
+        )
+        let accentPaint = Self.mixed(
+            appearance.accentColor,
+            with: UIColor.white,
+            amount: 0.20
+        )
         let pearlArmor = Self.mixed(
             appearance.kitColor,
             with: UIColor(red: 0.82, green: 0.86, blue: 0.88, alpha: 1),
-            amount: 0.68
+            amount: 0.58
         )
         skin = Self.makeMatte(frameMetal)
         shadowSkin = Self.makeMatte(insetMetal)
         jointSkin = Self.makeMatte(jointMetal)
-        kit = Self.makeMatte(appearance.kitColor)
-        accent = Self.makeMatte(appearance.accentColor)
+        kit = Self.makeMatte(paintedArmor)
+        accent = Self.makeMatte(accentPaint)
         hair = Self.makeMatte(insetMetal)
-        eyeWhite = Self.makeSignal(appearance.kitColor)
+        eyeWhite = Self.makeSignal(paintedArmor)
         secondaryArmor = Self.makeMatte(pearlArmor)
         marking = Self.makeMatte(
             UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1)
@@ -54,6 +72,10 @@ struct Fighter3DMaterialPalette {
         result.metalness.contents = 0
         result.roughness.contents = 1
         result.clearCoat.contents = 0
+        // A small albedo floor keeps saturated powder coats readable against
+        // the dark arena without creating a highlight or a luminous outline.
+        result.emission.contents = color
+        result.emission.intensity = 0.12
         result.lightingModel = .lambert
         return result
     }
