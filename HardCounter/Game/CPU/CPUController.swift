@@ -31,6 +31,7 @@ struct CPUController {
     private var tacticalMode: TacticalMode = .angle
     private var tacticalModeEndsAt: TimeInterval = 0
     private var combinationStepsRemaining = 0
+    private var hasInitiatedAttack = false
 
     init(difficulty: CPUDifficultyProfile = .challenger) {
         self.difficulty = difficulty
@@ -46,9 +47,10 @@ struct CPUController {
         circlingDirection = Bool.random() ? 1 : -1
         lastOpponentPhase = .idle
         lastSelfPhase = .idle
-        tacticalMode = .angle
+        tacticalMode = .pressure
         tacticalModeEndsAt = time
         combinationStepsRemaining = 0
+        hasInitiatedAttack = false
     }
 
     mutating func combatAction(for perception: CPUPerception) -> CombatAction? {
@@ -59,8 +61,14 @@ struct CPUController {
         lastSelfPhase = perception.selfState.phase
 
         if let counter = counterAction(for: perception) { return counter }
+        if !hasInitiatedAttack {
+            // The opening belongs to the CPU: close the gap and throw before
+            // considering reactive defense, so a passive player is pressured.
+            return pressureAttack(for: perception)
+        }
+        if let attack = pressureAttack(for: perception) { return attack }
         if let defense = defenseAction(for: perception) { return defense }
-        return pressureAttack(for: perception)
+        return nil
     }
 
     mutating func movement(for perception: CPUPerception) -> CGVector {
@@ -222,6 +230,7 @@ struct CPUController {
         }
 
         scheduleNextAttack(after: perception.time)
+        hasInitiatedAttack = true
         let distanceScale = perception.visibleDistance / max(perception.preferredPunchRange, 1)
         let forwardDrive = distanceScale > 0.88 ? 0.46 : 0.12
         let lateralDrive = tacticalMode == .angle

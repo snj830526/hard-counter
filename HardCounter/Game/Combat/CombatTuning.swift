@@ -41,7 +41,7 @@ enum CombatTuning {
     static let swayMotionAmplitude: CGFloat = 1.13
     static let hitReactionAmplitude: CGFloat = 1.14
 
-    static let cpuInitialDelay: TimeInterval = 0.75
+    static let cpuInitialDelay: TimeInterval = 0.35
 
     static let hudTopPadding: CGFloat = 20
     static let hudHorizontalPadding: CGFloat = 24
@@ -79,7 +79,7 @@ enum CombatTuning {
     static let movementDeceleration: CGFloat = 11.5
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
-    static let cpuScreenMoveSpeed: CGFloat = 104
+    static let cpuScreenMoveSpeed: CGFloat = 132
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
