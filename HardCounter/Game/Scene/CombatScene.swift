@@ -93,6 +93,7 @@ final class CombatScene: SKScene {
     private var arenaZoom = ArenaViewTuning.baseZoom
     private var cameraViewAngle: CGFloat = 0
     private var cameraShotEnteredAt: TimeInterval = -.infinity
+    private var cameraShotFocusWorldPosition = CGPoint.zero
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
@@ -960,6 +961,7 @@ final class CombatScene: SKScene {
         if let desired = desiredCameraViewAngle() {
             cameraViewAngle = fixedCameraAngle(nearestTo: desired)
         }
+        cameraShotFocusWorldPosition = fighterMidpointInWorld
         cameraShotEnteredAt = gameTime
         rebuildProjectionAndRing()
     }
@@ -985,6 +987,10 @@ final class CombatScene: SKScene {
         guard abs(shortestAngleDelta(from: cameraViewAngle, to: angle)) > 0.001 else {
             return
         }
+        // A newly selected fixed camera is aimed once at the current exchange.
+        // Holding this world-space anchor prevents the fighters from appearing
+        // to reset toward the ring origin when the projection changes.
+        cameraShotFocusWorldPosition = fighterMidpointInWorld
         cameraViewAngle = normalizedAngle(angle)
         cameraShotEnteredAt = gameTime
         rebuildProjectionAndRing()
@@ -1000,6 +1006,13 @@ final class CombatScene: SKScene {
 
     private var cameraAngularSpacing: CGFloat {
         2 * .pi / CGFloat(ArenaViewTuning.cameraBankCount)
+    }
+
+    private var fighterMidpointInWorld: CGPoint {
+        CGPoint(
+            x: (playerArenaPosition.x + cpuArenaPosition.x) * 0.5,
+            y: (playerArenaPosition.y + cpuArenaPosition.y) * 0.5
+        )
     }
 
     private func fixedCameraAngle(nearestTo angle: CGFloat) -> CGFloat {
@@ -1073,9 +1086,10 @@ final class CombatScene: SKScene {
 
     private func fixedCameraPosition(zoom: CGFloat) -> CGPoint {
         let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
+        let projectedFocus = ringProjection.project(cameraShotFocusWorldPosition)
         return CGPoint(
-            x: target.x - ringProjection.center.x * zoom,
-            y: target.y - ringProjection.center.y * zoom
+            x: target.x - projectedFocus.x * zoom,
+            y: target.y - projectedFocus.y * zoom
         )
     }
 
@@ -1110,7 +1124,7 @@ final class CombatScene: SKScene {
         let bounds = fighterPresentationBounds()
         let safeFrame = fighterCameraSafeFrame()
         let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
-        let center = ringProjection.center
+        let center = ringProjection.project(cameraShotFocusWorldPosition)
         var fit = ArenaViewTuning.closeZoom
 
         let minimumX = bounds.minX - center.x
