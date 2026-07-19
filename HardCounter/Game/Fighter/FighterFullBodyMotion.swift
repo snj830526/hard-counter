@@ -185,9 +185,12 @@ struct FighterFullBodyMotionController {
             direction: committedDirection,
             towardOpponent: towardOpponent
         )
-        let leadFootMoves = abs(local.forward) >= abs(local.lateral)
-            ? local.forward >= 0
-            : local.lateral >= 0
+        // Choose the foot whose stance corner is already closest to the
+        // requested direction. Looking only at the dominant axis made some
+        // diagonals choose the rear foot even when the lead foot was clearly
+        // on the outside of the turn.
+        let leadStanceScore = local.forward * 1.05 + local.lateral
+        let leadFootMoves = leadStanceScore >= 0
         supportFoot = leadFootMoves ? .rear : .lead
         initiatingFoot = leadFootMoves ? .lead : .rear
     }
@@ -239,16 +242,22 @@ struct FighterFullBodyMotionController {
     }
 
     private func movementEnvelope(at progress: CGFloat) -> CGFloat {
-        if progress < 0.16 {
-            return 0.22 + smooth(progress / 0.16) * 0.50
+        // Load the hip and support knee before translating the ring root.
+        // Starting root travel on the first step frame made a grounded boot
+        // slide and let the torso appear to pull the legs behind it.
+        if progress < 0.055 {
+            return 0
+        }
+        if progress < 0.20 {
+            return smooth((progress - 0.055) / 0.145) * 0.82
         }
         if progress < 0.54 {
-            return 0.72 + smooth((progress - 0.16) / 0.38) * 0.28
+            return 0.82 + smooth((progress - 0.20) / 0.34) * 0.23
         }
         if progress < 0.82 {
-            return 1 - smooth((progress - 0.54) / 0.28) * 0.20
+            return 1.05 - smooth((progress - 0.54) / 0.28) * 0.19
         }
-        return 0.80 - smooth((progress - 0.82) / 0.18) * 0.28
+        return 0.86 - smooth((progress - 0.82) / 0.18) * 0.32
     }
 
     private func localComponents(

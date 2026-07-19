@@ -19,7 +19,7 @@ struct Fighter3DMechanicalMotionProfile {
             return Self(
                 mass: 1,
                 strideScale: 0.92,
-                liftScale: 0.88,
+                liftScale: 0.96,
                 suspensionTravel: 1,
                 chassisLag: 1,
                 jointStiffness: 1
@@ -28,7 +28,7 @@ struct Fighter3DMechanicalMotionProfile {
             return Self(
                 mass: 1.22,
                 strideScale: 0.84,
-                liftScale: 0.76,
+                liftScale: 0.90,
                 suspensionTravel: 1.18,
                 chassisLag: 1.20,
                 jointStiffness: 0.88
@@ -46,7 +46,7 @@ struct Fighter3DMechanicalMotionProfile {
             return Self(
                 mass: 1.10,
                 strideScale: 0.88,
-                liftScale: 0.84,
+                liftScale: 0.94,
                 suspensionTravel: 1.08,
                 chassisLag: 1.08,
                 jointStiffness: 0.94

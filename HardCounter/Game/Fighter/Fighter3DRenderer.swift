@@ -1399,13 +1399,17 @@ final class Fighter3DRenderer {
             let leadStart = leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent
             let rearStart = rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent
             let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
+            let initiatingSwing = min(max(
+                (frame.stepProgress - 0.055) / 0.305,
+                0
+            ), 1)
             switch bodyMotion.initiatingFoot {
             case .lead:
-                if frame.stepProgress <= 0.34 {
+                if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: frame.stepProgress / 0.34,
+                        progress: initiatingSwing,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
@@ -1418,11 +1422,11 @@ final class Fighter3DRenderer {
                     )
                 }
             case .rear:
-                if frame.stepProgress <= 0.34 {
+                if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: frame.stepProgress / 0.34,
+                        progress: initiatingSwing,
                         lift: frame.backAnkleLift * scale
                     )
                 }
