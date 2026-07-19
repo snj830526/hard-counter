@@ -12,6 +12,8 @@ final class SharedArena3DRenderer {
     private let cameraNode = SCNNode()
     private let ringHalfWidth: Float = 4.4
     private let ringHalfDepth: Float = 2.55
+    private let cameraOrthographicScale: CGFloat = 3.65
+    private let floorDepthVerticalFactor: CGFloat = 0.884
 
     init(size: CGSize, player: FighterNode, opponent: FighterNode) {
         viewport = SK3DNode(viewportSize: size)
@@ -43,6 +45,64 @@ final class SharedArena3DRenderer {
     ) {
         player.setThreeDStageTransform(position: stagePosition(playerWorldPosition))
         opponent.setThreeDStageTransform(position: stagePosition(opponentWorldPosition))
+    }
+
+    func screenPoint(forWorldPosition world: CGPoint) -> CGPoint {
+        let stage = stagePosition(world)
+        let projected = viewport.projectPoint(SIMD3<Float>(stage.x, stage.y, stage.z))
+        return CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+    }
+
+    func stageDistance(from start: CGPoint, to end: CGPoint) -> CGFloat {
+        let a = stagePosition(start)
+        let b = stagePosition(end)
+        return CGFloat(hypot(b.x - a.x, b.z - a.z))
+    }
+
+    func bodyContactPoint(forWorldPosition world: CGPoint) -> CGPoint {
+        let floor = screenPoint(forWorldPosition: world)
+        return CGPoint(x: floor.x, y: floor.y + 72)
+    }
+
+    func worldDirection(forScreenVector vector: CGVector) -> CGVector {
+        let magnitude = min(hypot(vector.dx, vector.dy), 1)
+        guard magnitude > 0.001 else { return .zero }
+        let xPoints = screenPointsPerWorldPointX
+        let yPoints = screenPointsPerWorldPointY
+        let world = CGVector(
+            dx: vector.dx / max(xPoints, 0.001),
+            dy: -vector.dy / max(yPoints, 0.001)
+        )
+        let length = hypot(world.dx, world.dy)
+        guard length > 0.001 else { return .zero }
+        return CGVector(
+            dx: world.dx / length * magnitude,
+            dy: world.dy / length * magnitude
+        )
+    }
+
+    func screenDirection(forWorldVector vector: CGVector) -> CGVector {
+        let x = vector.dx * screenPointsPerWorldPointX
+        let y = -vector.dy * screenPointsPerWorldPointY
+        return CGVector(dx: x, dy: y)
+    }
+
+    func screenPointsPerWorldPoint(for worldUnit: CGVector) -> CGFloat {
+        hypot(
+            worldUnit.dx * screenPointsPerWorldPointX,
+            worldUnit.dy * screenPointsPerWorldPointY
+        )
+    }
+
+    private var screenPointsPerWorldPointX: CGFloat {
+        viewport.viewportSize.height / cameraOrthographicScale
+            * CGFloat(ringHalfWidth) / QuarterViewProjection.halfWidth
+    }
+
+    private var screenPointsPerWorldPointY: CGFloat {
+        viewport.viewportSize.height / cameraOrthographicScale
+            * CGFloat(ringHalfDepth) / QuarterViewProjection.halfDepth
+            * floorDepthVerticalFactor
     }
 
     private func stagePosition(_ world: CGPoint) -> SCNVector3 {
@@ -122,11 +182,11 @@ final class SharedArena3DRenderer {
     private func buildCamera() {
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
-        camera.orthographicScale = 4.35
+        camera.orthographicScale = cameraOrthographicScale
         camera.zNear = 0.1
         camera.zFar = 100
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(6.6, 5.4, 8.6)
+        cameraNode.position = SCNVector3(0, 5.4, 8.6)
         cameraNode.look(at: SCNVector3(0, 0.85, 0))
         scene.rootNode.addChildNode(cameraNode)
         viewport.pointOfView = cameraNode

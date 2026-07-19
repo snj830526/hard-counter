@@ -22,6 +22,7 @@ final class FighterNode: SKNode {
     private var currentPhase: FighterPhase = .idle
     private let damageEffectRoot = SKNode()
     private var damageVisualTier = 0
+    private var usesScreenSpaceDamageEffects = false
 
     var committedPunchAimDirection: CGVector { activePunchAimDirection }
 
@@ -32,6 +33,22 @@ final class FighterNode: SKNode {
 
     func setThreeDStageTransform(position: SCNVector3, scale: Float = 1) {
         threeDRenderer.setSharedStageTransform(position: position, scale: scale)
+    }
+
+    func attachDamageEffects(to screenSpaceParent: SKNode) {
+        damageEffectRoot.removeFromParent()
+        screenSpaceParent.addChild(damageEffectRoot)
+        damageEffectRoot.zPosition = 70
+        usesScreenSpaceDamageEffects = true
+    }
+
+    func updateDamageEffectScreenPosition(_ position: CGPoint, fighterScale: CGFloat) {
+        guard usesScreenSpaceDamageEffects else { return }
+        damageEffectRoot.position = CGPoint(
+            x: position.x,
+            y: position.y + 62 * fighterScale
+        )
+        damageEffectRoot.setScale(fighterScale)
     }
 
     private var animationRoot: SKNode { rig.animationRoot }

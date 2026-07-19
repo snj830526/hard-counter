@@ -396,6 +396,8 @@ final class CombatScene: SKScene {
             )
             sharedArena3DRenderer = renderer
             addChild(renderer.viewport)
+            player.attachDamageEffects(to: self)
+            cpu.attachDamageEffects(to: self)
             ringNode.isHidden = true
             playerShadow.isHidden = true
             cpuShadow.isHidden = true
@@ -658,7 +660,7 @@ final class CombatScene: SKScene {
             toward: playerBodyFrame.resolvedMovement,
             deltaTime: deltaTime
         )
-        let worldMovement = ringProjection.worldDirection(forScreenVector: screenMovement)
+        let worldMovement = presentationWorldDirection(forScreenVector: screenMovement)
         let directionMultiplier = directionalFootworkMultiplier(for: worldMovement)
         let movementMultiplier = phaseMultiplier * directionMultiplier
             * staminaFootworkMultiplier(for: .player)
@@ -682,7 +684,7 @@ final class CombatScene: SKScene {
         if let networkConfiguration {
             cpuTargetMovement = networkConfiguration.localFighterID == .cpu ? localMovement : remoteMovement
         } else if let showcaseMovement = footworkShowcaseMovement(at: gameTime) {
-            cpuTargetMovement = ringProjection.worldDirection(
+            cpuTargetMovement = presentationWorldDirection(
                 forScreenVector: showcaseMovement
             )
         } else if cpuCanMove {
@@ -715,7 +717,7 @@ final class CombatScene: SKScene {
         if cpuCanMove {
             let staminaMultiplier = staminaFootworkMultiplier(for: .cpu)
             if networkConfiguration != nil {
-                let cpuWorldMovement = ringProjection.worldDirection(forScreenVector: cpuMovement)
+                let cpuWorldMovement = presentationWorldDirection(forScreenVector: cpuMovement)
                 let multiplier = footworkMultiplier(for: .cpu)
                     * directionalFootworkMultiplier(for: cpuWorldMovement, fighter: .cpu)
                     * staminaMultiplier
@@ -745,7 +747,7 @@ final class CombatScene: SKScene {
             ),
             cpuMovement: cpuCanMove
                 ? (networkConfiguration == nil
-                    ? ringProjection.screenVector(forWorldVector: cpuMovement)
+                    ? presentationScreenDirection(forWorldVector: cpuMovement)
                     : cpuMovement) : .zero,
             playerBodyMotion: playerBodyFrame,
             cpuBodyMotion: cpuBodyFrame,
@@ -860,8 +862,19 @@ final class CombatScene: SKScene {
             dx: movement.dx / inputAmount,
             dy: movement.dy / inputAmount
         )
+        let screenPointsPerWorldPoint: CGFloat
+#if DEBUG
+        if let sharedArena3DRenderer {
+            screenPointsPerWorldPoint = sharedArena3DRenderer
+                .screenPointsPerWorldPoint(for: worldUnit)
+        } else {
+            let projectedUnit = ringProjection.screenVector(forWorldVector: worldUnit)
+            screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        }
+#else
         let projectedUnit = ringProjection.screenVector(forWorldVector: worldUnit)
-        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+#endif
         guard screenPointsPerWorldPoint > 0.001 else { return .zero }
 
         let worldSpeed = screenSpeed * inputAmount / screenPointsPerWorldPoint
@@ -874,14 +887,21 @@ final class CombatScene: SKScene {
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
         let distance = hypot(delta.dx, delta.dy)
-        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
-        let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
+        let projectedDelta = presentationScreenVector(forWorldVector: delta)
+        let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy)
         let averagePerspectiveScale = (
             fighterScreenScale(at: playerArenaPosition)
                 + fighterScreenScale(at: cpuArenaPosition)
         ) * 0.5
+        let sharedStageSeparationScale: CGFloat
+#if DEBUG
+        sharedStageSeparationScale = sharedArena3DRenderer == nil ? 1 : 2.15
+#else
+        sharedStageSeparationScale = 1
+#endif
         let minimumScreenSeparation = CombatTuning.minimumFighterSeparationAtUnitScale
             * averagePerspectiveScale
+            * sharedStageSeparationScale
         guard screenDistance < minimumScreenSeparation else { return }
 
         let direction: CGVector
@@ -890,8 +910,8 @@ final class CombatScene: SKScene {
         } else {
             direction = CGVector(dx: 1, dy: 0)
         }
-        let projectedUnit = ringProjection.screenVector(forWorldVector: direction)
-        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        let projectedUnit = presentationScreenVector(forWorldVector: direction)
+        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy)
         guard screenPointsPerWorldPoint > 0.001 else { return }
         let targetWorldDistance = minimumScreenSeparation / screenPointsPerWorldPoint
         let correction = max(targetWorldDistance - distance, 0)
@@ -908,8 +928,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let correctedScreenDelta = ringProjection.screenVector(forWorldVector: correctedDelta)
-        let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy) * arenaZoom
+        let correctedScreenDelta = presentationScreenVector(forWorldVector: correctedDelta)
+        let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy)
         let remaining = max(
             (minimumScreenSeparation - correctedScreenDistance) / screenPointsPerWorldPoint,
             0
@@ -924,8 +944,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let finalScreenDelta = ringProjection.screenVector(forWorldVector: finalDelta)
-        let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy) * arenaZoom
+        let finalScreenDelta = presentationScreenVector(forWorldVector: finalDelta)
+        let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy)
         let finalRemaining = max(
             (minimumScreenSeparation - finalScreenDistance) / screenPointsPerWorldPoint,
             0
@@ -943,9 +963,25 @@ final class CombatScene: SKScene {
         cpuArenaPosition = clampedToRing(cpuArenaPosition)
         separateFighters()
 
-        let playerScreenPosition = ringProjection.project(playerArenaPosition)
-        let cpuScreenPosition = ringProjection.project(cpuArenaPosition)
-        playerToCPUScreenDirection = ringProjection.screenVector(forWorldVector: CGVector(
+        let playerScreenPosition: CGPoint
+        let cpuScreenPosition: CGPoint
+#if DEBUG
+        if let sharedArena3DRenderer {
+            playerScreenPosition = sharedArena3DRenderer.screenPoint(
+                forWorldPosition: playerArenaPosition
+            )
+            cpuScreenPosition = sharedArena3DRenderer.screenPoint(
+                forWorldPosition: cpuArenaPosition
+            )
+        } else {
+            playerScreenPosition = ringProjection.project(playerArenaPosition)
+            cpuScreenPosition = ringProjection.project(cpuArenaPosition)
+        }
+#else
+        playerScreenPosition = ringProjection.project(playerArenaPosition)
+        cpuScreenPosition = ringProjection.project(cpuArenaPosition)
+#endif
+        playerToCPUScreenDirection = presentationScreenDirection(forWorldVector: CGVector(
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         ))
@@ -956,6 +992,14 @@ final class CombatScene: SKScene {
         applyPerspective(to: player, shadow: playerShadow, worldPosition: playerArenaPosition, screenPosition: playerScreenPosition)
         applyPerspective(to: cpu, shadow: cpuShadow, worldPosition: cpuArenaPosition, screenPosition: cpuScreenPosition)
 #if DEBUG
+        player.updateDamageEffectScreenPosition(
+            playerScreenPosition,
+            fighterScale: player.xScale
+        )
+        cpu.updateDamageEffectScreenPosition(
+            cpuScreenPosition,
+            fighterScale: cpu.xScale
+        )
         sharedArena3DRenderer?.update(
             player: player,
             opponent: cpu,
@@ -967,6 +1011,34 @@ final class CombatScene: SKScene {
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {
         ringProjection.clamped(position)
+    }
+
+    private func presentationWorldDirection(forScreenVector vector: CGVector) -> CGVector {
+#if DEBUG
+        if let sharedArena3DRenderer {
+            return sharedArena3DRenderer.worldDirection(forScreenVector: vector)
+        }
+#endif
+        return ringProjection.worldDirection(forScreenVector: vector)
+    }
+
+    private func presentationScreenDirection(forWorldVector vector: CGVector) -> CGVector {
+#if DEBUG
+        if let sharedArena3DRenderer {
+            return sharedArena3DRenderer.screenDirection(forWorldVector: vector)
+        }
+#endif
+        return ringProjection.screenVector(forWorldVector: vector)
+    }
+
+    private func presentationScreenVector(forWorldVector vector: CGVector) -> CGVector {
+#if DEBUG
+        if sharedArena3DRenderer != nil {
+            return presentationScreenDirection(forWorldVector: vector)
+        }
+#endif
+        let projected = ringProjection.screenVector(forWorldVector: vector)
+        return CGVector(dx: projected.dx * arenaZoom, dy: projected.dy * arenaZoom)
     }
 
     private func cameraFocusPoint() -> CGPoint {
@@ -1231,6 +1303,58 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
+#if DEBUG
+        if let sharedArena3DRenderer {
+            let attackerWorld = attacker == .player
+                ? playerArenaPosition : cpuArenaPosition
+            let defenderWorld = attacker == .player
+                ? cpuArenaPosition : playerArenaPosition
+            let stageDistance = sharedArena3DRenderer.stageDistance(
+                from: attackerWorld,
+                to: defenderWorld
+            )
+            let baseReach: CGFloat
+            let minimumAimDot: CGFloat
+            switch profile.technique {
+            case .straight:
+                baseReach = 1.16
+                minimumAimDot = 0.50
+            case .smash:
+                baseReach = 1.22
+                minimumAimDot = -0.05
+            case .uppercut:
+                baseReach = 1.12
+                minimumAimDot = -0.12
+            }
+            let maximumReach = baseReach
+                * motionReachScale
+                * techniqueReachScale
+                * CGFloat(profile.reachScale)
+            guard stageDistance <= maximumReach else {
+                pendingPunchContactPoints[attacker] = nil
+                return false
+            }
+
+            let attackerNode = attacker == .player ? player : cpu
+            let screenDelta = presentationScreenDirection(forWorldVector: CGVector(
+                dx: defenderWorld.x - attackerWorld.x,
+                dy: defenderWorld.y - attackerWorld.y
+            ))
+            let deltaLength = hypot(screenDelta.dx, screenDelta.dy)
+            let aim = attackerNode.committedPunchAimDirection
+            let aimLength = hypot(aim.dx, aim.dy)
+            guard deltaLength > 0.001, aimLength > 0.001 else { return false }
+            let aimDot = screenDelta.dx / deltaLength * aim.dx / aimLength
+                + screenDelta.dy / deltaLength * aim.dy / aimLength
+            guard aimDot >= minimumAimDot else {
+                pendingPunchContactPoints[attacker] = nil
+                return false
+            }
+            pendingPunchContactPoints[attacker] = sharedArena3DRenderer
+                .bodyContactPoint(forWorldPosition: defenderWorld)
+            return true
+        }
+#endif
         let attackerNode = attacker == .player ? player : cpu
         let defenderNode = attacker == .player ? cpu : player
         // Visual framing may enlarge the fighters for readability. Contact
@@ -1257,8 +1381,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
-        return hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
+        let projectedDelta = presentationScreenVector(forWorldVector: delta)
+        return hypot(projectedDelta.dx, projectedDelta.dy)
     }
 
     private func maximumVisiblePunchDistance(
@@ -1296,7 +1420,7 @@ final class CombatScene: SKScene {
             : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
         return localInputSource.swayIntent(
             at: gameTime,
-            towardOpponent: ringProjection.screenVector(forWorldVector: towardOpponent)
+            towardOpponent: presentationScreenDirection(forWorldVector: towardOpponent)
         )
     }
 
@@ -1309,7 +1433,7 @@ final class CombatScene: SKScene {
             dx: smoother.dx * 0.70 + rawMovement.dx * 0.30,
             dy: smoother.dy * 0.70 + rawMovement.dy * 0.30
         )
-        let worldMovement = ringProjection.worldDirection(forScreenVector: effectiveMovement)
+        let worldMovement = presentationWorldDirection(forScreenVector: effectiveMovement)
         let opponentVector = localFighter == .player
             ? CGVector(dx: cpuArenaPosition.x - playerArenaPosition.x, dy: cpuArenaPosition.y - playerArenaPosition.y)
             : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
@@ -1549,9 +1673,7 @@ final class CombatScene: SKScene {
             )
         return SwayInputResolver.resolve(
             movement: screenDirection,
-            towardOpponent: ringProjection.screenVector(
-                forWorldVector: towardOpponent
-            )
+            towardOpponent: presentationScreenDirection(forWorldVector: towardOpponent)
         )
     }
 
