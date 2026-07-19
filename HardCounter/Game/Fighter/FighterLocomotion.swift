@@ -232,9 +232,9 @@ struct FighterLocomotionController {
         ) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
         let weightLoad = supportSign * preload * motionAmplitude
-            * 4.15 * footwork.loadScale
+            * 3.25 * footwork.loadScale
         let weightCatch = -supportSign * landing * motionAmplitude
-            * 2.55 * footwork.catchScale
+            * 2.05 * footwork.catchScale
         let directionalLean = localDirectionX * displayedIntensity
         let guardedForwardLoad = forwardDrive * displayedIntensity
         let guardedLateralLoad = lateralDrive * facing * displayedIntensity

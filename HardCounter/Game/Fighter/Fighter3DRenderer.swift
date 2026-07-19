@@ -611,8 +611,8 @@ final class Fighter3DRenderer {
         loadPose.spine.y += Float(lateral * 0.045 * intensity)
         loadPose.leadKnee.x += Float((movingLead ? 0.055 : 0.115) * intensity)
         loadPose.rearKnee.x += Float((movingLead ? 0.115 : 0.055) * intensity)
-        loadPose.pelvisRoll += supportSign * 0.058 * intensity
-        loadPose.spineRoll -= supportSign * 0.040 * intensity
+        loadPose.pelvisRoll += supportSign * 0.035 * intensity
+        loadPose.spineRoll -= supportSign * 0.026 * intensity
 
         var pushPose = loadPose
         pushPose.rootZ += forward * 0.090 * intensity
@@ -637,8 +637,8 @@ final class Fighter3DRenderer {
         travelPose.rootY += 0.050 * motionProfile.footworkBounce * intensity
         travelPose.rootZ += forward * 0.055 * intensity
         travelPose.rootX += lateral * 0.045 * intensity
-        travelPose.pelvisRoll -= supportSign * 0.095 * intensity
-        travelPose.spineRoll += supportSign * 0.072 * intensity
+        travelPose.pelvisRoll -= supportSign * 0.055 * intensity
+        travelPose.spineRoll += supportSign * 0.043 * intensity
         if movingLead {
             travelPose.leadHip.x += Float(0.08 * stride * intensity)
             travelPose.leadKnee.x += Float(0.12 * intensity)
@@ -654,8 +654,8 @@ final class Fighter3DRenderer {
         catchPose.rootZ += forward * 0.045 * intensity
         catchPose.rootX += lateral * 0.035 * intensity
         catchPose.pelvis.y += Float(lateral * 0.090 * intensity)
-        catchPose.pelvisRoll -= supportSign * 0.052 * intensity
-        catchPose.spineRoll += supportSign * 0.038 * intensity
+        catchPose.pelvisRoll -= supportSign * 0.032 * intensity
+        catchPose.spineRoll += supportSign * 0.025 * intensity
         if movingLead {
             catchPose.rearHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
             catchPose.rearKnee.x += Float(0.23 * intensity)
@@ -715,9 +715,9 @@ final class Fighter3DRenderer {
         case .allRounder:
             // JIN keeps the head over the hips and lets the shoulders roll
             // against each planted step: compact, readable counter footwork.
-            pose.pelvisRoll += stepDifference * 0.030
-            pose.spineRoll -= stepDifference * 0.040
-            pose.head.z += Float(stepDifference * 0.026)
+            pose.pelvisRoll += stepDifference * 0.018
+            pose.spineRoll -= stepDifference * 0.025
+            pose.head.z += Float(stepDifference * 0.016)
             pose.rootY -= movementAmount * 0.012
             pose.pelvis.y += Float(stepDifference * 0.045)
             pose.spine.y -= Float(stepDifference * 0.032)
@@ -740,9 +740,9 @@ final class Fighter3DRenderer {
             let bounce = max(leadLift, rearLift)
             pose.rootY += bounce * 0.050 + rhythm * movementAmount * 0.018
             pose.rootZ -= movementAmount * 0.025
-            pose.pelvisRoll += stepDifference * 0.052
-            pose.spineRoll -= stepDifference * 0.075
-            pose.head.z += Float(stepDifference * 0.045)
+            pose.pelvisRoll += stepDifference * 0.030
+            pose.spineRoll -= stepDifference * 0.045
+            pose.head.z += Float(stepDifference * 0.028)
             pose.pelvis.y += Float(stepDifference * 0.075)
             pose.spine.y -= Float(stepDifference * 0.060)
             pose.leadAnklePitch += leadLift * 0.075

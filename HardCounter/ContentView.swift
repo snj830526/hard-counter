@@ -1,8 +1,25 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var destination: GameDestination = .modeSelection
+    @State private var destination: GameDestination
     @StateObject private var nearbyService = NearbyLobbyService()
+
+    init() {
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        let shouldLaunchMotionShowcase = [
+            "--footwork-showcase",
+            "--motion-showcase",
+            "--motion-clip-showcase",
+            "--sway-showcase"
+        ].contains(where: arguments.contains)
+        if shouldLaunchMotionShowcase {
+            _destination = State(initialValue: .combat(.allRounder))
+            return
+        }
+#endif
+        _destination = State(initialValue: .modeSelection)
+    }
 
     var body: some View {
         ZStack {
