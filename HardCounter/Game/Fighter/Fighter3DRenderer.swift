@@ -24,6 +24,8 @@ final class Fighter3DRenderer {
     private let rearAnkle = SCNNode()
     private var leadFootIK: SCNIKConstraint?
     private var rearFootIK: SCNIKConstraint?
+    private var leadFootGroundY: Float?
+    private var rearFootGroundY: Float?
 
     private var phase: FighterPhase = .idle
     private var phaseElapsed: TimeInterval = 0
@@ -62,6 +64,7 @@ final class Fighter3DRenderer {
         buildLights(in: scene)
         buildFighter(in: scene, appearance: appearance)
         apply(guardPose)
+        captureFootGroundHeight()
     }
 
     func show(phase newPhase: FighterPhase) {
@@ -299,10 +302,10 @@ final class Fighter3DRenderer {
             torso: 0.70,
             arms: 0.46
         )
-        coilPose.rootY -= 0.045
-        coilPose.rootZ -= 0.035
-        coilPose.pelvis.y -= Float(handSign * 0.08)
-        coilPose.spine.y -= Float(handSign * 0.045)
+        coilPose.rootY -= 0.065
+        coilPose.rootZ -= 0.050
+        coilPose.pelvis.y -= Float(handSign * 0.105)
+        coilPose.spine.y -= Float(handSign * 0.065)
         coilPose.leadKnee.x += activeHand == .rear ? 0.07 : 0.11
         coilPose.rearKnee.x += activeHand == .rear ? 0.12 : 0.07
         coilPose = FighterFullBodyActionPoseSolver.strike(
@@ -326,10 +329,10 @@ final class Fighter3DRenderer {
             torso: 0.58,
             arms: 0.18
         )
-        drivePose.rootY += punchProfile.technique == .uppercut ? 0.06 : 0.015
-        drivePose.rootZ += 0.075 * power
-        drivePose.pelvis.y += Float(handSign * 0.12 * power)
-        drivePose.spine.y += Float(handSign * 0.07 * power)
+        drivePose.rootY += punchProfile.technique == .uppercut ? 0.085 : 0.020
+        drivePose.rootZ += 0.105 * power
+        drivePose.pelvis.y += Float(handSign * 0.16 * power)
+        drivePose.spine.y += Float(handSign * 0.105 * power)
         if activeHand == .rear {
             drivePose.rearKnee.x -= Float(0.10 * power)
             drivePose.rearAnklePitch += 0.10 * power
@@ -370,20 +373,20 @@ final class Fighter3DRenderer {
         var followPose = connectedStrikePose
         switch punchProfile.technique {
         case .straight:
-            followPose.rootZ += 0.11 * power
-            followPose.rootRoll += handSign * 0.035 * power
-            followPose.pelvis.y += Float(handSign * 0.11 * power)
-            followPose.spine.y += Float(handSign * 0.15 * power)
-            followPose.spinePitch += 0.07 * power
+            followPose.rootZ += 0.15 * power
+            followPose.rootRoll += handSign * 0.050 * power
+            followPose.pelvis.y += Float(handSign * 0.15 * power)
+            followPose.spine.y += Float(handSign * 0.21 * power)
+            followPose.spinePitch += 0.095 * power
         case .smash:
-            followPose.rootZ += 0.075 * power
-            followPose.rootRoll += handSign * 0.06 * power
-            followPose.pelvis.y += Float(handSign * 0.16 * power)
-            followPose.spine.y += Float(handSign * 0.20 * power)
+            followPose.rootZ += 0.12 * power
+            followPose.rootRoll += handSign * 0.070 * power
+            followPose.pelvis.y += Float(handSign * 0.22 * power)
+            followPose.spine.y += Float(handSign * 0.28 * power)
         case .uppercut:
-            followPose.rootY += 0.10 * power
-            followPose.rootZ += 0.06 * power
-            followPose.spinePitch += 0.10 * power
+            followPose.rootY += 0.15 * power
+            followPose.rootZ += 0.09 * power
+            followPose.spinePitch += 0.15 * power
         }
 
         var recoilPose = followPose.stagedBlend(
@@ -403,8 +406,8 @@ final class Fighter3DRenderer {
             Fighter3DMotionKeyframe(position: 0.36, pose: loadPose, arrivalCurve: .smooth),
             Fighter3DMotionKeyframe(position: 0.48, pose: drivePose, arrivalCurve: .explosive),
             Fighter3DMotionKeyframe(position: 0.60, pose: connectedStrikePose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.69, pose: followPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 0.83, pose: recoilPose, arrivalCurve: .settle),
+            Fighter3DMotionKeyframe(position: 0.72, pose: followPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.86, pose: recoilPose, arrivalCurve: .settle),
             Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
         ])
     }
@@ -445,9 +448,9 @@ final class Fighter3DRenderer {
         applyGuardIdentity(to: &evadePose)
 
         let apexFrame = FighterFullBodyActionFrame(
-            forward: components.forward * 1.04,
-            lateral: components.lateral * 1.06,
-            screenHorizontal: screenHorizontal * 1.06,
+            forward: components.forward * 1.12,
+            lateral: components.lateral * 1.14,
+            screenHorizontal: screenHorizontal * 1.14,
             intensity: performance * motionProfile.swayRange,
             compression: 1.0,
             weightShift: components.lateral,
@@ -472,10 +475,10 @@ final class Fighter3DRenderer {
         return Fighter3DMotionClip(keyframes: [
             Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
             Fighter3DMotionKeyframe(position: 0.08, pose: loadPose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.23, pose: evadePose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.37, pose: apexPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 0.49, pose: apexPose, arrivalCurve: .hold),
-            Fighter3DMotionKeyframe(position: 0.82, pose: recoveryPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.20, pose: evadePose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.34, pose: apexPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.48, pose: apexPose, arrivalCurve: .hold),
+            Fighter3DMotionKeyframe(position: 0.87, pose: recoveryPose, arrivalCurve: .smooth),
             Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
         ])
     }
@@ -573,40 +576,40 @@ final class Fighter3DRenderer {
         let supportSign: CGFloat = movingLead ? 1 : -1
 
         var loadPose = guardPose
-        loadPose.rootY -= 0.055 * intensity
-        loadPose.rootZ -= forward * 0.025 * intensity
-        loadPose.pelvis.y -= Float(lateral * 0.075 * intensity)
-        loadPose.spine.y += Float(lateral * 0.035 * intensity)
+        loadPose.rootY -= 0.075 * intensity
+        loadPose.rootZ -= forward * 0.035 * intensity
+        loadPose.pelvis.y -= Float(lateral * 0.095 * intensity)
+        loadPose.spine.y += Float(lateral * 0.045 * intensity)
         loadPose.leadKnee.x += Float((movingLead ? 0.055 : 0.115) * intensity)
         loadPose.rearKnee.x += Float((movingLead ? 0.115 : 0.055) * intensity)
-        loadPose.pelvisRoll += supportSign * 0.045 * intensity
-        loadPose.spineRoll -= supportSign * 0.030 * intensity
+        loadPose.pelvisRoll += supportSign * 0.058 * intensity
+        loadPose.spineRoll -= supportSign * 0.040 * intensity
 
         var pushPose = loadPose
-        pushPose.rootZ += forward * 0.065 * intensity
-        pushPose.rootX += lateral * 0.045 * intensity
-        pushPose.pelvis.y += Float(lateral * 0.11 * intensity)
-        pushPose.spine.y -= Float(lateral * 0.055 * intensity)
+        pushPose.rootZ += forward * 0.090 * intensity
+        pushPose.rootX += lateral * 0.065 * intensity
+        pushPose.pelvis.y += Float(lateral * 0.145 * intensity)
+        pushPose.spine.y -= Float(lateral * 0.075 * intensity)
         if movingLead {
             pushPose.rearKnee.x -= Float(0.075 * intensity)
             pushPose.rearAnklePitch += 0.09 * intensity
-            pushPose.leadHip.x += Float((0.11 + forward * 0.13) * stride * intensity)
-            pushPose.leadHip.z += Float(lateral * 0.11 * intensity)
-            pushPose.leadKnee.x += Float(0.23 * intensity)
+            pushPose.leadHip.x += Float((0.13 + forward * 0.15) * stride * intensity)
+            pushPose.leadHip.z += Float(lateral * 0.13 * intensity)
+            pushPose.leadKnee.x += Float(0.27 * intensity)
         } else {
             pushPose.leadKnee.x -= Float(0.075 * intensity)
             pushPose.leadAnklePitch += 0.09 * intensity
-            pushPose.rearHip.x += Float((0.11 + forward * 0.13) * stride * intensity)
-            pushPose.rearHip.z += Float(lateral * 0.11 * intensity)
-            pushPose.rearKnee.x += Float(0.23 * intensity)
+            pushPose.rearHip.x += Float((0.13 + forward * 0.15) * stride * intensity)
+            pushPose.rearHip.z += Float(lateral * 0.13 * intensity)
+            pushPose.rearKnee.x += Float(0.27 * intensity)
         }
 
         var travelPose = pushPose
-        travelPose.rootY += 0.035 * motionProfile.footworkBounce * intensity
-        travelPose.rootZ += forward * 0.040 * intensity
-        travelPose.rootX += lateral * 0.030 * intensity
-        travelPose.pelvisRoll -= supportSign * 0.075 * intensity
-        travelPose.spineRoll += supportSign * 0.055 * intensity
+        travelPose.rootY += 0.050 * motionProfile.footworkBounce * intensity
+        travelPose.rootZ += forward * 0.055 * intensity
+        travelPose.rootX += lateral * 0.045 * intensity
+        travelPose.pelvisRoll -= supportSign * 0.095 * intensity
+        travelPose.spineRoll += supportSign * 0.072 * intensity
         if movingLead {
             travelPose.leadHip.x += Float(0.08 * stride * intensity)
             travelPose.leadKnee.x += Float(0.12 * intensity)
@@ -618,19 +621,19 @@ final class Fighter3DRenderer {
         }
 
         var catchPose = guardPose
-        catchPose.rootY -= 0.060 * intensity
-        catchPose.rootZ += forward * 0.035 * intensity
-        catchPose.rootX += lateral * 0.025 * intensity
-        catchPose.pelvis.y += Float(lateral * 0.070 * intensity)
-        catchPose.pelvisRoll -= supportSign * 0.040 * intensity
-        catchPose.spineRoll += supportSign * 0.028 * intensity
+        catchPose.rootY -= 0.075 * intensity
+        catchPose.rootZ += forward * 0.045 * intensity
+        catchPose.rootX += lateral * 0.035 * intensity
+        catchPose.pelvis.y += Float(lateral * 0.090 * intensity)
+        catchPose.pelvisRoll -= supportSign * 0.052 * intensity
+        catchPose.spineRoll += supportSign * 0.038 * intensity
         if movingLead {
             catchPose.rearHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
-            catchPose.rearKnee.x += Float(0.20 * intensity)
+            catchPose.rearKnee.x += Float(0.23 * intensity)
             catchPose.rearAnklePitch += 0.09 * intensity
         } else {
             catchPose.leadHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
-            catchPose.leadKnee.x += Float(0.20 * intensity)
+            catchPose.leadKnee.x += Float(0.23 * intensity)
             catchPose.leadAnklePitch += 0.09 * intensity
         }
 
@@ -641,13 +644,31 @@ final class Fighter3DRenderer {
         settlePose.leadKnee.x += Float(0.035 * intensity)
         settlePose.rearKnee.x += Float(0.035 * intensity)
 
+        let timing: (
+            load: CGFloat,
+            push: CGFloat,
+            travel: CGFloat,
+            catch: CGFloat,
+            settle: CGFloat
+        )
+        switch motionStyle {
+        case .allRounder:
+            timing = (0.17, 0.36, 0.56, 0.78, 0.92)
+        case .pressure:
+            timing = (0.20, 0.40, 0.60, 0.82, 0.95)
+        case .outBoxer:
+            timing = (0.12, 0.28, 0.46, 0.68, 0.84)
+        case .rival:
+            timing = (0.18, 0.38, 0.58, 0.80, 0.93)
+        }
+
         return Fighter3DMotionClip(keyframes: [
             Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
-            Fighter3DMotionKeyframe(position: 0.16, pose: loadPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 0.34, pose: pushPose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.54, pose: travelPose, arrivalCurve: .smooth),
-            Fighter3DMotionKeyframe(position: 0.76, pose: catchPose, arrivalCurve: .explosive),
-            Fighter3DMotionKeyframe(position: 0.90, pose: settlePose, arrivalCurve: .settle),
+            Fighter3DMotionKeyframe(position: timing.load, pose: loadPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: timing.push, pose: pushPose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: timing.travel, pose: travelPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: timing.catch, pose: catchPose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: timing.settle, pose: settlePose, arrivalCurve: .settle),
             Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
         ])
     }
@@ -669,16 +690,21 @@ final class Fighter3DRenderer {
             pose.spineRoll -= stepDifference * 0.040
             pose.head.z += Float(stepDifference * 0.026)
             pose.rootY -= movementAmount * 0.012
+            pose.pelvis.y += Float(stepDifference * 0.045)
+            pose.spine.y -= Float(stepDifference * 0.032)
         case .pressure:
             // MASON advances from a loaded crouch. Both knees remain bent and
             // the torso follows the hips as one heavy unit.
             let load = max(movementAmount, max(leadLift, rearLift) * 0.72)
             pose.rootY -= load * 0.055
-            pose.rootZ += load * 0.045
+            pose.rootZ += max(locomotionFrame.forwardDrive, 0) * load * 0.075
+                - max(-locomotionFrame.forwardDrive, 0) * load * 0.025
             pose.leadKnee.x += Float(load * 0.095)
             pose.rearKnee.x += Float(load * 0.095)
             pose.spinePitch -= load * 0.035
             pose.pelvisRoll += stepDifference * 0.018
+            pose.pelvis.y += Float(stepDifference * 0.065)
+            pose.spine.y -= Float(stepDifference * 0.040)
         case .outBoxer:
             // LEO bounces on alternating feet and lets the upper body lag
             // behind the quick in-out step before snapping back over center.
@@ -688,11 +714,15 @@ final class Fighter3DRenderer {
             pose.pelvisRoll += stepDifference * 0.052
             pose.spineRoll -= stepDifference * 0.075
             pose.head.z += Float(stepDifference * 0.045)
+            pose.pelvis.y += Float(stepDifference * 0.075)
+            pose.spine.y -= Float(stepDifference * 0.060)
             pose.leadAnklePitch += leadLift * 0.075
             pose.rearAnklePitch += rearLift * 0.075
         case .rival:
             pose.rootY -= movementAmount * 0.028
             pose.spineRoll -= locomotionFrame.upperBodyRotation * 0.12
+            pose.pelvis.y += Float(stepDifference * 0.052)
+            pose.spine.y -= Float(stepDifference * 0.038)
         }
     }
 
@@ -1126,13 +1156,25 @@ final class Fighter3DRenderer {
         rearFootIK = rear
     }
 
+    /// The fighter root bobs, compresses and drives during locomotion. Using
+    /// the ankle's current height as the IK target makes that whole motion lift
+    /// the feet as well, which reads as skating above the canvas. Capture the
+    /// neutral stance once and let only the authored swing-foot lift leave it.
+    private func captureFootGroundHeight() {
+        leadFootGroundY = leadAnkle.convertPosition(SCNVector3Zero, to: nil).y
+        rearFootGroundY = rearAnkle.convertPosition(SCNVector3Zero, to: nil).y
+    }
+
     private func applyFootPlanting(
         locomotionFrame: FighterLocomotionFrame?,
         bodyMotion: FighterBodyMotionFrame
     ) {
-        guard let frame = locomotionFrame,
+        guard phase != .knockedOut,
+              let frame = locomotionFrame,
               let leadFootIK,
-              let rearFootIK else {
+              let rearFootIK,
+              let leadFootGroundY,
+              let rearFootGroundY else {
             leadFootIK?.influenceFactor = 0
             rearFootIK?.influenceFactor = 0
             return
@@ -1147,17 +1189,17 @@ final class Fighter3DRenderer {
         let rearBase = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
         leadFootIK.targetPosition = SCNVector3(
             leadBase.x + Float(frame.frontFootOffset.x * pointToScene),
-            leadBase.y + Float(frame.frontFootOffset.y * pointToScene),
+            leadFootGroundY + Float(frame.frontFootOffset.y * pointToScene),
             leadBase.z
         )
         rearFootIK.targetPosition = SCNVector3(
             rearBase.x + Float(frame.backFootOffset.x * pointToScene),
-            rearBase.y + Float(frame.backFootOffset.y * pointToScene),
+            rearFootGroundY + Float(frame.backFootOffset.y * pointToScene),
             rearBase.z
         )
 
-        let supportInfluence: CGFloat = 0.82
-        let travellingInfluence: CGFloat = 0.58
+        let supportInfluence: CGFloat = 0.90
+        let travellingInfluence: CGFloat = 0.64
         switch bodyMotion.supportFoot {
         case .lead:
             leadFootIK.influenceFactor = supportInfluence
@@ -1166,8 +1208,8 @@ final class Fighter3DRenderer {
             leadFootIK.influenceFactor = travellingInfluence
             rearFootIK.influenceFactor = supportInfluence
         case .both:
-            leadFootIK.influenceFactor = 0.70
-            rearFootIK.influenceFactor = 0.70
+            leadFootIK.influenceFactor = 0.86
+            rearFootIK.influenceFactor = 0.86
         }
     }
 

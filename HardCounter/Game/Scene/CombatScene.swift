@@ -83,8 +83,12 @@ final class CombatScene: SKScene {
         turnDotThreshold: -0.12,
         idleThreshold: 0.012
     )
-    private var playerBodyMotion = FighterFullBodyMotionController()
-    private var cpuBodyMotion = FighterFullBodyMotionController()
+    private lazy var playerBodyMotion = FighterFullBodyMotionController(
+        cadence: fighterProfile.motionStyle.profile.strideCadence
+    )
+    private lazy var cpuBodyMotion = FighterFullBodyMotionController(
+        cadence: cpuMotionStyle.profile.strideCadence
+    )
     private var arenaZoom = ArenaViewTuning.baseZoom
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
@@ -923,7 +927,10 @@ final class CombatScene: SKScene {
             y: focus.y * arenaZoom + cameraRig.position.y
         )
         let center = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
-        let deadZone = CGSize(width: size.width * 0.15, height: size.height * 0.13)
+        let deadZone = CGSize(
+            width: size.width * ArenaViewTuning.cameraDeadZoneWidthFraction,
+            height: size.height * ArenaViewTuning.cameraDeadZoneHeightFraction
+        )
         var correction = CGVector.zero
         if focusOnScreen.x < center.x - deadZone.width { correction.dx = center.x - deadZone.width - focusOnScreen.x }
         if focusOnScreen.x > center.x + deadZone.width { correction.dx = center.x + deadZone.width - focusOnScreen.x }
@@ -1031,12 +1038,16 @@ final class CombatScene: SKScene {
         }
         let attackerNode = attacker == .player ? player : cpu
         let defenderNode = attacker == .player ? cpu : player
+        // Visual framing may enlarge the fighters for readability. Contact
+        // distance must stay at the calibrated boxing scale instead of growing
+        // with that presentation-only boost.
+        let contactScaleNormalization = ArenaViewTuning.fighterScaleBoost
         let contactPoint = PunchContactGeometry.contactPointOnFighter(
             attackerPosition: attackerNode.position,
-            attackerScale: attackerNode.xScale,
+            attackerScale: attackerNode.xScale / contactScaleNormalization,
             aimDirection: attackerNode.committedPunchAimDirection,
             defenderPosition: defenderNode.position,
-            defenderScale: defenderNode.xScale,
+            defenderScale: defenderNode.xScale / contactScaleNormalization,
             profile: profile,
             reachScale: motionReachScale
                 * techniqueReachScale
@@ -1062,17 +1073,19 @@ final class CombatScene: SKScene {
         let attackerPosition = attacker == .player ? playerArenaPosition : cpuArenaPosition
         let defenderPosition = attacker == .player ? cpuArenaPosition : playerArenaPosition
         let armReach = CombatTuning.punchArmReachAtUnitScale
-            * fighterScreenScale(at: attackerPosition)
+            * fighterCombatScale(at: attackerPosition)
             * armReachScale
         let targetRadius = CombatTuning.punchTargetRadiusAtUnitScale
-            * fighterScreenScale(at: defenderPosition)
+            * fighterCombatScale(at: defenderPosition)
         return armReach + targetRadius
     }
 
     private func fighterScreenScale(at position: CGPoint) -> CGFloat {
-        perspectiveScale(at: position)
-            * arenaZoom / ArenaViewTuning.baseZoom
-            * ArenaViewTuning.fighterScaleBoost
+        fighterCombatScale(at: position) * ArenaViewTuning.fighterScaleBoost
+    }
+
+    private func fighterCombatScale(at position: CGPoint) -> CGFloat {
+        perspectiveScale(at: position) * arenaZoom / ArenaViewTuning.baseZoom
     }
 
     private func perspectiveScale(at position: CGPoint) -> CGFloat {

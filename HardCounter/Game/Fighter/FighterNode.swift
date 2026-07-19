@@ -56,9 +56,7 @@ final class FighterNode: SKNode {
     ) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
-        locomotion = FighterLocomotionController(
-            cadence: motionStyle.profile.strideCadence
-        )
+        locomotion = FighterLocomotionController(style: motionStyle)
         rig = FighterRig(facing: facing, appearance: appearance)
         threeDRenderer = Fighter3DRenderer(
             appearance: appearance,

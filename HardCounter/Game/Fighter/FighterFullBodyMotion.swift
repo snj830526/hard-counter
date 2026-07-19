@@ -42,10 +42,19 @@ struct FighterBodyMotionFrame {
 /// directly: a planted support leg must load, push and recover before a sharp
 /// reversal can become actual travel.
 struct FighterFullBodyMotionController {
+    private let cadence: CGFloat
     private var stepProgress: CGFloat = 1
     private var committedDirection = CGVector.zero
     private var committedIntensity: CGFloat = 0
     private var supportFoot: FighterSupportFoot = .both
+
+    init(cadence: CGFloat = 1) {
+        let authoredCadence = min(max(cadence, 0.72), 1.32)
+        // Keep style identity without turning the out-boxer into a rapid
+        // running cycle. Step shape carries most of the personality; cadence
+        // only nudges the shared human-scale rhythm.
+        self.cadence = 1 + (authoredCadence - 1) * 0.38
+    }
 
     mutating func update(
         movementIntent: CGVector,
@@ -92,7 +101,11 @@ struct FighterFullBodyMotionController {
             ))
         }
 
-        let stepDuration = 0.36 - Double(committedIntensity) * 0.06
+        // Longer, readable steps replace the shared rapid shuffle. Character
+        // cadence changes how long the weight-transfer cycle takes, while the
+        // movement speed still comes from combat stats and the same envelope.
+        let stepDuration = (0.46 - Double(committedIntensity) * 0.05)
+            / Double(cadence)
         stepProgress = min(
             stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20)),
             1
@@ -118,8 +131,8 @@ struct FighterFullBodyMotionController {
         let weightTransfer = (loading - landing * 0.72) * supportSign
         let weightOnLead = min(max(0.5 + weightTransfer * 0.32, 0.14), 0.86)
         let center = CGPoint(
-            x: local.lateral * drive * 0.12 + weightTransfer * 0.07,
-            y: local.forward * drive * 0.09
+            x: local.lateral * drive * 0.15 + weightTransfer * 0.09,
+            y: local.forward * drive * 0.12
         )
         let plantedness = min(max(
             1 - pulse(stepProgress, start: 0.14, end: 0.78) * 0.58,
@@ -136,7 +149,7 @@ struct FighterFullBodyMotionController {
             supportFoot: supportFoot,
             weightOnLeadFoot: weightOnLead,
             centerOfMassOffset: center,
-            compression: -(loading * 0.72 + landing * 0.46) * committedIntensity,
+            compression: -(loading * 0.80 + landing * 0.52) * committedIntensity,
             stepProgress: stepProgress,
             plantedness: plantedness
         )

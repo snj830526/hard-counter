@@ -63,7 +63,7 @@ enum CombatTuning {
 
     /// Target velocity after quarter-view projection and camera zoom. Keeping
     /// this in screen points removes direction-dependent diagonal speed.
-    static let playerScreenMoveSpeed: CGFloat = 200
+    static let playerScreenMoveSpeed: CGFloat = 178
     static let punchStartupFootworkMultiplier: CGFloat = 0.72
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
@@ -73,7 +73,7 @@ enum CombatTuning {
     static let movementDeceleration: CGFloat = 11.5
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
-    static let cpuScreenMoveSpeed: CGFloat = 115
+    static let cpuScreenMoveSpeed: CGFloat = 104
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
