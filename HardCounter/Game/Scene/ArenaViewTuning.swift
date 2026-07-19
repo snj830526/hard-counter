@@ -21,24 +21,14 @@ enum ArenaViewTuning {
     static let zoomResponse: CGFloat = 5.2
 
     static let fighterScaleBoost: CGFloat = 1.43
-    /// Camera emphasis belongs to the fighter controlled on this device. In a
-    /// nearby guest match that is CPU-side, not the host-side player anchor.
-    static let localFighterFocusWeight: CGFloat = 0.62
-    static let cameraFollowResponse: CGFloat = 4.2
-    static let cameraDeadZoneWidthFraction: CGFloat = 0.080
-    static let cameraDeadZoneHeightFraction: CGFloat = 0.070
-    static let cameraHorizontalLookAhead: CGFloat = 14
-    static let cameraVerticalLookAhead: CGFloat = 9
-
-    // Broadcast cameras hold a stable angle and cut only when the exchange
-    // changes. Different enter/exit distances stop the view from chattering
-    // around one threshold while the fighters trade at the edge of range.
-    static let closeCameraEnterDistance: CGFloat = 104
-    static let closeCameraExitDistance: CGFloat = 148
-    static let cameraShotMinimumHold: TimeInterval = 1.25
-    static let wideCameraReframeAngle: CGFloat = 0.44
-    static let closeCameraQuarterOffset: CGFloat = 0.32
-    static let cameraCutFlashDuration: TimeInterval = 0.14
+    // Sixteen fixed ringside cameras are spaced at 22.5-degree intervals.
+    // They never pan or orbit: fighter movement selects a camera and only its
+    // optical zoom changes. A small sector margin and hold time prevent cuts
+    // from chattering when the action sits on a camera boundary.
+    static let cameraBankCount = 16
+    static let cameraSectorHysteresis: CGFloat = 0.045
+    static let cameraShotMinimumHold: TimeInterval = 0.70
+    static let cameraCutFlashDuration: TimeInterval = 0.10
     static let horizontalFitFraction: CGFloat = 0.82
     static let verticalFitFraction: CGFloat = 0.66
 

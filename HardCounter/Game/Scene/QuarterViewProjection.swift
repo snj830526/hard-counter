@@ -23,22 +23,28 @@ struct QuarterViewProjection {
     }
 
     func project(_ world: CGPoint) -> CGPoint {
-        let cameraSpace = rotate(world, by: -viewAngle)
-        let u = cameraSpace.x / Self.halfWidth
-        let v = cameraSpace.y / Self.halfDepth
+        let normalizedWorld = CGPoint(
+            x: world.x / Self.halfWidth,
+            y: world.y / Self.halfDepth
+        )
+        let cameraSpace = rotate(normalizedWorld, by: -viewAngle)
         return CGPoint(
-            x: center.x + widthAxis.dx * u + depthAxis.dx * v,
-            y: center.y + widthAxis.dy * u + depthAxis.dy * v
+            x: center.x + widthAxis.dx * cameraSpace.x
+                + depthAxis.dx * cameraSpace.y,
+            y: center.y + widthAxis.dy * cameraSpace.x
+                + depthAxis.dy * cameraSpace.y
         )
     }
 
     func screenVector(forWorldVector vector: CGVector) -> CGVector {
-        let cameraSpace = rotate(vector, by: -viewAngle)
+        let normalizedWorld = CGVector(
+            dx: vector.dx / Self.halfWidth,
+            dy: vector.dy / Self.halfDepth
+        )
+        let cameraSpace = rotate(normalizedWorld, by: -viewAngle)
         return CGVector(
-            dx: widthAxis.dx * cameraSpace.dx / Self.halfWidth
-                + depthAxis.dx * cameraSpace.dy / Self.halfDepth,
-            dy: widthAxis.dy * cameraSpace.dx / Self.halfWidth
-                + depthAxis.dy * cameraSpace.dy / Self.halfDepth
+            dx: widthAxis.dx * cameraSpace.dx + depthAxis.dx * cameraSpace.dy,
+            dy: widthAxis.dy * cameraSpace.dx + depthAxis.dy * cameraSpace.dy
         )
     }
 
@@ -66,36 +72,47 @@ struct QuarterViewProjection {
         guard abs(determinant) > 0.001 else { return .zero }
         let u = (vector.dx * depthAxis.dy - depthAxis.dx * vector.dy) / determinant
         let v = (widthAxis.dx * vector.dy - vector.dx * widthAxis.dy) / determinant
-        let world = CGVector(dx: u * Self.halfWidth, dy: v * Self.halfDepth)
+        let normalizedWorld = rotate(CGVector(dx: u, dy: v), by: viewAngle)
+        let world = CGVector(
+            dx: normalizedWorld.dx * Self.halfWidth,
+            dy: normalizedWorld.dy * Self.halfDepth
+        )
         let worldLength = hypot(world.dx, world.dy)
         guard worldLength > 0.001 else { return .zero }
-        let cameraDirection = CGVector(
+        return CGVector(
             dx: world.dx / worldLength * magnitude,
             dy: world.dy / worldLength * magnitude
         )
-        return rotate(cameraDirection, by: viewAngle)
     }
 
     func depthProgress(at world: CGPoint) -> CGFloat {
-        let cameraSpace = rotate(world, by: -viewAngle)
-        let u = min(max(cameraSpace.x / Self.halfWidth, -1), 1)
-        let v = min(max(cameraSpace.y / Self.halfDepth, -1), 1)
+        let normalizedWorld = CGPoint(
+            x: world.x / Self.halfWidth,
+            y: world.y / Self.halfDepth
+        )
+        let cameraSpace = rotate(normalizedWorld, by: -viewAngle)
+        let u = min(max(cameraSpace.x, -1), 1)
+        let v = min(max(cameraSpace.y, -1), 1)
         return (u + v + 2) / 4
     }
 
-    /// Returns the orbit angle that maps a world-space fighter vector onto
-    /// screen-right. The inverse base projection supplies the camera-space
-    /// direction whose projected vertical component is exactly zero.
+    /// Returns the ideal camera angle that maps a world-space fighter vector
+    /// onto screen-right. CombatScene snaps it to the nearest fixed camera.
     func viewAnglePlacingOnScreenRight(_ worldVector: CGVector) -> CGFloat? {
-        let worldLength = hypot(worldVector.dx, worldVector.dy)
-        guard worldLength > 0.001 else { return nil }
+        let normalizedWorld = CGVector(
+            dx: worldVector.dx / Self.halfWidth,
+            dy: worldVector.dy / Self.halfDepth
+        )
+        guard hypot(normalizedWorld.dx, normalizedWorld.dy) > 0.001 else {
+            return nil
+        }
 
         let determinant = widthAxis.dx * depthAxis.dy
             - depthAxis.dx * widthAxis.dy
         guard abs(determinant) > 0.001 else { return nil }
-        let cameraX = depthAxis.dy / determinant * Self.halfWidth
-        let cameraY = -widthAxis.dy / determinant * Self.halfDepth
-        let worldAngle = atan2(worldVector.dy, worldVector.dx)
+        let cameraX = depthAxis.dy / determinant
+        let cameraY = -widthAxis.dy / determinant
+        let worldAngle = atan2(normalizedWorld.dy, normalizedWorld.dx)
         let screenRightCameraAngle = atan2(cameraY, cameraX)
         return worldAngle - screenRightCameraAngle
     }
