@@ -127,11 +127,13 @@ struct Fighter3DMechanicalMotionController {
 
         var pose = source
         if phase != .knockedOut {
-            // The pelvis trails the driven legs by a few centimetres. The
-            // existing foot solver runs after this overlay and keeps the
-            // support sole at its original world-space target.
-            pose.rootX += chassisX
-            pose.rootZ += chassisZ
+            // Mechanical inertia belongs above the hips. Offsetting the rig
+            // root made both hips travel while IK held the soles in place, so
+            // the legs appeared to wobble and the upper body seemed to tow
+            // them around the ring. The pelvis now follows the driven legs;
+            // only the rib cage trails by a restrained amount.
+            pose.spineX += chassisX * 0.62
+            pose.spineZ += chassisZ * 0.62
             pose.rootY -= landingCompression * 0.040
             pose.pelvis.x += Float(landingCompression * 0.035)
             pose.spine.x -= Float(landingCompression * 0.018)

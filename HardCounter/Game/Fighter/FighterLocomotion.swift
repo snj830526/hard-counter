@@ -36,7 +36,7 @@ private struct FighterFootworkPresentation {
         switch style {
         case .allRounder:
             return Self(
-                launchRange: 0.08...0.34,
+                launchRange: 0.02...0.28,
                 followRange: 0.54...0.80,
                 amplitudeBase: 0.70,
                 amplitudeGain: 1.02,
@@ -49,7 +49,7 @@ private struct FighterFootworkPresentation {
             )
         case .pressure:
             return Self(
-                launchRange: 0.10...0.37,
+                launchRange: 0.03...0.31,
                 followRange: 0.56...0.84,
                 amplitudeBase: 0.76,
                 amplitudeGain: 1.08,
@@ -62,7 +62,7 @@ private struct FighterFootworkPresentation {
             )
         case .outBoxer:
             return Self(
-                launchRange: 0.06...0.30,
+                launchRange: 0.015...0.25,
                 followRange: 0.48...0.72,
                 amplitudeBase: 0.64,
                 amplitudeGain: 1.10,
@@ -75,7 +75,7 @@ private struct FighterFootworkPresentation {
             )
         case .rival:
             return Self(
-                launchRange: 0.08...0.34,
+                launchRange: 0.02...0.28,
                 followRange: 0.54...0.81,
                 amplitudeBase: 0.72,
                 amplitudeGain: 1.04,

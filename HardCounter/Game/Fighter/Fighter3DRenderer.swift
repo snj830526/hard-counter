@@ -734,6 +734,19 @@ final class Fighter3DRenderer {
         loadPose.rearKnee.x += Float((movingLead ? 0.115 : 0.055) * intensity)
         loadPose.pelvisRoll += supportSign * 0.035 * intensity
         loadPose.spineRoll -= supportSign * 0.026 * intensity
+        // The initiating thigh must leave guard during the loading beat. If
+        // hip travel starts only at `pushPose`, the arena root is already in
+        // motion and the torso appears to drag a planted lower body behind it.
+        let earlyStride = (0.09 + forward * 0.05) * stride * intensity
+        if movingLead {
+            loadPose.leadHip.x += Float(earlyStride)
+            loadPose.leadHip.z += Float(lateral * 0.10 * intensity)
+            loadPose.leadKnee.x += Float(0.065 * intensity)
+        } else {
+            loadPose.rearHip.x += Float(earlyStride)
+            loadPose.rearHip.z += Float(lateral * 0.10 * intensity)
+            loadPose.rearKnee.x += Float(0.065 * intensity)
+        }
 
         var pushPose = loadPose
         pushPose.rootZ += forward * 0.090 * intensity
@@ -1388,11 +1401,11 @@ final class Fighter3DRenderer {
             let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
             switch bodyMotion.initiatingFoot {
             case .lead:
-                if frame.stepProgress <= 0.40 {
+                if frame.stepProgress <= 0.34 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: frame.stepProgress / 0.40,
+                        progress: frame.stepProgress / 0.34,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
@@ -1405,11 +1418,11 @@ final class Fighter3DRenderer {
                     )
                 }
             case .rear:
-                if frame.stepProgress <= 0.40 {
+                if frame.stepProgress <= 0.34 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: frame.stepProgress / 0.40,
+                        progress: frame.stepProgress / 0.34,
                         lift: frame.backAnkleLift * scale
                     )
                 }
@@ -1565,7 +1578,11 @@ final class Fighter3DRenderer {
         progress: CGFloat,
         lift: CGFloat
     ) -> SCNVector3 {
-        let amount = smooth(progress)
+        let t = min(max(progress, 0), 1)
+        // Powered joints break static friction early, then decelerate into
+        // the plant. A symmetric smoothstep left the boot almost stationary
+        // while the arena root had already begun to travel.
+        let amount = 1 - pow(1 - t, 1.45)
         return SCNVector3(
             start.x + (destination.x - start.x) * Float(amount),
             start.y + (destination.y - start.y) * Float(amount) + Float(max(lift, 0)),
