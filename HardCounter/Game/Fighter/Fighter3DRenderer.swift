@@ -22,6 +22,8 @@ final class Fighter3DRenderer {
     private let rearHip = SCNNode()
     private let rearKnee = SCNNode()
     private let rearAnkle = SCNNode()
+    private var leadFootIK: SCNIKConstraint?
+    private var rearFootIK: SCNIKConstraint?
 
     private var phase: FighterPhase = .idle
     private var phaseElapsed: TimeInterval = 0
@@ -36,8 +38,11 @@ final class Fighter3DRenderer {
     private var hitProfile = PunchProfile()
     private var followThrough: CGFloat = 0
     private var whiffOverreach: CGFloat = 0
+    private var punchMotionClip: Fighter3DMotionClip?
+    private var swayMotionClip: Fighter3DMotionClip?
     private var targetStaminaFraction: CGFloat = 1
     private var displayedStaminaFraction: CGFloat = 1
+    private var lastAppliedPose = Fighter3DPose.guardPose
 
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         self.motionStyle = motionStyle
@@ -72,6 +77,7 @@ final class Fighter3DRenderer {
     func preparePunch(_ hand: PunchHand, profile: PunchProfile) {
         activeHand = hand
         punchProfile = profile
+        punchMotionClip = makePunchMotionClip()
     }
 
     func prepareSway(
@@ -81,6 +87,7 @@ final class Fighter3DRenderer {
     ) {
         swayScreenDirection = screenDirection
         swayPerformance = performance
+        swayMotionClip = makeSwayMotionClip()
     }
 
     func playHit(_ kind: HitKind, profile: PunchProfile) {
@@ -107,8 +114,11 @@ final class Fighter3DRenderer {
         hitElapsed = nil
         followThrough = 0
         whiffOverreach = 0
+        punchMotionClip = nil
+        swayMotionClip = nil
         targetStaminaFraction = 1
         displayedStaminaFraction = 1
+        lastAppliedPose = guardPose
         skeletonRoot.opacity = 1
         apply(guardPose)
     }
@@ -141,6 +151,10 @@ final class Fighter3DRenderer {
             movementAmount: movementAmount,
             locomotionFrame: locomotionFrame
         )
+        pose = FighterFullBodyPoseSolver.apply(
+            body: movement.bodyMotion,
+            to: pose
+        )
         if let hitElapsed {
             let duration = hitKind == .counter
                 ? CombatTuning.counterHitReaction
@@ -168,7 +182,16 @@ final class Fighter3DRenderer {
         let fatigue = 1 - min(displayedStaminaFraction / 0.28, 1)
         let fatigueBreath = sin(CGFloat(phaseElapsed) * 5.2)
         pose = pose.fatigued(amount: fatigue, breath: fatigueBreath)
-        apply(pose)
+        pose = inertializedPose(
+            toward: pose,
+            movementAmount: movementAmount,
+            deltaTime: deltaTime
+        )
+        apply(
+            pose,
+            locomotionFrame: locomotionFrame,
+            bodyMotion: movement.bodyMotion
+        )
     }
 
     private func applyHitConfirm(to pose: inout Fighter3DPose, amount: CGFloat) {
@@ -177,11 +200,11 @@ final class Fighter3DRenderer {
         switch punchProfile.technique {
         case .straight:
             pose.rootZ += 0.10 * drive
-            pose.spinePitch -= 0.055 * drive
+            pose.spinePitch += 0.055 * drive
             pose.pelvis.y += Float(0.08 * handSign * drive)
         case .smash:
             pose.rootZ += 0.07 * drive
-            pose.rootRoll += 0.07 * handSign * drive
+            pose.rootRoll += 0.04 * handSign * drive
             pose.pelvis.y += Float(0.16 * handSign * drive)
             pose.spine.y += Float(0.20 * handSign * drive)
         case .uppercut:
@@ -200,10 +223,10 @@ final class Fighter3DRenderer {
         case .straight:
             pose.rootZ += 0.15 * overreach
             pose.rootY -= 0.025 * overreach
-            pose.spinePitch -= 0.11 * overreach
+            pose.spinePitch += 0.11 * overreach
         case .smash:
             pose.rootZ += 0.09 * overreach
-            pose.rootRoll += 0.12 * handSign * overreach
+            pose.rootRoll += 0.07 * handSign * overreach
             pose.spine.y += Float(0.24 * handSign * overreach)
         case .uppercut:
             pose.rootZ += 0.10 * overreach
@@ -226,47 +249,30 @@ final class Fighter3DRenderer {
 
         case .punchStartup:
             let duration = CombatTuning.punchStartup * punchProfile.startupScale
-            return guardPose.blended(
-                to: punchLoadPose,
-                amount: smooth(progress(duration))
-            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.18)
+            let clip = punchMotionClip ?? makePunchMotionClip()
+            return clip.sample(at: progress(duration) * 0.36)
+                .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.18)
 
         case .punchActive:
             let duration = CombatTuning.punchActive * punchProfile.activeScale
-            let power = CGFloat(min(max(punchProfile.powerScale, 0.7), 1.3))
-            return punchLoadPose.blended(
-                to: punchStrikePose(power: power),
-                amount: snap(progress(duration))
-            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.10)
+            let clip = punchMotionClip ?? makePunchMotionClip()
+            return clip.sample(at: 0.36 + progress(duration) * 0.24)
+                .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.10)
 
         case .punchRecovery:
             let duration = CombatTuning.punchRecovery * punchProfile.recoveryScale
-            let recovery = pow(
-                smooth(progress(duration)),
+            let clip = punchMotionClip ?? makePunchMotionClip()
+            let weightedRecovery = pow(
+                progress(duration),
                 max(motionProfile.recoveryWeight, 0.2)
             )
-            return punchStrikePose(power: CGFloat(punchProfile.powerScale))
-                .blended(to: guardPose, amount: recovery)
+            return clip.sample(at: 0.60 + weightedRecovery * 0.40)
                 .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.14)
 
         case .swaying:
-            let amount = swayEnvelope(progress(CombatTuning.swayDuration))
-            var swayPose = Fighter3DPose.continuousSway(
-                screenDirection: swayScreenDirection,
-                facingDirection: opponentScreenDirection,
-                performance: swayPerformance
-            )
-                .aligned(
-                    toScreenDirection: swayScreenDirection,
-                    facingDirection: opponentScreenDirection,
-                    facingSign: facingSign
-                )
-                .styledSway(with: motionProfile)
-            applyGuardIdentity(to: &swayPose)
-            return guardPose.blended(
-                to: swayPose,
-                amount: smooth(amount)
-            ).applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.08)
+            let clip = swayMotionClip ?? makeSwayMotionClip()
+            return clip.sample(at: progress(CombatTuning.swayDuration))
+                .applyingLocomotion(movingGuard, relativeTo: guardPose, upperBodyAmount: 0.08)
 
         case .hit:
             return movingGuard
@@ -278,6 +284,211 @@ final class Fighter3DRenderer {
                 amount: t
             )
         }
+    }
+
+    private func makePunchMotionClip() -> Fighter3DMotionClip {
+        let guardPose = guardPose
+        let loadPose = punchLoadPose
+        let power = CGFloat(min(max(punchProfile.powerScale, 0.7), 1.3))
+        let strikePose = punchStrikePose(power: power)
+        let handSign: CGFloat = activeHand == .lead ? -1 : 1
+
+        var coilPose = guardPose.stagedBlend(
+            to: loadPose,
+            lowerBody: 0.88,
+            torso: 0.70,
+            arms: 0.46
+        )
+        coilPose.rootY -= 0.045
+        coilPose.rootZ -= 0.035
+        coilPose.pelvis.y -= Float(handSign * 0.08)
+        coilPose.spine.y -= Float(handSign * 0.045)
+        coilPose.leadKnee.x += activeHand == .rear ? 0.07 : 0.11
+        coilPose.rearKnee.x += activeHand == .rear ? 0.12 : 0.07
+        coilPose = FighterFullBodyActionPoseSolver.strike(
+            frame: FighterFullBodyActionFrame(
+                forward: -0.18,
+                lateral: handSign * 0.18,
+                screenHorizontal: 0,
+                intensity: power,
+                compression: 0.72,
+                weightShift: activeHand == .rear ? -0.82 : 0.68,
+                reach: -0.12
+            ),
+            hand: activeHand,
+            technique: punchProfile.technique,
+            to: coilPose
+        )
+
+        var drivePose = loadPose.stagedBlend(
+            to: strikePose,
+            lowerBody: 0.86,
+            torso: 0.58,
+            arms: 0.18
+        )
+        drivePose.rootY += punchProfile.technique == .uppercut ? 0.06 : 0.015
+        drivePose.rootZ += 0.075 * power
+        drivePose.pelvis.y += Float(handSign * 0.12 * power)
+        drivePose.spine.y += Float(handSign * 0.07 * power)
+        if activeHand == .rear {
+            drivePose.rearKnee.x -= Float(0.10 * power)
+            drivePose.rearAnklePitch += 0.10 * power
+        } else {
+            drivePose.leadKnee.x -= Float(0.08 * power)
+            drivePose.leadAnklePitch += 0.08 * power
+        }
+        drivePose = FighterFullBodyActionPoseSolver.strike(
+            frame: FighterFullBodyActionFrame(
+                forward: 0.72,
+                lateral: handSign * 0.20,
+                screenHorizontal: 0,
+                intensity: power,
+                compression: 0.48,
+                weightShift: activeHand == .rear ? -0.25 : 0.28,
+                reach: 0.48
+            ),
+            hand: activeHand,
+            technique: punchProfile.technique,
+            to: drivePose
+        )
+
+        let connectedStrikePose = FighterFullBodyActionPoseSolver.strike(
+            frame: FighterFullBodyActionFrame(
+                forward: 1,
+                lateral: handSign * 0.30,
+                screenHorizontal: 0,
+                intensity: power,
+                compression: punchProfile.technique == .uppercut ? 0.12 : 0.20,
+                weightShift: activeHand == .rear ? 0.72 : -0.42,
+                reach: 1
+            ),
+            hand: activeHand,
+            technique: punchProfile.technique,
+            to: strikePose
+        )
+
+        var followPose = connectedStrikePose
+        switch punchProfile.technique {
+        case .straight:
+            followPose.rootZ += 0.11 * power
+            followPose.rootRoll += handSign * 0.035 * power
+            followPose.pelvis.y += Float(handSign * 0.11 * power)
+            followPose.spine.y += Float(handSign * 0.15 * power)
+            followPose.spinePitch += 0.07 * power
+        case .smash:
+            followPose.rootZ += 0.075 * power
+            followPose.rootRoll += handSign * 0.06 * power
+            followPose.pelvis.y += Float(handSign * 0.16 * power)
+            followPose.spine.y += Float(handSign * 0.20 * power)
+        case .uppercut:
+            followPose.rootY += 0.10 * power
+            followPose.rootZ += 0.06 * power
+            followPose.spinePitch += 0.10 * power
+        }
+
+        var recoilPose = followPose.stagedBlend(
+            to: guardPose,
+            lowerBody: 0.34,
+            torso: 0.48,
+            arms: 0.82
+        )
+        recoilPose.rootY -= 0.035
+        recoilPose.rootZ += 0.025
+        recoilPose.leadKnee.x += 0.055
+        recoilPose.rearKnee.x += 0.055
+
+        return Fighter3DMotionClip(keyframes: [
+            Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
+            Fighter3DMotionKeyframe(position: 0.18, pose: coilPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.36, pose: loadPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.48, pose: drivePose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.60, pose: connectedStrikePose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.69, pose: followPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.83, pose: recoilPose, arrivalCurve: .settle),
+            Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
+        ])
+    }
+
+    private func makeSwayMotionClip() -> Fighter3DMotionClip {
+        let guardPose = guardPose
+        let components = swayMotionComponents()
+        let performance = min(max(swayPerformance, 0.72), 1.20)
+        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
+        let screenHorizontal = swayScreenDirection.dx / swayLength
+        let loadFrame = FighterFullBodyActionFrame(
+            forward: components.forward * 0.22,
+            lateral: -components.lateral * 0.18,
+            screenHorizontal: -screenHorizontal * 0.18,
+            intensity: performance,
+            compression: 0.58,
+            weightShift: -components.lateral * 0.35,
+            reach: 0
+        )
+        let loadPose = FighterFullBodyActionPoseSolver.sway(
+            frame: loadFrame,
+            from: guardPose
+        )
+
+        let evadeFrame = FighterFullBodyActionFrame(
+            forward: components.forward,
+            lateral: components.lateral,
+            screenHorizontal: screenHorizontal,
+            intensity: performance * motionProfile.swayRange,
+            compression: 0.88 + abs(components.forward) * 0.18,
+            weightShift: components.lateral,
+            reach: 0
+        )
+        var evadePose = FighterFullBodyActionPoseSolver.sway(
+            frame: evadeFrame,
+            from: guardPose
+        )
+        applyGuardIdentity(to: &evadePose)
+
+        let apexFrame = FighterFullBodyActionFrame(
+            forward: components.forward * 1.04,
+            lateral: components.lateral * 1.06,
+            screenHorizontal: screenHorizontal * 1.06,
+            intensity: performance * motionProfile.swayRange,
+            compression: 1.0,
+            weightShift: components.lateral,
+            reach: 0
+        )
+        var apexPose = FighterFullBodyActionPoseSolver.sway(
+            frame: apexFrame,
+            from: guardPose
+        )
+        applyGuardIdentity(to: &apexPose)
+
+        var recoveryPose = apexPose.stagedBlend(
+            to: guardPose,
+            lowerBody: 0.52,
+            torso: 0.40,
+            arms: 0.58
+        )
+        recoveryPose.rootY -= 0.025
+        recoveryPose.leadKnee.x += 0.035
+        recoveryPose.rearKnee.x += 0.035
+
+        return Fighter3DMotionClip(keyframes: [
+            Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
+            Fighter3DMotionKeyframe(position: 0.08, pose: loadPose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.23, pose: evadePose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.37, pose: apexPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.49, pose: apexPose, arrivalCurve: .hold),
+            Fighter3DMotionKeyframe(position: 0.82, pose: recoveryPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
+        ])
+    }
+
+    private func swayMotionComponents() -> (forward: CGFloat, lateral: CGFloat) {
+        let swayLength = max(hypot(swayScreenDirection.dx, swayScreenDirection.dy), 0.001)
+        let facingLength = max(hypot(opponentScreenDirection.dx, opponentScreenDirection.dy), 0.001)
+        let sway = CGVector(dx: swayScreenDirection.dx / swayLength, dy: swayScreenDirection.dy / swayLength)
+        let facing = CGVector(dx: opponentScreenDirection.dx / facingLength, dy: opponentScreenDirection.dy / facingLength)
+        return (
+            sway.dx * facing.dx + sway.dy * facing.dy,
+            sway.dx * -facing.dy + sway.dy * facing.dx
+        )
     }
 
     private func locomotionGuardPose(
@@ -316,18 +527,13 @@ final class Fighter3DRenderer {
         )
         guard movementAmount > 0.025 || settlingActivity > 0.025 else { return pose }
 
-        let bounce = motionProfile.footworkBounce
-        let stride = motionProfile.strideLength
-        pose.rootY += locomotionFrame.pelvisCompression * 0.009
-        pose.rootY += activeLift * 0.012 * bounce
+        pose = makeLocomotionMotionClip(
+            frame: locomotionFrame,
+            movementAmount: movementAmount
+        ).sample(at: locomotionFrame.stepProgress)
+        pose.spineY += breath * idleAmount * 0.015 * motionProfile.breathAmplitude
         pose.pelvisRoll += locomotionFrame.pelvisRotation * 0.82
         pose.spineRoll += locomotionFrame.upperBodyRotation * 0.68
-        pose.leadHip.x += Float(leadLift * 0.23 * stride)
-        pose.rearHip.x += Float(rearLift * 0.23 * stride)
-        pose.leadKnee.x += Float(leadLift * 0.28)
-        pose.rearKnee.x += Float(rearLift * 0.28)
-        pose.leadAnklePitch = leadLift * 0.11
-        pose.rearAnklePitch = rearLift * 0.11
 
         let guardRhythm = (leadLift - rearLift) * 0.065
             * motionProfile.strideCadence * motionProfile.guardRhythm
@@ -352,6 +558,98 @@ final class Fighter3DRenderer {
             locomotionFrame: locomotionFrame
         )
         return pose
+    }
+
+    private func makeLocomotionMotionClip(
+        frame: FighterLocomotionFrame,
+        movementAmount: CGFloat
+    ) -> Fighter3DMotionClip {
+        let guardPose = guardPose
+        let intensity = max(frame.movementIntensity, movementAmount * 0.35)
+        let stride = motionProfile.strideLength
+        let forward = frame.forwardDrive
+        let lateral = frame.lateralDrive
+        let movingLead = frame.frontFootInitiates
+        let supportSign: CGFloat = movingLead ? 1 : -1
+
+        var loadPose = guardPose
+        loadPose.rootY -= 0.055 * intensity
+        loadPose.rootZ -= forward * 0.025 * intensity
+        loadPose.pelvis.y -= Float(lateral * 0.075 * intensity)
+        loadPose.spine.y += Float(lateral * 0.035 * intensity)
+        loadPose.leadKnee.x += Float((movingLead ? 0.055 : 0.115) * intensity)
+        loadPose.rearKnee.x += Float((movingLead ? 0.115 : 0.055) * intensity)
+        loadPose.pelvisRoll += supportSign * 0.045 * intensity
+        loadPose.spineRoll -= supportSign * 0.030 * intensity
+
+        var pushPose = loadPose
+        pushPose.rootZ += forward * 0.065 * intensity
+        pushPose.rootX += lateral * 0.045 * intensity
+        pushPose.pelvis.y += Float(lateral * 0.11 * intensity)
+        pushPose.spine.y -= Float(lateral * 0.055 * intensity)
+        if movingLead {
+            pushPose.rearKnee.x -= Float(0.075 * intensity)
+            pushPose.rearAnklePitch += 0.09 * intensity
+            pushPose.leadHip.x += Float((0.11 + forward * 0.13) * stride * intensity)
+            pushPose.leadHip.z += Float(lateral * 0.11 * intensity)
+            pushPose.leadKnee.x += Float(0.23 * intensity)
+        } else {
+            pushPose.leadKnee.x -= Float(0.075 * intensity)
+            pushPose.leadAnklePitch += 0.09 * intensity
+            pushPose.rearHip.x += Float((0.11 + forward * 0.13) * stride * intensity)
+            pushPose.rearHip.z += Float(lateral * 0.11 * intensity)
+            pushPose.rearKnee.x += Float(0.23 * intensity)
+        }
+
+        var travelPose = pushPose
+        travelPose.rootY += 0.035 * motionProfile.footworkBounce * intensity
+        travelPose.rootZ += forward * 0.040 * intensity
+        travelPose.rootX += lateral * 0.030 * intensity
+        travelPose.pelvisRoll -= supportSign * 0.075 * intensity
+        travelPose.spineRoll += supportSign * 0.055 * intensity
+        if movingLead {
+            travelPose.leadHip.x += Float(0.08 * stride * intensity)
+            travelPose.leadKnee.x += Float(0.12 * intensity)
+            travelPose.leadAnklePitch += 0.12 * intensity
+        } else {
+            travelPose.rearHip.x += Float(0.08 * stride * intensity)
+            travelPose.rearKnee.x += Float(0.12 * intensity)
+            travelPose.rearAnklePitch += 0.12 * intensity
+        }
+
+        var catchPose = guardPose
+        catchPose.rootY -= 0.060 * intensity
+        catchPose.rootZ += forward * 0.035 * intensity
+        catchPose.rootX += lateral * 0.025 * intensity
+        catchPose.pelvis.y += Float(lateral * 0.070 * intensity)
+        catchPose.pelvisRoll -= supportSign * 0.040 * intensity
+        catchPose.spineRoll += supportSign * 0.028 * intensity
+        if movingLead {
+            catchPose.rearHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
+            catchPose.rearKnee.x += Float(0.20 * intensity)
+            catchPose.rearAnklePitch += 0.09 * intensity
+        } else {
+            catchPose.leadHip.x += Float((0.08 + forward * 0.08) * stride * intensity)
+            catchPose.leadKnee.x += Float(0.20 * intensity)
+            catchPose.leadAnklePitch += 0.09 * intensity
+        }
+
+        var settlePose = guardPose
+        settlePose.rootY -= frame.landingAmount * 0.018
+        settlePose.rootZ += forward * 0.018 * intensity
+        settlePose.rootX += lateral * 0.012 * intensity
+        settlePose.leadKnee.x += Float(0.035 * intensity)
+        settlePose.rearKnee.x += Float(0.035 * intensity)
+
+        return Fighter3DMotionClip(keyframes: [
+            Fighter3DMotionKeyframe(position: 0.00, pose: guardPose, arrivalCurve: .linear),
+            Fighter3DMotionKeyframe(position: 0.16, pose: loadPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.34, pose: pushPose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.54, pose: travelPose, arrivalCurve: .smooth),
+            Fighter3DMotionKeyframe(position: 0.76, pose: catchPose, arrivalCurve: .explosive),
+            Fighter3DMotionKeyframe(position: 0.90, pose: settlePose, arrivalCurve: .settle),
+            Fighter3DMotionKeyframe(position: 1.00, pose: guardPose, arrivalCurve: .settle)
+        ])
     }
 
     private func applyFootworkIdentity(
@@ -546,7 +844,7 @@ final class Fighter3DRenderer {
                 if isStrike {
                     pose.rootZ += 0.24 * power
                     pose.rootY += 0.045 * power
-                    pose.spinePitch -= 0.15 * power
+                    pose.spinePitch += 0.15 * power
                     pose.pelvis.y += Float(handSign * 0.22 * power)
                     pose.spine.y += Float(handSign * 0.18 * power)
                     if activeHand == .rear {
@@ -574,7 +872,52 @@ final class Fighter3DRenderer {
         CGFloat(min(max(phaseElapsed / max(duration, 0.001), 0), 1))
     }
 
-    private func apply(_ pose: Fighter3DPose) {
+    /// Pose-space inertialization keeps state changes continuous while allowing
+    /// each body group to retain a distinct boxing rhythm. It is deliberately
+    /// phase-aware: the fist snaps, the evasive torso reacts quickly, and the
+    /// body settles back into stance with visibly more weight.
+    private func inertializedPose(
+        toward target: Fighter3DPose,
+        movementAmount: CGFloat,
+        deltaTime: TimeInterval
+    ) -> Fighter3DPose {
+        let responses: (lower: CGFloat, torso: CGFloat, arms: CGFloat)
+        switch phase {
+        case .idle:
+            responses = movementAmount > 0.03
+                ? (28, 17, 15)
+                : (12, 8.5, 9.5)
+        case .punchStartup:
+            responses = (24, 21, 24)
+        case .punchActive:
+            responses = (34, 42, 58)
+        case .punchRecovery:
+            responses = (14, 15, 22)
+        case .swaying:
+            responses = (25, 36, 27)
+        case .hit:
+            responses = (42, 52, 48)
+        case .knockedOut:
+            responses = (12, 14, 13)
+        }
+
+        func amount(for response: CGFloat) -> CGFloat {
+            1 - CGFloat(exp(-Double(response) * deltaTime))
+        }
+        return lastAppliedPose.stagedBlend(
+            to: target,
+            lowerBody: amount(for: responses.lower),
+            torso: amount(for: responses.torso),
+            arms: amount(for: responses.arms)
+        )
+    }
+
+    private func apply(
+        _ pose: Fighter3DPose,
+        locomotionFrame: FighterLocomotionFrame? = nil,
+        bodyMotion: FighterBodyMotionFrame = .neutral
+    ) {
+        lastAppliedPose = pose
         let pose = pose.sanitized()
         skeletonRoot.position = SCNVector3(pose.rootX, pose.rootY, pose.rootZ)
         skeletonRoot.eulerAngles.x = Float(pose.rootPitch)
@@ -600,6 +943,10 @@ final class Fighter3DRenderer {
             -(pose.rearHip.x + pose.rearKnee.x) + Float(pose.rearAnklePitch),
             minimum: -0.72,
             maximum: 0.72
+        )
+        applyFootPlanting(
+            locomotionFrame: locomotionFrame,
+            bodyMotion: bodyMotion
         )
     }
 
@@ -755,6 +1102,73 @@ final class Fighter3DRenderer {
             proportions: proportions,
             to: pelvis
         )
+        configureFootIK()
+    }
+
+    private func configureFootIK() {
+        let lead = SCNIKConstraint.inverseKinematicsConstraint(
+            chainRootNode: leadHip
+        )
+        let rear = SCNIKConstraint.inverseKinematicsConstraint(
+            chainRootNode: rearHip
+        )
+        for (constraint, hip, knee, ankle) in [
+            (lead, leadHip, leadKnee, leadAnkle),
+            (rear, rearHip, rearKnee, rearAnkle)
+        ] {
+            constraint.influenceFactor = 0
+            constraint.setMaxAllowedRotationAngle(42, forJoint: hip)
+            constraint.setMaxAllowedRotationAngle(72, forJoint: knee)
+            constraint.setMaxAllowedRotationAngle(18, forJoint: ankle)
+            ankle.constraints = [constraint]
+        }
+        leadFootIK = lead
+        rearFootIK = rear
+    }
+
+    private func applyFootPlanting(
+        locomotionFrame: FighterLocomotionFrame?,
+        bodyMotion: FighterBodyMotionFrame
+    ) {
+        guard let frame = locomotionFrame,
+              let leadFootIK,
+              let rearFootIK else {
+            leadFootIK?.influenceFactor = 0
+            rearFootIK?.influenceFactor = 0
+            return
+        }
+
+        // The internal orthographic camera shows 3.12 SceneKit units over a
+        // 192-point viewport. Locomotion offsets use the legacy rig's point
+        // scale, so a slightly conservative conversion keeps IK corrective
+        // instead of allowing it to redesign the authored stance.
+        let pointToScene: CGFloat = 0.0105
+        let leadBase = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
+        let rearBase = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
+        leadFootIK.targetPosition = SCNVector3(
+            leadBase.x + Float(frame.frontFootOffset.x * pointToScene),
+            leadBase.y + Float(frame.frontFootOffset.y * pointToScene),
+            leadBase.z
+        )
+        rearFootIK.targetPosition = SCNVector3(
+            rearBase.x + Float(frame.backFootOffset.x * pointToScene),
+            rearBase.y + Float(frame.backFootOffset.y * pointToScene),
+            rearBase.z
+        )
+
+        let supportInfluence: CGFloat = 0.82
+        let travellingInfluence: CGFloat = 0.58
+        switch bodyMotion.supportFoot {
+        case .lead:
+            leadFootIK.influenceFactor = supportInfluence
+            rearFootIK.influenceFactor = travellingInfluence
+        case .rear:
+            leadFootIK.influenceFactor = travellingInfluence
+            rearFootIK.influenceFactor = supportInfluence
+        case .both:
+            leadFootIK.influenceFactor = 0.70
+            rearFootIK.influenceFactor = 0.70
+        }
     }
 
     private func attachArm(
@@ -865,20 +1279,4 @@ final class Fighter3DRenderer {
 private func smooth(_ value: CGFloat) -> CGFloat {
     let t = min(max(value, 0), 1)
     return t * t * (3 - 2 * t)
-}
-
-private func snap(_ value: CGFloat) -> CGFloat {
-    let t = min(max(value, 0), 1)
-    return 1 - pow(1 - t, 4)
-}
-
-private func swayEnvelope(_ value: CGFloat) -> CGFloat {
-    let progress = min(max(value, 0), 1)
-    let entryEnd = CombatTuning.swayEntryFraction
-    let holdEnd = min(entryEnd + CombatTuning.swayHoldFraction, 0.72)
-    if progress < entryEnd {
-        return snap(progress / max(entryEnd, 0.001))
-    }
-    if progress < holdEnd { return 1 }
-    return 1 - smooth((progress - holdEnd) / max(1 - holdEnd, 0.001))
 }

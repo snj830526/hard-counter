@@ -4,12 +4,14 @@ struct FighterMovementState {
     let screenMovement: CGVector
     let screenDisplacement: CGVector
     let towardOpponent: CGVector
+    let bodyMotion: FighterBodyMotionFrame
 
     static func stationary(towardOpponent: CGVector) -> FighterMovementState {
         FighterMovementState(
             screenMovement: .zero,
             screenDisplacement: .zero,
-            towardOpponent: towardOpponent
+            towardOpponent: towardOpponent,
+            bodyMotion: .neutral
         )
     }
 
@@ -31,7 +33,8 @@ struct FighterMovementState {
             opponentDirection: normalized(
                 displayedOpponentDirection,
                 fallback: CGVector(dx: facing, dy: 0)
-            )
+            ),
+            bodyMotion: bodyMotion
         )
     }
 
@@ -47,4 +50,5 @@ struct FighterLocomotionInput {
     let localRootDisplacement: CGVector
     let facing: CGFloat
     let opponentDirection: CGVector
+    let bodyMotion: FighterBodyMotionFrame
 }

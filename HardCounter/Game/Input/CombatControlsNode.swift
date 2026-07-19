@@ -87,7 +87,7 @@ final class CombatControlsNode: SKNode {
         let linearAmount = min(max((length - movementDeadZone) / availableTravel, 0), 1)
         // A slightly eager response keeps small corrections available without
         // making the outer half of the stick feel slow.
-        let speedAmount = CGFloat(pow(Double(linearAmount), 0.72))
+        let speedAmount = CGFloat(pow(Double(linearAmount), 0.86))
         return CGVector(
             dx: delta.dx / length * speedAmount,
             dy: delta.dy / length * speedAmount
