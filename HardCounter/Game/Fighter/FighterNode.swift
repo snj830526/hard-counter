@@ -19,6 +19,8 @@ final class FighterNode: SKNode {
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
     private var currentPhase: FighterPhase = .idle
+    private let damageEffectRoot = SKNode()
+    private var damageVisualTier = 0
 
     var committedPunchAimDirection: CGVector { activePunchAimDirection }
 
@@ -66,6 +68,9 @@ final class FighterNode: SKNode {
         super.init()
         addChild(rig.animationRoot)
         addChild(threeDRenderer.spriteNode)
+        damageEffectRoot.position = CGPoint(x: 0, y: 62)
+        damageEffectRoot.zPosition = 56
+        addChild(damageEffectRoot)
         rig.animationRoot.isHidden = usesThreeDRenderer
         threeDRenderer.spriteNode.isHidden = !usesThreeDRenderer
         threeDRenderer.spriteNode.isPlaying = usesThreeDRenderer
@@ -486,6 +491,100 @@ final class FighterNode: SKNode {
         threeDRenderer.updateStamina(fraction: fraction)
     }
 
+    func updateDamage(fraction: CGFloat) {
+        let tier = fraction <= 0.18 ? 2 : (fraction <= 0.38 ? 1 : 0)
+        guard tier != damageVisualTier else { return }
+        damageVisualTier = tier
+        damageEffectRoot.removeAllActions()
+        damageEffectRoot.removeAllChildren()
+        guard tier > 0 else { return }
+
+        let warning = SKShapeNode(circleOfRadius: tier == 2 ? 2.2 : 1.8)
+        warning.position = CGPoint(x: 11, y: 18)
+        warning.fillColor = ArenaVisualPalette.dangerSignal
+        warning.strokeColor = ArenaVisualPalette.amberSignal.withAlphaComponent(0.75)
+        warning.lineWidth = 1
+        warning.glowWidth = tier == 2 ? 4 : 2.5
+        damageEffectRoot.addChild(warning)
+        warning.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.18, duration: tier == 2 ? 0.08 : 0.16),
+            .fadeAlpha(to: 1, duration: tier == 2 ? 0.06 : 0.12),
+            .wait(forDuration: tier == 2 ? 0.12 : 0.34)
+        ])))
+
+        let sparkInterval = tier == 2 ? 0.42 : 0.92
+        damageEffectRoot.run(.repeatForever(.sequence([
+            .wait(forDuration: sparkInterval),
+            .run { [weak self] in self?.spawnFaultSparks(severity: tier) }
+        ])), withKey: "faultSparks")
+
+        let smokeInterval = tier == 2 ? 0.68 : 1.35
+        damageEffectRoot.run(.repeatForever(.sequence([
+            .wait(forDuration: smokeInterval),
+            .run { [weak self] in self?.spawnFaultSmoke(severity: tier) }
+        ])), withKey: "faultSmoke")
+    }
+
+    private func spawnFaultSparks(severity: Int) {
+        let origin = CGPoint(
+            x: severity == 2 ? CGFloat.random(in: -13...14) : 10,
+            y: CGFloat.random(in: 7...23)
+        )
+        for index in 0..<(severity == 2 ? 6 : 3) {
+            let angle = CGFloat.random(in: 0.18...2.96)
+            let distance = CGFloat.random(in: 11...27)
+            let spark = SKShapeNode(rectOf: CGSize(
+                width: index.isMultiple(of: 2) ? 5 : 3,
+                height: 1.25
+            ), cornerRadius: 0.55)
+            spark.position = origin
+            spark.zRotation = angle
+            spark.fillColor = index.isMultiple(of: 3)
+                ? ArenaVisualPalette.whiteMark
+                : ArenaVisualPalette.amberSignal
+            spark.strokeColor = .clear
+            spark.glowWidth = 2.5
+            damageEffectRoot.addChild(spark)
+            spark.run(.sequence([
+                .group([
+                    .moveBy(
+                        x: cos(angle) * distance,
+                        y: sin(angle) * distance,
+                        duration: 0.13
+                    ),
+                    .fadeAlpha(to: 0.55, duration: 0.13)
+                ]),
+                .group([
+                    .moveBy(x: cos(angle) * distance * 0.35, y: -9, duration: 0.16),
+                    .fadeOut(withDuration: 0.16)
+                ]),
+                .removeFromParent()
+            ]))
+        }
+    }
+
+    private func spawnFaultSmoke(severity: Int) {
+        let smoke = SKShapeNode(circleOfRadius: severity == 2 ? 6.5 : 4.5)
+        smoke.position = CGPoint(x: CGFloat.random(in: -8...11), y: 12)
+        smoke.fillColor = SKColor(white: 0.12, alpha: severity == 2 ? 0.48 : 0.30)
+        smoke.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.18)
+        smoke.lineWidth = 0.7
+        smoke.alpha = 0
+        damageEffectRoot.addChild(smoke)
+        smoke.run(.sequence([
+            .group([
+                .fadeAlpha(to: severity == 2 ? 0.52 : 0.32, duration: 0.14),
+                .scale(to: 1.25, duration: 0.14)
+            ]),
+            .group([
+                .moveBy(x: CGFloat.random(in: -7...7), y: 30, duration: 0.72),
+                .scale(to: 2.25, duration: 0.72),
+                .fadeOut(withDuration: 0.72)
+            ]),
+            .removeFromParent()
+        ]))
+    }
+
     func resetPose() {
         removeAllActions()
         locomotionRoot.removeAllActions()
@@ -524,6 +623,7 @@ final class FighterNode: SKNode {
         locomotion.reset()
         motionClipPlayer.reset()
         threeDRenderer.reset()
+        updateDamage(fraction: 1)
         appliedPose = .guardPose
         isInNeutralPose = true
         currentPhase = .idle

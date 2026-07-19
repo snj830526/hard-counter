@@ -117,6 +117,7 @@ final class CombatScene: SKScene {
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
     private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
     private let guardCloseupEnabled = ProcessInfo.processInfo.arguments.contains("--guard-closeup")
+    private let damageShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--damage-showcase")
     private var motionShowcaseController = MotionShowcaseController()
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
@@ -177,6 +178,12 @@ final class CombatScene: SKScene {
 #endif
         haptics.prepare()
         layoutScene()
+#if DEBUG
+        if damageShowcaseEnabled {
+            player.updateDamage(fraction: 0.14)
+            cpu.updateDamage(fraction: 0.31)
+        }
+#endif
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -238,6 +245,8 @@ final class CombatScene: SKScene {
             updateFatigueShowcase()
         } else if guardCloseupEnabled {
             updateGuardCloseup()
+        } else if damageShowcaseEnabled {
+            updateDamageShowcase()
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
         } else if motionShowcaseEnabled || impactShowcaseEnabled {
@@ -524,7 +533,7 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if guardCloseupEnabled {
+            if guardCloseupEnabled || damageShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -82, y: 0)
                 cpuArenaPosition = CGPoint(x: 82, y: 0)
             } else if footworkShowcaseEnabled || fatigueShowcaseEnabled
@@ -1293,6 +1302,7 @@ final class CombatScene: SKScene {
 #if DEBUG
         motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
             || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
+            || damageShowcaseEnabled
 #else
         false
 #endif
@@ -1525,6 +1535,16 @@ final class CombatScene: SKScene {
         statusLabel.alpha = 1
         statusLabel.fontColor = .systemCyan
         statusLabel.text = "GUARD CLOSEUP"
+    }
+
+    private func updateDamageShowcase() {
+        playerHealthBar.xScale = 0.14
+        cpuHealthBar.xScale = 0.31
+        guard statusLabel.text != "DAMAGE SYSTEM" else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = ArenaVisualPalette.dangerSignal
+        statusLabel.text = "DAMAGE SYSTEM"
     }
 
     private func updateFatigueShowcase() {
@@ -1787,6 +1807,7 @@ final class CombatScene: SKScene {
         let maximumHealth = engine.state(for: fighter).stats.maximumHealth
         let fraction = CGFloat(health) / CGFloat(maximumHealth)
         let bar = fighter == .player ? playerHealthBar : cpuHealthBar
+        node(for: fighter).updateDamage(fraction: fraction)
         let action = SKAction.scaleX(to: fraction, duration: CombatTuning.healthBarAnimationDuration)
         action.timingMode = .easeOut
         bar.run(action)
@@ -1867,6 +1888,13 @@ final class CombatScene: SKScene {
             technique: profile.technique,
             isCounter: kind == .counter
         )
+        showMechanicalFragments(
+            at: contactPoint,
+            color: color,
+            direction: direction,
+            isCounter: kind == .counter,
+            power: CGFloat(profile.powerScale)
+        )
 
         arenaNode.addChild(root)
         root.run(.sequence([
@@ -1943,6 +1971,65 @@ final class CombatScene: SKScene {
             spark.zPosition = 1
             root.addChild(spark)
         }
+    }
+
+    private func showMechanicalFragments(
+        at contactPoint: CGPoint,
+        color: SKColor,
+        direction: CGVector,
+        isCounter: Bool,
+        power: CGFloat
+    ) {
+        let root = SKNode()
+        root.position = contactPoint
+        root.zPosition = 62
+        root.setScale(1 / arenaZoom)
+        arenaNode.addChild(root)
+
+        let baseAngle = atan2(direction.dy, direction.dx)
+        let count = isCounter ? 14 : 9
+        let clampedPower = min(max(power, 0.7), 1.35)
+        for index in 0..<count {
+            let spread = (CGFloat(index) / CGFloat(max(count - 1, 1)) - 0.5)
+                * (isCounter ? 2.2 : 1.72)
+            let angle = baseAngle + spread + CGFloat((index * 17) % 9 - 4) * 0.035
+            let distance = CGFloat(30 + (index * 13) % 31)
+                * clampedPower * (isCounter ? 1.22 : 1)
+            let fragment = SKShapeNode(rectOf: CGSize(
+                width: index.isMultiple(of: 3) ? 8 : 5,
+                height: index.isMultiple(of: 2) ? 1.8 : 1.2
+            ), cornerRadius: 0.6)
+            fragment.fillColor = index.isMultiple(of: 4)
+                ? ArenaVisualPalette.whiteMark
+                : (index.isMultiple(of: 3) ? color : ArenaVisualPalette.amberSignal)
+            fragment.strokeColor = .clear
+            fragment.glowWidth = isCounter ? 4 : 2.5
+            fragment.zRotation = angle
+            root.addChild(fragment)
+
+            let firstLeg = SKAction.group([
+                .moveBy(
+                    x: cos(angle) * distance * 0.68,
+                    y: sin(angle) * distance * 0.68 + 8,
+                    duration: 0.11
+                ),
+                .rotate(byAngle: spread * 1.8, duration: 0.11),
+                .scale(to: 0.72, duration: 0.11)
+            ])
+            firstLeg.timingMode = .easeOut
+            let fall = SKAction.group([
+                .moveBy(
+                    x: cos(angle) * distance * 0.32,
+                    y: sin(angle) * distance * 0.18 - 20,
+                    duration: 0.18
+                ),
+                .rotate(byAngle: spread * 1.4, duration: 0.18),
+                .fadeOut(withDuration: 0.18)
+            ])
+            fall.timingMode = .easeIn
+            fragment.run(.sequence([firstLeg, fall, .removeFromParent()]))
+        }
+        root.run(.sequence([.wait(forDuration: 0.32), .removeFromParent()]))
     }
 
     private func playImpactFeedback(

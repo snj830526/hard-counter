@@ -162,6 +162,8 @@ final class BoxingRingNode: SKNode {
         innerCanvas.zPosition = -1.8
         backgroundLayer.addChild(innerCanvas)
 
+        addDeckMaterial(near: near, right: right, far: far, left: left)
+
         // Canvas seams follow the same two axes as movement projection. This
         // makes depth readable while keeping the arena a lightweight 2D asset.
         for fraction in [CGFloat(0.25), 0.50, 0.75] {
@@ -276,6 +278,22 @@ final class BoxingRingNode: SKNode {
             addLine(from: farRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
             addLine(from: leftRope, to: nearRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 31)
             addLine(from: nearRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 32)
+            addLine(
+                from: CGPoint(x: leftRope.x, y: leftRope.y + 1.1),
+                to: CGPoint(x: nearRope.x, y: nearRope.y + 1.1),
+                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.20),
+                width: 0.8,
+                to: foregroundLayer,
+                z: 31.2
+            )
+            addLine(
+                from: CGPoint(x: nearRope.x, y: nearRope.y + 1.1),
+                to: CGPoint(x: rightRope.x, y: rightRope.y + 1.1),
+                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.20),
+                width: 0.8,
+                to: foregroundLayer,
+                z: 32.2
+            )
         }
 
         addPost(at: far, color: ArenaVisualPalette.amberSignal, to: backgroundLayer, z: 3)
@@ -307,6 +325,136 @@ final class BoxingRingNode: SKNode {
         )
         signal.glowWidth = 1.5
         foregroundLayer.addChild(signal)
+
+        for fraction in [CGFloat(0.16), 0.34, 0.52, 0.70, 0.88] {
+            let top = point(between: start, and: end, fraction: fraction)
+            let bottom = CGPoint(x: top.x + outward.dx, y: top.y + outward.dy)
+            addLine(
+                from: top,
+                to: bottom,
+                color: ArenaVisualPalette.raisedMetal.withAlphaComponent(0.48),
+                width: 0.8,
+                to: foregroundLayer,
+                z: 25.15
+            )
+            let bolt = SKShapeNode(circleOfRadius: 1.15)
+            bolt.position = CGPoint(
+                x: top.x + outward.dx * 0.78,
+                y: top.y + outward.dy * 0.78
+            )
+            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.44)
+            bolt.strokeColor = SKColor.black.withAlphaComponent(0.65)
+            bolt.lineWidth = 0.6
+            bolt.zPosition = 25.3
+            foregroundLayer.addChild(bolt)
+        }
+    }
+
+    private func addDeckMaterial(
+        near: CGPoint,
+        right: CGPoint,
+        far: CGPoint,
+        left: CGPoint
+    ) {
+        let columns = 5
+        let rows = 4
+        let gap: CGFloat = 0.006
+        for row in 0..<rows {
+            for column in 0..<columns {
+                let u0 = CGFloat(column) / CGFloat(columns) + gap
+                let u1 = CGFloat(column + 1) / CGFloat(columns) - gap
+                let v0 = CGFloat(row) / CGFloat(rows) + gap
+                let v1 = CGFloat(row + 1) / CGFloat(rows) - gap
+                let points = [
+                    deckPoint(near: near, right: right, far: far, left: left, u: u0, v: v0),
+                    deckPoint(near: near, right: right, far: far, left: left, u: u1, v: v0),
+                    deckPoint(near: near, right: right, far: far, left: left, u: u1, v: v1),
+                    deckPoint(near: near, right: right, far: far, left: left, u: u0, v: v1)
+                ]
+                let plate = polygon(points)
+                plate.fillColor = (column + row).isMultiple(of: 2)
+                    ? ArenaVisualPalette.raisedMetal.withAlphaComponent(0.12)
+                    : ArenaVisualPalette.carbon.withAlphaComponent(0.16)
+                plate.strokeColor = SKColor.black.withAlphaComponent(0.22)
+                plate.lineWidth = 0.65
+                plate.zPosition = -1.72
+                backgroundLayer.addChild(plate)
+
+                addLine(
+                    from: points[3],
+                    to: points[2],
+                    color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.055),
+                    width: 0.7,
+                    to: backgroundLayer,
+                    z: -1.68
+                )
+            }
+        }
+
+        for row in 1..<rows {
+            for column in 1..<columns {
+                let point = deckPoint(
+                    near: near,
+                    right: right,
+                    far: far,
+                    left: left,
+                    u: CGFloat(column) / CGFloat(columns),
+                    v: CGFloat(row) / CGFloat(rows)
+                )
+                let housing = SKShapeNode(circleOfRadius: 1.8)
+                housing.position = point
+                housing.fillColor = SKColor.black.withAlphaComponent(0.58)
+                housing.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.54)
+                housing.lineWidth = 0.7
+                housing.zPosition = -1.25
+                backgroundLayer.addChild(housing)
+
+                let specular = SKShapeNode(circleOfRadius: 0.48)
+                specular.position = CGPoint(x: point.x - 0.45, y: point.y + 0.45)
+                specular.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.55)
+                specular.strokeColor = .clear
+                specular.zPosition = -1.2
+                backgroundLayer.addChild(specular)
+            }
+        }
+
+        let scratches: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+            (0.13, 0.23, 13, 2), (0.29, 0.67, -11, 3),
+            (0.44, 0.31, 17, -2), (0.58, 0.78, 9, 3),
+            (0.72, 0.18, -14, 2), (0.84, 0.56, 12, -3),
+            (0.37, 0.88, -8, 2), (0.66, 0.43, 15, 1)
+        ]
+        for scratch in scratches {
+            let start = deckPoint(
+                near: near,
+                right: right,
+                far: far,
+                left: left,
+                u: scratch.0,
+                v: scratch.1
+            )
+            addLine(
+                from: start,
+                to: CGPoint(x: start.x + scratch.2, y: start.y + scratch.3),
+                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.10),
+                width: 0.65,
+                to: backgroundLayer,
+                z: -1.1
+            )
+        }
+    }
+
+    private func deckPoint(
+        near: CGPoint,
+        right: CGPoint,
+        far: CGPoint,
+        left: CGPoint,
+        u: CGFloat,
+        v: CGFloat
+    ) -> CGPoint {
+        let nearEdge = point(between: near, and: right, fraction: u)
+        let farEdge = point(between: left, and: far, fraction: u)
+        return point(between: nearEdge, and: farEdge, fraction: v)
     }
 
     private func addPost(at point: CGPoint, color: SKColor, to layer: SKNode, z: CGFloat) {

@@ -19,7 +19,12 @@ struct ContentView: View {
             "--footwork-showcase",
             "--motion-showcase",
             "--motion-clip-showcase",
-            "--sway-showcase"
+            "--sway-showcase",
+            "--impact-showcase",
+            "--fatigue-showcase",
+            "--guard-closeup",
+            "--fighter-style-showcase",
+            "--damage-showcase"
         ].contains(where: arguments.contains)
         if shouldLaunchMotionShowcase {
             _destination = State(initialValue: .combat(.allRounder))
