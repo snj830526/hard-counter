@@ -22,30 +22,26 @@ struct Fighter3DMaterialPalette {
             with: UIColor.white,
             amount: 0.14
         )
-        let frameMetal = Self.mixed(
-            appearance.kitColor,
-            with: UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1),
-            amount: 0.52
-        )
+        let frameMetal = appearance.machineColors.frame
         let insetMetal = Self.mixed(
-            appearance.kitColor,
-            with: UIColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1),
-            amount: 0.74
+            appearance.machineColors.frame,
+            with: UIColor(red: 0.40, green: 0.43, blue: 0.48, alpha: 1),
+            amount: 0.40
         )
         let jointMetal = Self.mixed(
-            appearance.kitColor,
-            with: UIColor(red: 0.16, green: 0.18, blue: 0.22, alpha: 1),
-            amount: 0.82
+            appearance.machineColors.frame,
+            with: UIColor(red: 0.48, green: 0.50, blue: 0.54, alpha: 1),
+            amount: 0.52
         )
         let accentPaint = Self.mixed(
             appearance.accentColor,
             with: UIColor.white,
             amount: 0.20
         )
-        let pearlArmor = Self.mixed(
-            appearance.kitColor,
-            with: UIColor(red: 0.82, green: 0.86, blue: 0.88, alpha: 1),
-            amount: 0.58
+        let secondaryArmor = Self.mixed(
+            appearance.machineColors.secondaryArmor,
+            with: UIColor.white,
+            amount: 0.08
         )
         skin = Self.makeMatte(frameMetal)
         shadowSkin = Self.makeMatte(insetMetal)
@@ -53,11 +49,9 @@ struct Fighter3DMaterialPalette {
         kit = Self.makeMatte(paintedArmor)
         accent = Self.makeMatte(accentPaint)
         hair = Self.makeMatte(insetMetal)
-        eyeWhite = Self.makeSignal(paintedArmor)
-        secondaryArmor = Self.makeMatte(pearlArmor)
-        marking = Self.makeMatte(
-            UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1)
-        )
+        eyeWhite = Self.makeSignal(appearance.machineColors.signal)
+        self.secondaryArmor = Self.makeMatte(secondaryArmor)
+        marking = Self.makeMatte(appearance.machineColors.marking)
     }
 
     /// Powder-coated armour uses diffuse-only lighting. PBR metalness still
