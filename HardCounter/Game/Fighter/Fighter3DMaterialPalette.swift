@@ -1,9 +1,10 @@
 import SceneKit
 import UIKit
 
-/// Presentation-only materials derived from one fighter appearance. Keeping
-/// these values together prevents geometry builders from independently tuning
-/// the same skin or kit color.
+/// Presentation-only materials for a purpose-built boxing machine. The old
+/// field names remain stable for the rig builders, but they now describe
+/// painted armour, recessed mechanics and luminous fight identifiers rather
+/// than human skin, hair and fabric.
 struct Fighter3DMaterialPalette {
     let skin: SCNMaterial
     let shadowSkin: SCNMaterial
@@ -14,25 +15,41 @@ struct Fighter3DMaterialPalette {
     let eyeWhite: SCNMaterial
 
     init(appearance: FighterAppearance) {
-        skin = Self.make(appearance.skinColor, roughness: 0.66, specular: 0.20)
-        shadowSkin = Self.make(appearance.skinShadowColor, roughness: 0.72, specular: 0.14)
-        jointSkin = Self.make(
-            appearance.skinColor,
-            roughness: 0.96,
-            specular: 0.02
+        let armour = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.54, green: 0.59, blue: 0.64, alpha: 1),
+            amount: 0.34
         )
-        kit = Self.make(appearance.kitColor, roughness: 0.80, specular: 0.10)
+        let insetMetal = UIColor(red: 0.075, green: 0.090, blue: 0.115, alpha: 1)
+        let jointMetal = UIColor(red: 0.025, green: 0.032, blue: 0.045, alpha: 1)
+        skin = Self.make(armour, roughness: 0.34, specular: 0.72, metalness: 0.78)
+        shadowSkin = Self.make(insetMetal, roughness: 0.46, specular: 0.58, metalness: 0.86)
+        jointSkin = Self.make(
+            jointMetal,
+            roughness: 0.38,
+            specular: 0.66,
+            metalness: 0.92
+        )
+        kit = Self.make(
+            appearance.kitColor,
+            roughness: 0.30,
+            specular: 0.78,
+            metalness: 0.72
+        )
         accent = Self.make(
             appearance.accentColor,
-            roughness: 0.48,
-            specular: 0.32,
-            emission: 0.025
+            roughness: 0.24,
+            specular: 0.88,
+            metalness: 0.64,
+            emission: 0.20
         )
-        hair = Self.make(appearance.hairColor, roughness: 0.94, specular: 0.04)
+        hair = Self.make(insetMetal, roughness: 0.32, specular: 0.74, metalness: 0.90)
         eyeWhite = Self.make(
-            UIColor(white: 0.92, alpha: 1),
-            roughness: 0.74,
-            specular: 0.08
+            appearance.kitColor,
+            roughness: 0.14,
+            specular: 0.92,
+            metalness: 0.18,
+            emission: 0.78
         )
     }
 
@@ -40,12 +57,13 @@ struct Fighter3DMaterialPalette {
         _ color: UIColor,
         roughness: CGFloat,
         specular: CGFloat,
+        metalness: CGFloat,
         emission: CGFloat = 0
     ) -> SCNMaterial {
         let result = SCNMaterial()
         result.diffuse.contents = color
         result.roughness.contents = roughness
-        result.metalness.contents = 0.02
+        result.metalness.contents = metalness
         result.specular.contents = UIColor(white: specular, alpha: 1)
         if emission > 0 {
             result.emission.contents = color
@@ -53,6 +71,30 @@ struct Fighter3DMaterialPalette {
         }
         result.lightingModel = .physicallyBased
         return result
+    }
+
+    private static func mixed(
+        _ source: UIColor,
+        with target: UIColor,
+        amount: CGFloat
+    ) -> UIColor {
+        var sr: CGFloat = 0
+        var sg: CGFloat = 0
+        var sb: CGFloat = 0
+        var sa: CGFloat = 0
+        var tr: CGFloat = 0
+        var tg: CGFloat = 0
+        var tb: CGFloat = 0
+        var ta: CGFloat = 0
+        source.getRed(&sr, green: &sg, blue: &sb, alpha: &sa)
+        target.getRed(&tr, green: &tg, blue: &tb, alpha: &ta)
+        let t = min(max(amount, 0), 1)
+        return UIColor(
+            red: sr + (tr - sr) * t,
+            green: sg + (tg - sg) * t,
+            blue: sb + (tb - sb) * t,
+            alpha: sa + (ta - sa) * t
+        )
     }
 
 }

@@ -18,17 +18,17 @@ enum FighterProfile: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .allRounder: "THE COUNTER"
-        case .pressure: "IRON PRESSURE"
-        case .outBoxer: "BLUE FLASH"
+        case .allRounder: "COUNTER UNIT"
+        case .pressure: "HYDRAULIC PRESS"
+        case .outBoxer: "VELOCITY FRAME"
         }
     }
 
     var styleName: String {
         switch self {
-        case .allRounder: "밸런스"
-        case .pressure: "인파이터"
-        case .outBoxer: "아웃복서"
+        case .allRounder: "밸런스 프레임"
+        case .pressure: "중장갑 압박형"
+        case .outBoxer: "경량 고속형"
         }
     }
 

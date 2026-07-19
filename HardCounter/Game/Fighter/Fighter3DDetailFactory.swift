@@ -1,227 +1,313 @@
 import SceneKit
 
-/// Adds small appearance details to the stable animation rig. These nodes do
-/// not own combat state and can be changed without touching motion playback.
+/// Adds armour, actuators and sensors to the stable animation rig. These nodes
+/// do not own combat state and can be changed without touching motion playback.
 enum Fighter3DDetailFactory {
-    static func attachKit(
+    static func attachHipArmor(
         _ style: FighterKitStyle,
         proportions: Fighter3DAppearanceProfile,
         palette: Fighter3DMaterialPalette,
         to pelvis: SCNNode
     ) {
-        let waistbandHeight: CGFloat = style == .pressure ? 0.12 : 0.085
-        let waistband = Fighter3DMeshFactory.box(
-            width: proportions.shortsWidth + 0.035,
-            height: waistbandHeight,
-            length: proportions.shortsDepth + 0.025,
+        let waistBearing = Fighter3DMeshFactory.cylinder(
+            radius: proportions.shortsWidth * 0.36,
+            height: style == .pressure ? 0.14 : 0.10,
+            material: palette.shadowSkin
+        )
+        waistBearing.eulerAngles.x = .pi / 2
+        waistBearing.position = SCNVector3(0, 0.19, 0)
+        pelvis.addChildNode(waistBearing)
+
+        let beltArmor = Fighter3DMeshFactory.box(
+            width: proportions.shortsWidth + 0.045,
+            height: style == .pressure ? 0.14 : 0.10,
+            length: proportions.shortsDepth + 0.035,
             chamfer: 0.025,
             material: palette.accent
         )
-        waistband.position.y = 0.16
-        pelvis.addChildNode(waistband)
+        beltArmor.position.y = 0.14
+        pelvis.addChildNode(beltArmor)
 
         switch style {
         case .classic:
-            let frontPatch = Fighter3DMeshFactory.box(
-                width: 0.13,
-                height: 0.16,
-                length: 0.025,
-                chamfer: 0.01,
-                material: palette.accent
+            let gyro = Fighter3DMeshFactory.cylinder(
+                radius: 0.075,
+                height: 0.035,
+                material: palette.eyeWhite
             )
-            frontPatch.position = SCNVector3(0, -0.06, proportions.shortsDepth / 2 + 0.015)
-            pelvis.addChildNode(frontPatch)
+            gyro.eulerAngles.x = .pi / 2
+            gyro.position = SCNVector3(0, -0.04, proportions.shortsDepth / 2 + 0.025)
+            pelvis.addChildNode(gyro)
         case .pressure:
             for side: CGFloat in [-1, 1] {
                 let panel = Fighter3DMeshFactory.box(
-                    width: 0.105,
-                    height: 0.31,
-                    length: 0.025,
-                    chamfer: 0.015,
-                    material: palette.accent
+                    width: 0.15,
+                    height: 0.34,
+                    length: 0.055,
+                    chamfer: 0.025,
+                    material: palette.skin
                 )
                 panel.position = SCNVector3(
-                    side * (proportions.shortsWidth / 2 - 0.07),
-                    -0.06,
-                    proportions.shortsDepth / 2 + 0.015
+                    side * (proportions.shortsWidth / 2 - 0.065),
+                    -0.07,
+                    proportions.shortsDepth / 2 + 0.025
                 )
+                panel.eulerAngles.z = Float(-side * 0.08)
                 pelvis.addChildNode(panel)
             }
         case .speed:
+            let centerRail = Fighter3DMeshFactory.box(
+                width: 0.075,
+                height: 0.31,
+                length: 0.045,
+                chamfer: 0.01,
+                material: palette.eyeWhite
+            )
+            centerRail.position = SCNVector3(0, -0.06, proportions.shortsDepth / 2 + 0.025)
+            pelvis.addChildNode(centerRail)
             for side: CGFloat in [-1, 1] {
-                let stripe = Fighter3DMeshFactory.box(
+                let stabilizer = Fighter3DMeshFactory.box(
                     width: 0.045,
-                    height: 0.30,
-                    length: proportions.shortsDepth + 0.02,
-                    chamfer: 0.01,
+                    height: 0.22,
+                    length: proportions.shortsDepth + 0.06,
+                    chamfer: 0.012,
                     material: palette.accent
                 )
-                stripe.position = SCNVector3(
-                    side * (proportions.shortsWidth / 2 + 0.006),
+                stabilizer.position = SCNVector3(
+                    side * (proportions.shortsWidth / 2 + 0.012),
                     -0.04,
                     0
                 )
-                pelvis.addChildNode(stripe)
+                pelvis.addChildNode(stabilizer)
             }
         }
     }
 
-    static func attachHair(
+    static func attachTorsoArmor(
+        _ style: FighterKitStyle,
+        proportions: Fighter3DAppearanceProfile,
+        palette: Fighter3DMaterialPalette,
+        to spine: SCNNode
+    ) -> SCNNode {
+        let front = proportions.torsoDepth * 0.63 + 0.025
+        let coreRadius: CGFloat = style == .pressure ? 0.105 : 0.080
+        let core = Fighter3DMeshFactory.cylinder(
+            radius: coreRadius,
+            height: 0.045,
+            material: palette.eyeWhite
+        )
+        core.eulerAngles.x = .pi / 2
+        core.position = SCNVector3(0, style == .speed ? 0.52 : 0.45, front)
+        spine.addChildNode(core)
+
+        switch style {
+        case .classic:
+            for side: CGFloat in [-1, 1] {
+                let chestPlate = Fighter3DMeshFactory.box(
+                    width: proportions.chestWidth * 0.42,
+                    height: 0.34,
+                    length: 0.065,
+                    chamfer: 0.045,
+                    material: palette.kit
+                )
+                chestPlate.position = SCNVector3(
+                    side * proportions.chestWidth * 0.23,
+                    0.59,
+                    front
+                )
+                chestPlate.eulerAngles.z = Float(-side * 0.13)
+                spine.addChildNode(chestPlate)
+            }
+        case .pressure:
+            let breastplate = Fighter3DMeshFactory.box(
+                width: proportions.chestWidth * 1.03,
+                height: 0.44,
+                length: 0.10,
+                chamfer: 0.065,
+                material: palette.kit
+            )
+            breastplate.position = SCNVector3(0, 0.58, front)
+            spine.addChildNode(breastplate)
+            for side: CGFloat in [-1, 1] {
+                let bolt = Fighter3DMeshFactory.cylinder(
+                    radius: 0.045,
+                    height: 0.04,
+                    material: palette.accent
+                )
+                bolt.eulerAngles.x = .pi / 2
+                bolt.position = SCNVector3(side * proportions.chestWidth * 0.34, 0.66, front + 0.07)
+                spine.addChildNode(bolt)
+            }
+        case .speed:
+            let keel = Fighter3DMeshFactory.box(
+                width: 0.15,
+                height: 0.57,
+                length: 0.07,
+                chamfer: 0.025,
+                material: palette.kit
+            )
+            keel.position = SCNVector3(0, 0.55, front)
+            spine.addChildNode(keel)
+            for side: CGFloat in [-1, 1] {
+                let rib = Fighter3DMeshFactory.box(
+                    width: proportions.chestWidth * 0.38,
+                    height: 0.095,
+                    length: 0.05,
+                    chamfer: 0.018,
+                    material: palette.accent
+                )
+                rib.position = SCNVector3(side * 0.19, 0.62 + side * 0.11, front)
+                rib.eulerAngles.z = Float(-side * 0.30)
+                spine.addChildNode(rib)
+            }
+        }
+        return core
+    }
+
+    static func attachHelmet(
         _ style: FighterHairStyle,
         proportions: Fighter3DAppearanceProfile,
         palette: Fighter3DMaterialPalette,
         to head: SCNNode
     ) {
-        let hairRoot = SCNNode()
-        hairRoot.scale = SCNVector3(
+        let helmetRoot = SCNNode()
+        helmetRoot.scale = SCNVector3(
             proportions.headWidthScale,
             proportions.headHeightScale,
             proportions.headDepthScale
         )
-        head.addChildNode(hairRoot)
+        head.addChildNode(helmetRoot)
 
         switch style {
         case .cropped:
-            let cap = Fighter3DMeshFactory.sphere(radius: 0.255, material: palette.hair)
-            cap.scale = SCNVector3(0.90, 0.40, 0.94)
-            cap.position.y = 0.17
-            hairRoot.addChildNode(cap)
-
-            let hairline = Fighter3DMeshFactory.box(
+            let crown = Fighter3DMeshFactory.box(
                 width: 0.34,
-                height: 0.08,
-                length: 0.07,
-                chamfer: 0.025,
-                material: palette.hair
+                height: 0.12,
+                length: 0.34,
+                chamfer: 0.045,
+                material: palette.skin
             )
-            hairline.position = SCNVector3(0, 0.15, 0.215)
-            hairRoot.addChildNode(hairline)
-        case .shaved:
-            let scalp = Fighter3DMeshFactory.sphere(radius: 0.252, material: palette.hair)
-            scalp.scale = SCNVector3(0.89, 0.16, 0.92)
-            scalp.position.y = 0.22
-            hairRoot.addChildNode(scalp)
-        case .swept:
-            let cap = Fighter3DMeshFactory.sphere(radius: 0.258, material: palette.hair)
-            cap.scale = SCNVector3(0.92, 0.46, 0.96)
-            cap.position.y = 0.17
-            cap.eulerAngles.z = -0.10
-            hairRoot.addChildNode(cap)
+            crown.position = SCNVector3(0, 0.20, 0)
+            helmetRoot.addChildNode(crown)
 
-            let sweep = Fighter3DMeshFactory.box(
-                width: 0.29,
-                height: 0.11,
-                length: 0.10,
-                chamfer: 0.035,
-                material: palette.hair
+            let sensorBar = Fighter3DMeshFactory.box(
+                width: 0.22,
+                height: 0.035,
+                length: 0.045,
+                chamfer: 0.012,
+                material: palette.eyeWhite
             )
-            sweep.position = SCNVector3(0.075, 0.20, 0.225)
-            sweep.eulerAngles.z = -0.30
-            hairRoot.addChildNode(sweep)
+            sensorBar.position = SCNVector3(0, 0.23, 0.205)
+            helmetRoot.addChildNode(sensorBar)
+        case .shaved:
+            let reinforcedCrown = Fighter3DMeshFactory.box(
+                width: 0.39,
+                height: 0.15,
+                length: 0.38,
+                chamfer: 0.065,
+                material: palette.kit
+            )
+            reinforcedCrown.position = SCNVector3(0, 0.19, -0.005)
+            helmetRoot.addChildNode(reinforcedCrown)
+
+            for side: CGFloat in [-1, 1] {
+                let templeGuard = Fighter3DMeshFactory.box(
+                    width: 0.075,
+                    height: 0.25,
+                    length: 0.27,
+                    chamfer: 0.025,
+                    material: palette.hair
+                )
+                templeGuard.position = SCNVector3(side * 0.205, 0.035, 0)
+                helmetRoot.addChildNode(templeGuard)
+            }
+        case .swept:
+            let crown = Fighter3DMeshFactory.box(
+                width: 0.30,
+                height: 0.105,
+                length: 0.32,
+                chamfer: 0.035,
+                material: palette.skin
+            )
+            crown.position = SCNVector3(0, 0.19, 0)
+            helmetRoot.addChildNode(crown)
+
+            let antenna = Fighter3DMeshFactory.box(
+                width: 0.045,
+                height: 0.29,
+                length: 0.075,
+                chamfer: 0.012,
+                material: palette.eyeWhite
+            )
+            antenna.position = SCNVector3(0.10, 0.34, -0.02)
+            antenna.eulerAngles.z = -0.24
+            helmetRoot.addChildNode(antenna)
         }
     }
 
-    static func attachFace(
+    static func attachSensorFace(
         _ style: FighterFaceStyle,
         proportions: Fighter3DAppearanceProfile,
         palette: Fighter3DMaterialPalette,
         to head: SCNNode
     ) {
-        for side: CGFloat in [-1, 1] {
-            let eye = Fighter3DMeshFactory.sphere(radius: 0.034, material: palette.eyeWhite)
-            eye.scale = SCNVector3(1, 0.60, 0.42)
-            eye.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.035 * proportions.headHeightScale,
-                0.230 * proportions.headDepthScale
-            )
-            head.addChildNode(eye)
-
-            let pupil = Fighter3DMeshFactory.sphere(radius: 0.015, material: palette.hair)
-            pupil.scale = SCNVector3(0.72, 0.72, 0.36)
-            pupil.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.035 * proportions.headHeightScale,
-                0.248 * proportions.headDepthScale
-            )
-            head.addChildNode(pupil)
-
-            let brow = Fighter3DMeshFactory.box(
-                width: style == .rugged ? 0.105 : 0.085,
-                height: style == .rugged ? 0.030 : 0.022,
-                length: 0.022,
-                chamfer: 0.008,
-                material: palette.hair
-            )
-            brow.position = SCNVector3(
-                side * 0.075 * proportions.headWidthScale,
-                0.098 * proportions.headHeightScale,
-                0.226 * proportions.headDepthScale
-            )
-            brow.eulerAngles.z = Float(side * (style == .sharp ? 0.18 : 0.08))
-            head.addChildNode(brow)
-
-            let ear = Fighter3DMeshFactory.sphere(radius: 0.042, material: palette.shadowSkin)
-            ear.scale = SCNVector3(0.52, 1, 0.62)
-            ear.position = SCNVector3(
-                side * 0.235 * proportions.headWidthScale,
-                -0.015,
-                0
-            )
-            head.addChildNode(ear)
-        }
-
-        let nose = Fighter3DMeshFactory.sphere(radius: 0.042, material: palette.skin)
-        nose.scale = SCNVector3(0.62, 0.90, 0.72)
-        nose.position = SCNVector3(
-            0,
-            -0.018 * proportions.headHeightScale,
-            0.252 * proportions.headDepthScale
+        let visorWidth: CGFloat = style == .rugged || style == .veteran ? 0.35 : 0.30
+        let visor = Fighter3DMeshFactory.box(
+            width: visorWidth * proportions.headWidthScale,
+            height: style == .sharp ? 0.055 : 0.075,
+            length: 0.045,
+            chamfer: 0.016,
+            material: palette.eyeWhite
         )
-        head.addChildNode(nose)
+        visor.position = SCNVector3(
+            0,
+            0.045 * proportions.headHeightScale,
+            0.235 * proportions.headDepthScale
+        )
+        head.addChildNode(visor)
 
-        let mouth = Fighter3DMeshFactory.box(
-            width: 0.105,
-            height: 0.018,
-            length: 0.022,
-            chamfer: 0.006,
+        let facePlate = Fighter3DMeshFactory.box(
+            width: 0.27 * proportions.headWidthScale,
+            height: 0.16,
+            length: 0.055,
+            chamfer: 0.028,
             material: palette.shadowSkin
         )
-        mouth.position = SCNVector3(0, -0.112, 0.225)
-        head.addChildNode(mouth)
+        facePlate.position = SCNVector3(0, -0.105, 0.218 * proportions.headDepthScale)
+        head.addChildNode(facePlate)
 
         switch style {
         case .focused:
-            let noseBridge = Fighter3DMeshFactory.box(
-                width: 0.030,
-                height: 0.085,
-                length: 0.025,
-                chamfer: 0.008,
-                material: palette.shadowSkin
-            )
-            noseBridge.position = SCNVector3(0, 0.035, 0.235)
-            head.addChildNode(noseBridge)
-        case .rugged, .veteran:
-            let chinGuard = Fighter3DMeshFactory.box(
-                width: 0.17,
-                height: 0.10,
+            let centerSensor = Fighter3DMeshFactory.box(
+                width: 0.035,
+                height: 0.105,
                 length: 0.035,
-                chamfer: 0.025,
-                material: palette.hair
-            )
-            chinGuard.position = SCNVector3(0, -0.178, 0.188)
-            head.addChildNode(chinGuard)
-        case .sharp:
-            let cheekMark = Fighter3DMeshFactory.box(
-                width: 0.075,
-                height: 0.020,
-                length: 0.025,
-                chamfer: 0.006,
+                chamfer: 0.010,
                 material: palette.accent
             )
-            cheekMark.position = SCNVector3(0.105, -0.070, 0.222)
-            cheekMark.eulerAngles.z = -0.32
-            head.addChildNode(cheekMark)
+            centerSensor.position = SCNVector3(0, -0.045, 0.255)
+            head.addChildNode(centerSensor)
+        case .rugged, .veteran:
+            let ramGuard = Fighter3DMeshFactory.box(
+                width: 0.30,
+                height: 0.12,
+                length: 0.10,
+                chamfer: 0.025,
+                material: palette.kit
+            )
+            ramGuard.position = SCNVector3(0, -0.185, 0.18)
+            head.addChildNode(ramGuard)
+        case .sharp:
+            let rangeFinder = Fighter3DMeshFactory.box(
+                width: 0.095,
+                height: 0.055,
+                length: 0.055,
+                chamfer: 0.012,
+                material: palette.accent
+            )
+            rangeFinder.position = SCNVector3(0.125, -0.055, 0.25)
+            rangeFinder.eulerAngles.z = -0.22
+            head.addChildNode(rangeFinder)
         }
     }
 }

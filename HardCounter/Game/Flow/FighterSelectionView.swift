@@ -35,9 +35,9 @@ struct FighterSelectionView: View {
 
             Spacer()
             VStack(spacing: 2) {
-                Text("SELECT FIGHTER")
+                Text("SELECT MACHINE")
                     .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("솔로 대전에 출전할 선수를 선택하세요")
+                Text("솔로 대전에 출전할 복싱 머신을 선택하세요")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
@@ -144,7 +144,7 @@ struct FighterSelectionView: View {
 
     private var footer: some View {
         HStack {
-            Text("선택한 선수의 능력치와 기술 특성이 실제 경기에 적용됩니다")
+            Text("선택한 머신의 프레임 특성과 기술이 실제 경기에 적용됩니다")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()

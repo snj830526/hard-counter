@@ -26,6 +26,9 @@ final class Fighter3DRenderer {
     private var rearFootIK: SCNIKConstraint?
     private var leadFootGroundY: Float?
     private var rearFootGroundY: Float?
+    private var armActuators: [SCNNode] = []
+    private var legActuators: [SCNNode] = []
+    private var powerCore: SCNNode?
 
     private var phase: FighterPhase = .idle
     private var phaseElapsed: TimeInterval = 0
@@ -1003,6 +1006,7 @@ final class Fighter3DRenderer {
             minimum: -0.72,
             maximum: 0.72
         )
+        applyMechanicalSecondaryMotion(pose: pose)
         applyFootPlanting(
             locomotionFrame: locomotionFrame,
             bodyMotion: bodyMotion
@@ -1066,12 +1070,12 @@ final class Fighter3DRenderer {
         skeletonRoot.addChildNode(pelvis)
         pelvis.position = SCNVector3(0, 1.34, 0)
 
-        let shorts = Fighter3DMeshFactory.shorts(
+        let hipFrame = Fighter3DMeshFactory.hipFrame(
             proportions: proportions,
             material: palette.kit
         )
-        pelvis.addChildNode(shorts)
-        Fighter3DDetailFactory.attachKit(
+        pelvis.addChildNode(hipFrame)
+        Fighter3DDetailFactory.attachHipArmor(
             appearance.kitStyle,
             proportions: proportions,
             palette: palette,
@@ -1085,13 +1089,19 @@ final class Fighter3DRenderer {
             material: palette.skin
         )
         spine.addChildNode(torso)
+        powerCore = Fighter3DDetailFactory.attachTorsoArmor(
+            appearance.kitStyle,
+            proportions: proportions,
+            palette: palette,
+            to: spine
+        )
 
         spine.addChildNode(head)
         head.position = SCNVector3(0, 1.17, 0)
         let neck = Fighter3DMeshFactory.cylinder(
             radius: proportions.neckRadius,
             height: 0.23,
-            material: palette.skin
+            material: palette.jointSkin
         )
         neck.position.y = -0.20
         head.addChildNode(neck)
@@ -1100,13 +1110,13 @@ final class Fighter3DRenderer {
             material: palette.skin
         )
         head.addChildNode(skull)
-        Fighter3DDetailFactory.attachHair(
+        Fighter3DDetailFactory.attachHelmet(
             appearance.hairStyle,
             proportions: proportions,
             palette: palette,
             to: head
         )
-        Fighter3DDetailFactory.attachFace(
+        Fighter3DDetailFactory.attachSensorFace(
             appearance.faceStyle,
             proportions: proportions,
             palette: palette,
@@ -1260,11 +1270,32 @@ final class Fighter3DRenderer {
             radius: 0.112 * proportions.limbRadiusScale,
             material: jointMaterial
         ))
+        let shoulderArmor = Fighter3DMeshFactory.box(
+            width: 0.27 * proportions.limbRadiusScale,
+            height: 0.19,
+            length: 0.25 * proportions.limbRadiusScale,
+            chamfer: 0.045,
+            material: gloveMaterial
+        )
+        shoulderArmor.position = SCNVector3(0, -0.045, 0)
+        shoulder.addChildNode(shoulderArmor)
         shoulder.addChildNode(Fighter3DMeshFactory.upperArm(
             length: 0.58,
             radius: 0.108 * proportions.limbRadiusScale,
             material: material
         ))
+        let upperActuator = Fighter3DMeshFactory.cylinder(
+            radius: 0.035 * proportions.limbRadiusScale,
+            height: 0.40,
+            material: accentMaterial
+        )
+        upperActuator.position = SCNVector3(
+            x >= 0 ? 0.075 : -0.075,
+            -0.29,
+            0.025
+        )
+        shoulder.addChildNode(upperActuator)
+        armActuators.append(upperActuator)
         shoulder.addChildNode(elbow)
         elbow.position.y = -0.58
         elbow.addChildNode(Fighter3DMeshFactory.joint(
@@ -1276,6 +1307,15 @@ final class Fighter3DRenderer {
             radius: 0.094 * proportions.limbRadiusScale,
             material: material
         ))
+        let forearmGuard = Fighter3DMeshFactory.box(
+            width: 0.20 * proportions.limbRadiusScale,
+            height: 0.30,
+            length: 0.19 * proportions.limbRadiusScale,
+            chamfer: 0.035,
+            material: gloveMaterial
+        )
+        forearmGuard.position = SCNVector3(0, -0.25, 0.015)
+        elbow.addChildNode(forearmGuard)
         let cuff = Fighter3DMeshFactory.cylinder(
             radius: 0.105 * proportions.cuffScale,
             height: 0.16,
@@ -1309,6 +1349,15 @@ final class Fighter3DRenderer {
     ) {
         parent.addChildNode(hip)
         hip.position = SCNVector3(x, -0.18, z)
+        let hipArmor = Fighter3DMeshFactory.box(
+            width: 0.25 * proportions.limbRadiusScale,
+            height: 0.20,
+            length: 0.25 * proportions.limbRadiusScale,
+            chamfer: 0.045,
+            material: shoeMaterial
+        )
+        hipArmor.position.y = -0.04
+        hip.addChildNode(hipArmor)
         hip.addChildNode(Fighter3DMeshFactory.thigh(
             length: 0.66,
             radius: 0.145 * proportions.limbRadiusScale,
@@ -1320,11 +1369,28 @@ final class Fighter3DRenderer {
             radius: 0.098 * proportions.limbRadiusScale,
             material: jointMaterial
         ))
+        let kneeGuard = Fighter3DMeshFactory.box(
+            width: 0.19 * proportions.limbRadiusScale,
+            height: 0.17,
+            length: 0.12,
+            chamfer: 0.035,
+            material: shoeMaterial
+        )
+        kneeGuard.position = SCNVector3(0, -0.02, 0.085)
+        knee.addChildNode(kneeGuard)
         knee.addChildNode(Fighter3DMeshFactory.calf(
             length: 0.64,
             radius: 0.112 * proportions.limbRadiusScale,
             material: material
         ))
+        let calfActuator = Fighter3DMeshFactory.cylinder(
+            radius: 0.032 * proportions.limbRadiusScale,
+            height: 0.40,
+            material: jointMaterial
+        )
+        calfActuator.position = SCNVector3(x >= 0 ? 0.075 : -0.075, -0.31, 0)
+        knee.addChildNode(calfActuator)
+        legActuators.append(calfActuator)
         knee.addChildNode(ankle)
         ankle.position.y = -0.64
         let boot = Fighter3DMeshFactory.cylinder(
@@ -1343,6 +1409,40 @@ final class Fighter3DRenderer {
         )
         shoe.position = SCNVector3(0, -0.06, 0.10)
         ankle.addChildNode(shoe)
+    }
+
+    private func applyMechanicalSecondaryMotion(pose: Fighter3DPose) {
+        let armDrive: CGFloat
+        switch phase {
+        case .punchStartup:
+            armDrive = 0.88
+        case .punchActive:
+            armDrive = 1.18
+        case .punchRecovery:
+            armDrive = 1.05
+        case .swaying:
+            armDrive = 0.94
+        case .hit:
+            armDrive = 0.90
+        case .idle, .knockedOut:
+            armDrive = 1
+        }
+        for actuator in armActuators {
+            actuator.scale.y = Float(armDrive)
+        }
+
+        let kneeLoad = min(
+            (abs(CGFloat(pose.leadKnee.x)) + abs(CGFloat(pose.rearKnee.x))) * 0.10,
+            0.16
+        )
+        for actuator in legActuators {
+            actuator.scale.y = Float(1 - kneeLoad)
+        }
+
+        let idlePulse = sin(CGFloat(phaseElapsed) * 3.8) * 0.025
+        let actionPulse: CGFloat = phase == .punchActive ? 0.16 : (phase == .swaying ? 0.07 : 0)
+        let coreScale = 1 + idlePulse + actionPulse
+        powerCore?.scale = SCNVector3(coreScale, coreScale, coreScale)
     }
 
 }

@@ -8,57 +8,78 @@ struct FighterPortraitView: View {
         let appearance = fighter.appearance
         let shoulderScale = appearance.bodyBuild.shoulderScale
         let limbScale = appearance.bodyBuild.limbScale
+        let armor = fighter.swiftUIColor
+        let darkMetal = Color(red: 0.06, green: 0.08, blue: 0.11)
 
         ZStack {
             Circle()
                 .fill(fighter.swiftUIColor.opacity(0.13))
 
             Capsule()
-                .fill(Color(uiColor: appearance.skinColor))
+                .fill(darkMetal)
                 .frame(width: 9 * limbScale, height: 36)
                 .rotationEffect(.degrees(-34))
                 .offset(x: -19 * shoulderScale, y: 12)
 
             Capsule()
-                .fill(Color(uiColor: appearance.skinShadowColor))
+                .fill(darkMetal)
                 .frame(width: 8 * limbScale, height: 34)
                 .rotationEffect(.degrees(34))
                 .offset(x: 18 * shoulderScale, y: 13)
 
             RoundedRectangle(cornerRadius: 9)
-                .fill(Color(uiColor: appearance.skinColor))
+                .fill(
+                    LinearGradient(
+                        colors: [armor.opacity(0.95), armor.opacity(0.48)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(width: 38 * shoulderScale, height: 39)
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(Color(uiColor: appearance.skinShadowColor).opacity(0.55))
-                        .frame(height: 12)
+                        .fill(darkMetal)
+                        .frame(height: 9)
+                }
+                .overlay {
+                    Circle()
+                        .fill(armor)
+                        .shadow(color: armor, radius: 3)
+                        .frame(width: 7, height: 7)
+                        .offset(y: 4)
                 }
                 .offset(y: 12)
 
             RoundedRectangle(cornerRadius: 3)
-                .fill(Color(uiColor: appearance.kitColor))
+                .fill(darkMetal)
                 .frame(width: 42 * appearance.bodyBuild.waistScale, height: 15)
                 .overlay(alignment: .top) {
                     Rectangle()
-                        .fill(Color(uiColor: appearance.accentColor))
+                        .fill(armor)
                         .frame(height: 4)
                 }
                 .offset(y: 29)
 
-            Circle()
-                .fill(Color(uiColor: appearance.skinColor))
+            UnevenRoundedRectangle(
+                topLeadingRadius: 8,
+                bottomLeadingRadius: 3,
+                bottomTrailingRadius: 3,
+                topTrailingRadius: 8
+            )
+                .fill(darkMetal)
                 .frame(width: 29, height: 31)
-                .overlay(alignment: .top) {
-                    hairShape(appearance.hairStyle)
-                        .fill(Color(uiColor: appearance.hairColor))
-                        .frame(width: 27, height: hairHeight(appearance.hairStyle))
-                        .offset(y: -2)
+                .overlay {
+                    Capsule()
+                        .fill(armor)
+                        .shadow(color: armor, radius: 2)
+                        .frame(width: fighter == .pressure ? 24 : 20, height: 4)
+                        .offset(y: -3)
                 }
-                .overlay(alignment: .trailing) {
-                    Circle()
-                        .fill(.black.opacity(0.78))
-                        .frame(width: 2.5, height: 2.5)
-                        .offset(x: -6, y: -1)
+                .overlay(alignment: .bottom) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(armor.opacity(0.72))
+                        .frame(width: 18, height: 7)
+                        .offset(y: -2)
                 }
                 .offset(y: -18)
 
@@ -77,37 +98,4 @@ struct FighterPortraitView: View {
             .overlay { RoundedRectangle(cornerRadius: 5).stroke(.black.opacity(0.38)) }
     }
 
-    private func hairShape(_ style: FighterHairStyle) -> UnevenRoundedRectangle {
-        switch style {
-        case .cropped:
-            UnevenRoundedRectangle(
-                topLeadingRadius: 10,
-                bottomLeadingRadius: 2,
-                bottomTrailingRadius: 3,
-                topTrailingRadius: 8
-            )
-        case .shaved:
-            UnevenRoundedRectangle(
-                topLeadingRadius: 8,
-                bottomLeadingRadius: 5,
-                bottomTrailingRadius: 5,
-                topTrailingRadius: 8
-            )
-        case .swept:
-            UnevenRoundedRectangle(
-                topLeadingRadius: 4,
-                bottomLeadingRadius: 2,
-                bottomTrailingRadius: 8,
-                topTrailingRadius: 13
-            )
-        }
-    }
-
-    private func hairHeight(_ style: FighterHairStyle) -> CGFloat {
-        switch style {
-        case .cropped: 11
-        case .shaved: 7
-        case .swept: 14
-        }
-    }
 }

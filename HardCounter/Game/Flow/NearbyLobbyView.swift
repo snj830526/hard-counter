@@ -37,7 +37,7 @@ struct NearbyLobbyView: View {
             VStack(spacing: 2) {
                 Text("NEARBY MATCH")
                     .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("가까운 iPhone과 로비를 만들고 선수를 준비하세요")
+                Text("가까운 iPhone과 로비를 만들고 복싱 머신을 준비하세요")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
@@ -197,7 +197,7 @@ struct NearbyLobbyView: View {
             }
 
             HStack {
-                Text(service.bothPlayersReady ? "양쪽 선수 준비 완료 · 경기를 시작합니다" : "선수를 선택한 뒤 준비 버튼을 누르세요")
+                Text(service.bothPlayersReady ? "양쪽 머신 준비 완료 · 경기를 시작합니다" : "머신을 선택한 뒤 준비 버튼을 누르세요")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(service.bothPlayersReady ? .green : .white.opacity(0.48))
                 Spacer()
@@ -277,7 +277,7 @@ struct NearbyLobbyView: View {
                 }
                 .disabled(isReady)
             } else {
-                Text("상대의 선수 선택이 실시간으로 표시됩니다")
+                Text("상대의 머신 선택이 실시간으로 표시됩니다")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.white.opacity(0.4))
                     .frame(maxWidth: .infinity, minHeight: 29)
