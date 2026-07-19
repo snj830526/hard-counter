@@ -1,5 +1,6 @@
 import SceneKit
 import SpriteKit
+import simd
 
 /// Experimental presentation-only renderer. Combat, input, hit detection and
 /// networking continue to use FighterNode; this object only replaces its art.
@@ -24,8 +25,6 @@ final class Fighter3DRenderer {
     private let rearHip = SCNNode()
     private let rearKnee = SCNNode()
     private let rearAnkle = SCNNode()
-    private var leadFootIK: SCNIKConstraint?
-    private var rearFootIK: SCNIKConstraint?
     private var leadFootPlantTarget: SCNVector3?
     private var rearFootPlantTarget: SCNVector3?
     private var neutralLeadFootPosition: SCNVector3?
@@ -1074,7 +1073,8 @@ final class Fighter3DRenderer {
         applyKnockoutGrounding()
         applyFootPlanting(
             locomotionFrame: locomotionFrame,
-            bodyMotion: bodyMotion
+            bodyMotion: bodyMotion,
+            pose: pose
         )
     }
 
@@ -1272,55 +1272,23 @@ final class Fighter3DRenderer {
             proportions: proportions,
             to: pelvis
         )
-        configureFootIK()
-    }
-
-    private func configureFootIK() {
-        let lead = SCNIKConstraint.inverseKinematicsConstraint(
-            chainRootNode: leadHip
-        )
-        let rear = SCNIKConstraint.inverseKinematicsConstraint(
-            chainRootNode: rearHip
-        )
-        for (constraint, hip, knee, ankle) in [
-            (lead, leadHip, leadKnee, leadAnkle),
-            (rear, rearHip, rearKnee, rearAnkle)
-        ] {
-            constraint.influenceFactor = 0
-            // A wide hip solve lets SceneKit reach old plant targets by
-            // bowing both thighs outward. Keep the hip column narrow so the
-            // knees track over the shoes in an 11-shaped stance; the authored
-            // X-axis flexion still provides the large travelling step.
-            constraint.setMaxAllowedRotationAngle(26, forJoint: hip)
-            constraint.setMaxAllowedRotationAngle(68, forJoint: knee)
-            constraint.setMaxAllowedRotationAngle(18, forJoint: ankle)
-            ankle.constraints = [constraint]
-        }
-        leadFootIK = lead
-        rearFootIK = rear
     }
 
     private func applyFootPlanting(
         locomotionFrame: FighterLocomotionFrame?,
-        bodyMotion: FighterBodyMotionFrame
+        bodyMotion: FighterBodyMotionFrame,
+        pose: Fighter3DPose
     ) {
         guard phase != .knockedOut,
               let frame = locomotionFrame,
-              let leadFootIK,
-              let rearFootIK,
               let neutralLeadFootPosition,
               let neutralRearFootPosition else {
-            leadFootIK?.influenceFactor = 0
-            rearFootIK?.influenceFactor = 0
             return
         }
 
-        // The feet own one deterministic step-and-slide path. The initiating
-        // foot travels and lands first; only then may the trailing foot catch
-        // up. Hip and torso clips can still express style, but they no longer
-        // invent a second, conflicting location for either foot.
-        leadFootIK.influenceFactor = 0
-        rearFootIK.influenceFactor = 0
+        // Foot targets own one deterministic step-and-slide path. A custom
+        // two-bone solve below keeps each knee on a fixed anatomical bend
+        // plane; SceneKit's unconstrained 3D IK is deliberately not used.
         let leadCurrent = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
         let rearCurrent = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
         let desiredLead = presentationRoot.convertPosition(
@@ -1400,13 +1368,90 @@ final class Fighter3DRenderer {
             from: rearCurrent,
             groundHeight: desiredRear.y
         )
-        leadFootIK.targetPosition = leadFootPlantTarget ?? leadCurrent
-        rearFootIK.targetPosition = rearFootPlantTarget ?? rearCurrent
-        let activeInfluence: CGFloat = bodyMotion.initiatingFoot == .both ? 0.90 : 0.96
-        leadFootIK.influenceFactor = activeInfluence
-        rearFootIK.influenceFactor = activeInfluence
+        solveAnatomicalLeg(
+            hip: leadHip,
+            knee: leadKnee,
+            ankle: leadAnkle,
+            worldTarget: leadFootPlantTarget ?? leadCurrent,
+            anklePitch: pose.leadAnklePitch
+        )
+        solveAnatomicalLeg(
+            hip: rearHip,
+            knee: rearKnee,
+            ankle: rearAnkle,
+            worldTarget: rearFootPlantTarget ?? rearCurrent,
+            anklePitch: pose.rearAnklePitch
+        )
         previousStepProgress = frame.stepProgress
         previousInitiatingFoot = bodyMotion.initiatingFoot
+    }
+
+    /// Deterministic two-bone leg solve. The knee pole is always the fighter's
+    /// local anatomical forward axis, so the thigh and shin can never bow or
+    /// swivel sideways merely to satisfy a planted ankle target.
+    private func solveAnatomicalLeg(
+        hip: SCNNode,
+        knee: SCNNode,
+        ankle: SCNNode,
+        worldTarget: SCNVector3,
+        anklePitch: CGFloat
+    ) {
+        let targetPosition = pelvis.convertPosition(worldTarget, from: nil)
+        let target = SIMD3<Float>(
+            targetPosition.x,
+            targetPosition.y,
+            targetPosition.z
+        )
+        let origin = SIMD3<Float>(
+            hip.position.x,
+            hip.position.y,
+            hip.position.z
+        )
+        let displacement = target - origin
+        let rawDistance = simd_length(displacement)
+        guard rawDistance > 0.001 else { return }
+
+        let thighLength: Float = 0.66
+        let shinLength: Float = 0.64
+        let minimumReach = abs(thighLength - shinLength) + 0.001
+        let maximumReach = thighLength + shinLength - 0.012
+        let distance = min(max(rawDistance, minimumReach), maximumReach)
+        let legAxis = simd_normalize(displacement)
+        let alongAxis = (
+            thighLength * thighLength - shinLength * shinLength
+                + distance * distance
+        ) / (2 * distance)
+        let bendHeight = sqrt(max(
+            thighLength * thighLength - alongAxis * alongAxis,
+            0
+        ))
+
+        let anatomicalForward = SIMD3<Float>(0, 0, 1)
+        var kneePole = anatomicalForward
+            - legAxis * simd_dot(anatomicalForward, legAxis)
+        if simd_length_squared(kneePole) < 0.0001 {
+            kneePole = SIMD3<Float>(0, 1, 0)
+                - legAxis * simd_dot(SIMD3<Float>(0, 1, 0), legAxis)
+        }
+        kneePole = simd_normalize(kneePole)
+
+        let kneePosition = origin + legAxis * alongAxis + kneePole * bendHeight
+        let upperDirection = simd_normalize(kneePosition - origin)
+        let lowerDirection = simd_normalize(target - kneePosition)
+        let boneDown = SIMD3<Float>(0, -1, 0)
+
+        let hipOrientation = simd_quatf(from: boneDown, to: upperDirection)
+        hip.simdOrientation = hipOrientation
+        let lowerInHipSpace = hipOrientation.inverse.act(lowerDirection)
+        let kneeOrientation = simd_quatf(from: boneDown, to: lowerInHipSpace)
+        knee.simdOrientation = kneeOrientation
+
+        let desiredFootOrientation = simd_quatf(
+            angle: Float(anklePitch),
+            axis: SIMD3<Float>(1, 0, 0)
+        )
+        ankle.simdOrientation = (hipOrientation * kneeOrientation).inverse
+            * desiredFootOrientation
     }
 
     private func captureNeutralFootPositions() {
