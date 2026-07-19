@@ -904,18 +904,32 @@ final class CombatScene: SKScene {
         cameraRig.setScale(arenaZoom)
         let focus = cameraFocusPoint()
         let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
-        cameraRig.position = clampedCameraPosition(CGPoint(
-            x: target.x - focus.x * arenaZoom,
-            y: target.y - focus.y * arenaZoom
-        ))
+        cameraRig.position = cameraPositionKeepingFightersVisible(
+            clampedCameraPosition(CGPoint(
+                x: target.x - focus.x * arenaZoom,
+                y: target.y - focus.y * arenaZoom
+            )),
+            zoom: arenaZoom
+        )
     }
 
     private func updateCamera(deltaTime: TimeInterval) {
         guard deltaTime > 0 else { return }
         let focus = cameraFocusPoint()
         let previousZoom = arenaZoom
-        let zoomBlend = 1 - CGFloat(exp(-ArenaViewTuning.zoomResponse * deltaTime))
-        arenaZoom += (desiredArenaZoom() - arenaZoom) * zoomBlend
+        let desiredZoom = desiredArenaZoom()
+        // Zoom out aggressively when either fighter approaches an edge. A
+        // slower zoom-in keeps close exchanges from breathing on every network
+        // correction while an urgent zoom-out prevents one-frame escapes.
+        let zoomResponse = desiredZoom < arenaZoom
+            ? ArenaViewTuning.zoomResponse * 2.4
+            : ArenaViewTuning.zoomResponse
+        let zoomBlend = 1 - CGFloat(exp(-zoomResponse * deltaTime))
+        arenaZoom += (desiredZoom - arenaZoom) * zoomBlend
+        // Network authority can move an anchor farther than interpolation did
+        // on the previous frame. Never let smoothing keep a zoom that is too
+        // tight for the current pair of complete silhouettes.
+        arenaZoom = min(arenaZoom, maximumFighterContainmentZoom())
         cameraRig.position = CGPoint(
             x: cameraRig.position.x + focus.x * (previousZoom - arenaZoom),
             y: cameraRig.position.y + focus.y * (previousZoom - arenaZoom)
@@ -943,9 +957,16 @@ final class CombatScene: SKScene {
                 y: cameraRig.position.y + correction.dy
             ))
         let blend = 1 - CGFloat(exp(-ArenaViewTuning.cameraFollowResponse * deltaTime))
-        cameraRig.position = CGPoint(
+        let smoothedPosition = CGPoint(
             x: cameraRig.position.x + (target.x - cameraRig.position.x) * blend,
             y: cameraRig.position.y + (target.y - cameraRig.position.y) * blend
+        )
+        // Focus following is aesthetic; containment is a gameplay guarantee.
+        // Clamp after smoothing so authoritative network corrections cannot
+        // leave either complete silhouette outside the device safe area.
+        cameraRig.position = cameraPositionKeepingFightersVisible(
+            smoothedPosition,
+            zoom: arenaZoom
         )
     }
 
@@ -966,15 +987,111 @@ final class CombatScene: SKScene {
         let combatZoom = ArenaViewTuning.closeZoom
             + (ArenaViewTuning.farZoom - ArenaViewTuning.closeZoom) * distanceProgress
 
-        let horizontalFit = abs(delta.dx) > 1
-            ? size.width * ArenaViewTuning.horizontalFitFraction / abs(delta.dx)
-            : ArenaViewTuning.closeZoom
-        let verticalFit = abs(delta.dy) > 1
-            ? size.height * ArenaViewTuning.verticalFitFraction / abs(delta.dy)
-            : ArenaViewTuning.closeZoom
+        let containmentZoom = maximumFighterContainmentZoom()
         return min(
-            max(min(combatZoom, min(horizontalFit, verticalFit)), ArenaViewTuning.farZoom),
+            max(
+                min(combatZoom, containmentZoom),
+                ArenaViewTuning.containmentMinimumZoom
+            ),
             ArenaViewTuning.closeZoom
+        )
+    }
+
+    private func maximumFighterContainmentZoom() -> CGFloat {
+        let presentationBounds = fighterPresentationBounds()
+        let safeFrame = fighterCameraSafeFrame()
+        let horizontalFit = presentationBounds.width > 1
+            ? safeFrame.width / presentationBounds.width
+            : ArenaViewTuning.closeZoom
+        let verticalFit = presentationBounds.height > 1
+            ? safeFrame.height / presentationBounds.height
+            : ArenaViewTuning.closeZoom
+        return min(horizontalFit, verticalFit, ArenaViewTuning.closeZoom)
+    }
+
+    private func fighterPresentationBounds() -> CGRect {
+        fighterPresentationFrame(
+            at: player.position,
+            worldPosition: playerArenaPosition
+        ).union(fighterPresentationFrame(
+            at: cpu.position,
+            worldPosition: cpuArenaPosition
+        ))
+    }
+
+    private func fighterPresentationFrame(
+        at position: CGPoint,
+        worldPosition: CGPoint
+    ) -> CGRect {
+        let scale = perspectiveScale(at: worldPosition)
+            / ArenaViewTuning.baseZoom
+            * ArenaViewTuning.fighterScaleBoost
+        let halfWidth = ArenaViewTuning.fighterVisibleHalfWidth * scale
+        let bottom = ArenaViewTuning.fighterVisibleBottom * scale
+        let top = ArenaViewTuning.fighterVisibleTop * scale
+        return CGRect(
+            x: position.x - halfWidth,
+            y: position.y - bottom,
+            width: halfWidth * 2,
+            height: bottom + top
+        )
+    }
+
+    private func fighterCameraSafeFrame() -> CGRect {
+        let left = safeInsets.left + ArenaViewTuning.cameraHorizontalSafetyMargin
+        let right = size.width - safeInsets.right
+            - ArenaViewTuning.cameraHorizontalSafetyMargin
+        let bottom = safeInsets.bottom + ArenaViewTuning.cameraBottomSafetyMargin
+        let top = size.height - safeInsets.top
+            - ArenaViewTuning.cameraTopSafetyMargin
+        return CGRect(
+            x: left,
+            y: bottom,
+            width: max(right - left, 1),
+            height: max(top - bottom, 1)
+        )
+    }
+
+    private func cameraPositionKeepingFightersVisible(
+        _ proposed: CGPoint,
+        zoom: CGFloat
+    ) -> CGPoint {
+        let bounds = fighterPresentationBounds()
+        let safeFrame = fighterCameraSafeFrame()
+
+        func fittedAxis(
+            proposed: CGFloat,
+            contentMinimum: CGFloat,
+            contentMaximum: CGFloat,
+            safeMinimum: CGFloat,
+            safeMaximum: CGFloat
+        ) -> CGFloat {
+            let minimumPosition = safeMinimum - contentMinimum * zoom
+            let maximumPosition = safeMaximum - contentMaximum * zoom
+            guard minimumPosition <= maximumPosition else {
+                let contentCenter = (contentMinimum + contentMaximum) * 0.5
+                let safeCenter = (safeMinimum + safeMaximum) * 0.5
+                return safeCenter - contentCenter * zoom
+            }
+            return min(max(proposed, minimumPosition), maximumPosition)
+        }
+
+        let broadlyClamped = clampedCameraPosition(proposed)
+        return CGPoint(
+            x: fittedAxis(
+                proposed: broadlyClamped.x,
+                contentMinimum: bounds.minX,
+                contentMaximum: bounds.maxX,
+                safeMinimum: safeFrame.minX,
+                safeMaximum: safeFrame.maxX
+            ),
+            y: fittedAxis(
+                proposed: broadlyClamped.y,
+                contentMinimum: bounds.minY,
+                contentMaximum: bounds.maxY,
+                safeMinimum: safeFrame.minY,
+                safeMaximum: safeFrame.maxY
+            )
         )
     }
 
