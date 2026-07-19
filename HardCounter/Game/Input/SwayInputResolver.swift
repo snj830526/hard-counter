@@ -30,26 +30,30 @@ enum SwayInputResolver {
             movementDirection.dx * opponentDirection.dx
             + movementDirection.dy * opponentDirection.dy
         )
+        let leftX = -opponentDirection.dy
+        let leftY = opponentDirection.dx
+        let lateralDot = movementDirection.dx * leftX + movementDirection.dy * leftY
+        let continuousDirection = SwayDirection(
+            forward: forwardDot,
+            lateral: lateralDot
+        )
         if forwardDot > 0.24 {
             return SwayIntent(
-                direction: .forward,
+                direction: continuousDirection,
                 isTowardOpponent: true,
                 screenDirection: movementDirection
             )
         }
         if forwardDot < -0.18 {
             return SwayIntent(
-                direction: .back,
+                direction: continuousDirection,
                 isTowardOpponent: false,
                 screenDirection: movementDirection
             )
         }
 
-        let leftX = -opponentDirection.dy
-        let leftY = opponentDirection.dx
-        let lateralDot = movementDirection.dx * leftX + movementDirection.dy * leftY
         return SwayIntent(
-            direction: lateralDot >= 0 ? .left : .right,
+            direction: continuousDirection,
             isTowardOpponent: false,
             screenDirection: movementDirection
         )

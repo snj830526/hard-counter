@@ -13,44 +13,36 @@ enum Fighter3DSwayMotionComposer {
     }
 
     static func components(
-        screenDirection: CGVector,
-        opponentScreenDirection: CGVector
+        direction: SwayDirection,
+        screenDirection: CGVector
     ) -> Components {
         let swayLength = max(hypot(
             screenDirection.dx,
             screenDirection.dy
         ), 0.001)
-        let facingLength = max(hypot(
-            opponentScreenDirection.dx,
-            opponentScreenDirection.dy
-        ), 0.001)
         let sway = CGVector(
             dx: screenDirection.dx / swayLength,
             dy: screenDirection.dy / swayLength
         )
-        let facing = CGVector(
-            dx: opponentScreenDirection.dx / facingLength,
-            dy: opponentScreenDirection.dy / facingLength
-        )
         return Components(
-            forward: sway.dx * facing.dx + sway.dy * facing.dy,
-            lateral: sway.dx * -facing.dy + sway.dy * facing.dx,
+            forward: direction.forward,
+            lateral: direction.lateral,
             screenHorizontal: sway.dx,
             screenVertical: sway.dy
         )
     }
 
     static func makeClip(
+        direction: SwayDirection,
         screenDirection: CGVector,
-        opponentScreenDirection: CGVector,
         performance rawPerformance: CGFloat,
         motionProfile: Fighter3DMotionProfile,
         guardPose: Fighter3DPose,
         applyGuardIdentity: (inout Fighter3DPose) -> Void
     ) -> Fighter3DMotionClip {
         let components = components(
-            screenDirection: screenDirection,
-            opponentScreenDirection: opponentScreenDirection
+            direction: direction,
+            screenDirection: screenDirection
         )
         let performance = min(max(rawPerformance, 0.72), 1.20)
         let loadFrame = FighterFullBodyActionFrame(
@@ -74,7 +66,9 @@ enum Fighter3DSwayMotionComposer {
             screenHorizontal: components.screenHorizontal,
             screenVertical: components.screenVertical,
             intensity: performance * motionProfile.swayRange,
-            compression: 0.88 + abs(components.forward) * 0.18,
+            compression: 0.44
+                + max(components.forward, 0) * 0.24
+                + abs(components.lateral) * 0.10,
             weightShift: components.lateral,
             reach: 0
         )
@@ -90,7 +84,9 @@ enum Fighter3DSwayMotionComposer {
             screenHorizontal: components.screenHorizontal * 1.14,
             screenVertical: components.screenVertical * 1.14,
             intensity: performance * motionProfile.swayRange,
-            compression: 1.0,
+            compression: 0.52
+                + max(components.forward, 0) * 0.28
+                + abs(components.lateral) * 0.12,
             weightShift: components.lateral,
             reach: 0
         )

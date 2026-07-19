@@ -166,17 +166,17 @@ enum FighterPoseResolver {
     ) -> FighterPose {
         var pose: FighterPose
         let distance: CGFloat
-        switch direction {
-        case .left:
+        if abs(direction.lateral) >= abs(direction.forward),
+           direction.lateral >= 0 {
             pose = .swayLeft
             distance = 25
-        case .right:
+        } else if abs(direction.lateral) >= abs(direction.forward) {
             pose = .swayRight
             distance = 25
-        case .back:
+        } else if direction.forward < 0 {
             pose = .swayBack
             distance = 34
-        case .forward:
+        } else {
             pose = .swayForward
             distance = 18
         }
@@ -187,12 +187,15 @@ enum FighterPoseResolver {
         pose.bodyX = localX * distance * motionScale
         pose.bodyY = localY * distance * 0.86 * motionScale
 
-        let tilt: CGFloat
-        switch direction {
-        case .left, .right: tilt = 0.27
-        case .back: tilt = 0.31
-        case .forward: tilt = 0.18
-        }
+        let componentTotal = max(
+            abs(direction.forward) + abs(direction.lateral),
+            0.001
+        )
+        let forwardTilt = direction.forward >= 0 ? 0.18 : 0.31
+        let tilt = (
+            abs(direction.forward) * forwardTilt
+                + abs(direction.lateral) * 0.27
+        ) / componentTotal
         // Depth-direction sways are sold mostly by projected translation. A
         // large 2D rotation here made up/down input look like a sideways fall.
         // animationRoot mirrors rotation as well as position. Use the opposite

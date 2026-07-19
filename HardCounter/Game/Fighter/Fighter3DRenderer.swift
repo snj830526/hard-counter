@@ -49,6 +49,7 @@ final class Fighter3DRenderer {
     private var phaseElapsed: TimeInterval = 0
     private var activeHand: PunchHand = .lead
     private var punchProfile = PunchProfile()
+    private var swayDirection = SwayDirection.back
     private var swayScreenDirection = CGVector(dx: -1, dy: 0)
     private var swayPerformance: CGFloat = 1
     private var opponentScreenDirection = CGVector(dx: 1, dy: 0)
@@ -124,10 +125,11 @@ final class Fighter3DRenderer {
     }
 
     func prepareSway(
-        _: SwayDirection,
+        _ direction: SwayDirection,
         screenDirection: CGVector,
         performance: CGFloat
     ) {
+        swayDirection = direction
         swayScreenDirection = screenDirection
         swayPerformance = performance
         swayMotionClip = makeSwayMotionClip()
@@ -540,8 +542,8 @@ final class Fighter3DRenderer {
 
     private func makeSwayMotionClip() -> Fighter3DMotionClip {
         Fighter3DSwayMotionComposer.makeClip(
+            direction: swayDirection,
             screenDirection: swayScreenDirection,
-            opponentScreenDirection: opponentScreenDirection,
             performance: swayPerformance,
             motionProfile: motionProfile,
             guardPose: guardPose,

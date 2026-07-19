@@ -52,11 +52,24 @@ enum PunchHand {
     var opposite: PunchHand { self == .lead ? .rear : .lead }
 }
 
-enum SwayDirection: Equatable {
-    case left
-    case right
-    case back
-    case forward
+struct SwayDirection: Equatable {
+    let forward: CGFloat
+    let lateral: CGFloat
+
+    static let left = SwayDirection(forward: 0, lateral: 1)
+    static let right = SwayDirection(forward: 0, lateral: -1)
+    static let back = SwayDirection(forward: -1, lateral: 0)
+    static let forward = SwayDirection(forward: 1, lateral: 0)
+
+    /// Maps a continuous lean to the strike whose loading path is closest to
+    /// the stored body angle. Diagonals stay continuous visually; these broad
+    /// sectors only select one of the three authored punch techniques.
+    var followUpTechnique: PunchTechnique {
+        if abs(lateral) > abs(forward) * 1.05 {
+            return .smash
+        }
+        return forward > 0 ? .uppercut : .straight
+    }
 }
 
 struct SwayIntent {
@@ -525,11 +538,7 @@ struct CombatEngine {
 
     private func punchTechnique(for state: FighterCombatState) -> PunchTechnique {
         guard state.phase == .swaying else { return .straight }
-        switch state.activeSwayDirection {
-        case .left, .right: return .smash
-        case .forward: return .uppercut
-        case .back: return .straight
-        }
+        return state.activeSwayDirection.followUpTechnique
     }
 
     private func staminaCost(for technique: PunchTechnique) -> Double {

@@ -3,6 +3,11 @@ import CoreGraphics
 import Foundation
 
 struct SwayShowcaseController {
+    enum Command {
+        case sway(Demo, SwayIntent)
+        case punch(PunchTechnique)
+    }
+
     struct Demo {
         let label: String
         let screenDirection: CGVector
@@ -20,30 +25,41 @@ struct SwayShowcaseController {
     ]
     private var index = 0
     private var nextDemoAt: TimeInterval?
+    private var followUpAt: TimeInterval?
+    private var pendingTechnique: PunchTechnique?
 
     mutating func reset(at time: TimeInterval) {
         index = 0
         nextDemoAt = time + 0.8
+        followUpAt = nil
+        pendingTechnique = nil
     }
 
     mutating func command(
         at time: TimeInterval,
         state: FighterCombatState,
         towardOpponent: CGVector
-    ) -> (Demo, SwayIntent)? {
-        if nextDemoAt == nil { reset(at: time) }
+    ) -> Command? {
+        if let followUpAt, time >= followUpAt,
+           let pendingTechnique, state.phase == .swaying {
+            self.followUpAt = nil
+            self.pendingTechnique = nil
+            nextDemoAt = time + 2.0
+            return .punch(pendingTechnique)
+        }
+        if nextDemoAt == nil, followUpAt == nil { reset(at: time) }
         guard let nextDemoAt, time >= nextDemoAt, state.phase == .idle else { return nil }
 
         let demo = demos[index % demos.count]
         index += 1
-        self.nextDemoAt = time + 1.35
-        return (
-            demo,
-            SwayInputResolver.resolve(
-                movement: demo.screenDirection,
-                towardOpponent: towardOpponent
-            )
+        self.nextDemoAt = nil
+        let intent = SwayInputResolver.resolve(
+            movement: demo.screenDirection,
+            towardOpponent: towardOpponent
         )
+        pendingTechnique = intent.direction.followUpTechnique
+        followUpAt = time + CombatTuning.swayPunchCancelDelay + 0.03
+        return .sway(demo, intent)
     }
 }
 #endif

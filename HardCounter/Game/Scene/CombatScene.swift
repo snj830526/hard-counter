@@ -439,8 +439,13 @@ final class CombatScene: SKScene {
                 || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
+            } else if swayShowcaseEnabled {
+                // Keep both silhouettes readable while applying the same
+                // canonical screen vector from opposite facing directions.
+                playerArenaPosition = CGPoint(x: -70, y: 0)
+                cpuArenaPosition = CGPoint(x: 70, y: 0)
             } else if impactShowcaseEnabled || motionShowcaseEnabled || uppercutShowcaseEnabled
-                || motionClipShowcaseEnabled || swayShowcaseEnabled {
+                || motionClipShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -16, y: 0)
                 cpuArenaPosition = CGPoint(x: 16, y: 0)
             } else {
@@ -1657,15 +1662,38 @@ final class CombatScene: SKScene {
             dx: -playerToCPUScreenDirection.dx,
             dy: -playerToCPUScreenDirection.dy
         )
-        guard let (demo, intent) = swayShowcaseController.command(
+        guard let command = swayShowcaseController.command(
             at: time,
             state: engine.state(for: .cpu),
             towardOpponent: towardPlayer
         ) else { return }
+        switch command {
+        case let .punch(technique):
+            statusLabel.text = "FOLLOW-UP \(swayTechniqueName(technique))"
+            execute(FighterCommand(
+                fighter: .cpu,
+                payload: .action(.punch(.neutral)),
+                issuedAt: time
+            ))
+            return
+        case let .sway(demo, intent):
+            updateSwayShowcase(
+                demo: demo,
+                cpuIntent: intent,
+                at: time
+            )
+        }
+    }
+
+    private func updateSwayShowcase(
+        demo: SwayShowcaseController.Demo,
+        cpuIntent intent: SwayIntent,
+        at time: TimeInterval
+    ) {
         statusLabel.removeAllActions()
         statusLabel.alpha = 1
         statusLabel.fontColor = intent.isTowardOpponent ? .systemRed : .systemYellow
-        statusLabel.text = demo.label
+        statusLabel.text = "\(demo.label) · \(swayTechniqueName(intent.direction.followUpTechnique))"
         let playerIntent = SwayInputResolver.resolve(
             movement: demo.screenDirection,
             towardOpponent: playerToCPUScreenDirection
@@ -1680,6 +1708,14 @@ final class CombatScene: SKScene {
             payload: .action(.sway(intent)),
             issuedAt: time
         ))
+    }
+
+    private func swayTechniqueName(_ technique: PunchTechnique) -> String {
+        switch technique {
+        case .straight: "STRAIGHT"
+        case .smash: "SMASH"
+        case .uppercut: "UPPERCUT"
+        }
     }
 
     private func updateMotionShowcase(at time: TimeInterval) {
