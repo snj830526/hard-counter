@@ -1,6 +1,12 @@
 import SpriteKit
 import UIKit
 
+private enum BroadcastCameraShot {
+    case wide
+    case closeLeft
+    case closeRight
+}
+
 final class CombatScene: SKScene {
     private let fighterProfile: FighterProfile
     private let opponentProfile: FighterProfile?
@@ -32,6 +38,7 @@ final class CombatScene: SKScene {
     private let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let roundLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let cameraCutOverlay = SKSpriteNode(color: .black, size: .zero)
     private let roundEndOverlay = SKSpriteNode(color: SKColor.black.withAlphaComponent(0.58), size: .zero)
     private let restartButton = SKShapeNode(rectOf: CGSize(width: 190, height: 52), cornerRadius: 12)
     private let restartLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
@@ -90,6 +97,10 @@ final class CombatScene: SKScene {
         cadence: cpuMotionStyle.profile.strideCadence
     )
     private var arenaZoom = ArenaViewTuning.baseZoom
+    private var cameraViewAngle: CGFloat = 0
+    private var activeCameraShot: BroadcastCameraShot = .wide
+    private var cameraShotEnteredAt: TimeInterval = -.infinity
+    private var nextCloseShotUsesRightSide = true
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
@@ -430,6 +441,11 @@ final class CombatScene: SKScene {
         addChild(roundLabel)
         addChild(controls)
 
+        cameraCutOverlay.alpha = 0
+        cameraCutOverlay.zPosition = 120
+        cameraCutOverlay.isUserInteractionEnabled = false
+        addChild(cameraCutOverlay)
+
         roundEndOverlay.zPosition = 150
         roundEndOverlay.isHidden = true
         addChild(roundEndOverlay)
@@ -528,8 +544,11 @@ final class CombatScene: SKScene {
             bottom: safeInsets.bottom,
             trailing: safeInsets.right
         )
-        ringProjection = QuarterViewProjection(size: size, safeInsets: insetSnapshot)
-        ringNode.rebuild(in: size, projection: ringProjection)
+        ringProjection = QuarterViewProjection(
+            size: size,
+            safeInsets: insetSnapshot,
+            viewAngle: cameraViewAngle
+        )
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
@@ -564,6 +583,7 @@ final class CombatScene: SKScene {
             )
 #endif
         }
+        positionBroadcastCameraImmediately()
         clampAndRenderFighters()
         updateFighterMotion(
             playerMovement: .zero,
@@ -575,6 +595,9 @@ final class CombatScene: SKScene {
             deltaTime: 0
         )
         positionCameraImmediately()
+
+        cameraCutOverlay.size = size
+        cameraCutOverlay.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
 
         childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
         childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
@@ -715,6 +738,7 @@ final class CombatScene: SKScene {
             }
         }
 
+        updateBroadcastCamera()
         clampAndRenderFighters()
         updateCamera(deltaTime: deltaTime)
         updateFighterMotion(
@@ -938,6 +962,102 @@ final class CombatScene: SKScene {
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {
         ringProjection.clamped(position)
+    }
+
+    private func positionBroadcastCameraImmediately() {
+        if let desired = desiredCameraViewAngle() {
+            cameraViewAngle = normalizedAngle(desired)
+        }
+        activeCameraShot = .wide
+        cameraShotEnteredAt = gameTime
+        rebuildProjectionAndRing()
+    }
+
+    private func updateBroadcastCamera() {
+        guard let wideAngle = desiredCameraViewAngle() else { return }
+        let heldLongEnough = gameTime - cameraShotEnteredAt
+            >= ArenaViewTuning.cameraShotMinimumHold
+        guard heldLongEnough else { return }
+
+        let separation = hypot(
+            cpuArenaPosition.x - playerArenaPosition.x,
+            cpuArenaPosition.y - playerArenaPosition.y
+        )
+        switch activeCameraShot {
+        case .wide:
+            if separation <= ArenaViewTuning.closeCameraEnterDistance {
+                let shot: BroadcastCameraShot = nextCloseShotUsesRightSide
+                    ? .closeRight : .closeLeft
+                nextCloseShotUsesRightSide.toggle()
+                cut(to: shot, wideAngle: wideAngle)
+            } else if abs(shortestAngleDelta(from: cameraViewAngle, to: wideAngle))
+                        >= ArenaViewTuning.wideCameraReframeAngle {
+                // Treat circling as a switch to another fixed ringside camera,
+                // rather than orbiting the current camera around the ring.
+                cut(to: .wide, wideAngle: wideAngle)
+            }
+        case .closeLeft, .closeRight:
+            if separation >= ArenaViewTuning.closeCameraExitDistance {
+                cut(to: .wide, wideAngle: wideAngle)
+            }
+        }
+    }
+
+    private func cut(to shot: BroadcastCameraShot, wideAngle: CGFloat) {
+        let offset: CGFloat
+        switch shot {
+        case .wide: offset = 0
+        case .closeLeft: offset = -ArenaViewTuning.closeCameraQuarterOffset
+        case .closeRight: offset = ArenaViewTuning.closeCameraQuarterOffset
+        }
+        cameraViewAngle = normalizedAngle(wideAngle + offset)
+        activeCameraShot = shot
+        cameraShotEnteredAt = gameTime
+        rebuildProjectionAndRing()
+
+        // A short shutter flash hides the instantaneous geometry swap and
+        // reads as a broadcast cut without creating another moving camera.
+        cameraCutOverlay.removeAllActions()
+        cameraCutOverlay.alpha = 0.20
+        cameraCutOverlay.run(.fadeOut(
+            withDuration: ArenaViewTuning.cameraCutFlashDuration
+        ))
+    }
+
+    private func desiredCameraViewAngle() -> CGFloat? {
+        let localFighter = networkConfiguration?.localFighterID ?? .player
+        let local = localFighter == .player ? playerArenaPosition : cpuArenaPosition
+        let opponent = localFighter == .player ? cpuArenaPosition : playerArenaPosition
+        return ringProjection.viewAnglePlacingOnScreenRight(CGVector(
+            dx: opponent.x - local.x,
+            dy: opponent.y - local.y
+        ))
+    }
+
+    private func rebuildProjectionAndRing() {
+        ringProjection = makeProjection(viewAngle: cameraViewAngle)
+        ringNode.rebuild(in: size, projection: ringProjection)
+    }
+
+    private func makeProjection(viewAngle: CGFloat) -> QuarterViewProjection {
+        QuarterViewProjection(
+            size: size,
+            safeInsets: EdgeInsetsSnapshot(
+                top: safeInsets.top,
+                leading: safeInsets.left,
+                bottom: safeInsets.bottom,
+                trailing: safeInsets.right
+            ),
+            viewAngle: viewAngle
+        )
+    }
+
+    private func normalizedAngle(_ angle: CGFloat) -> CGFloat {
+        atan2(sin(angle), cos(angle))
+    }
+
+    private func shortestAngleDelta(from start: CGFloat, to end: CGFloat) -> CGFloat {
+        normalizedAngle(end - start)
     }
 
     private func cameraFocusPoint() -> CGPoint {
@@ -1381,11 +1501,12 @@ final class CombatScene: SKScene {
         if time - lastNetworkMovementSentAt >= 1.0 / 30.0 {
             lastNetworkMovementSentAt = time
             let movement = localInputSource.movementCommand(at: time).movementVector ?? .zero
+            let worldMovement = ringProjection.worldDirection(forScreenVector: movement)
             nearbyService.sendCombatInput(NearbyCombatInput(
                 sequence: nearbyService.nextCombatInputSequence(),
                 kind: .movement,
-                x: Double(movement.dx),
-                y: Double(movement.dy)
+                x: Double(worldMovement.dx),
+                y: Double(worldMovement.dy)
             ))
         }
         if configuration.role == .host, time - lastNetworkStateSentAt >= 1.0 / 15.0 {
@@ -1418,11 +1539,14 @@ final class CombatScene: SKScene {
                 movementIntensity: intent.movementIntensity
             )
         case let .sway(intent):
+            let worldDirection = ringProjection.worldDirection(
+                forScreenVector: intent.screenDirection
+            )
             return NearbyCombatInput(
                 sequence: sequence,
                 kind: .sway,
-                x: Double(intent.screenDirection.dx),
-                y: Double(intent.screenDirection.dy)
+                x: Double(worldDirection.dx),
+                y: Double(worldDirection.dy)
             )
         }
     }
@@ -1433,7 +1557,10 @@ final class CombatScene: SKScene {
         lastRemoteInputSequence = input.sequence
         switch input.kind {
         case .movement:
-            remoteMovement = CGVector(dx: input.x, dy: input.y)
+            remoteMovement = ringProjection.screenDirection(forWorldDirection: CGVector(
+                dx: input.x,
+                dy: input.y
+            ))
         case .punch:
             execute(FighterCommand(
                 fighter: remoteFighter,
@@ -1445,7 +1572,10 @@ final class CombatScene: SKScene {
                 issuedAt: gameTime
             ))
         case .sway:
-            let screenDirection = CGVector(dx: input.x, dy: input.y)
+            let screenDirection = ringProjection.screenDirection(forWorldDirection: CGVector(
+                dx: input.x,
+                dy: input.y
+            ))
             let intent = resolvedSwayIntent(
                 for: remoteFighter,
                 screenDirection: screenDirection

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// Ring size and camera values that are tuned as one gameplay presentation.
 enum ArenaViewTuning {
@@ -23,11 +24,21 @@ enum ArenaViewTuning {
     /// Camera emphasis belongs to the fighter controlled on this device. In a
     /// nearby guest match that is CPU-side, not the host-side player anchor.
     static let localFighterFocusWeight: CGFloat = 0.62
-    static let cameraFollowResponse: CGFloat = 5.6
-    static let cameraDeadZoneWidthFraction: CGFloat = 0.045
-    static let cameraDeadZoneHeightFraction: CGFloat = 0.040
-    static let cameraHorizontalLookAhead: CGFloat = 24
-    static let cameraVerticalLookAhead: CGFloat = 15
+    static let cameraFollowResponse: CGFloat = 4.2
+    static let cameraDeadZoneWidthFraction: CGFloat = 0.080
+    static let cameraDeadZoneHeightFraction: CGFloat = 0.070
+    static let cameraHorizontalLookAhead: CGFloat = 14
+    static let cameraVerticalLookAhead: CGFloat = 9
+
+    // Broadcast cameras hold a stable angle and cut only when the exchange
+    // changes. Different enter/exit distances stop the view from chattering
+    // around one threshold while the fighters trade at the edge of range.
+    static let closeCameraEnterDistance: CGFloat = 104
+    static let closeCameraExitDistance: CGFloat = 148
+    static let cameraShotMinimumHold: TimeInterval = 1.25
+    static let wideCameraReframeAngle: CGFloat = 0.44
+    static let closeCameraQuarterOffset: CGFloat = 0.32
+    static let cameraCutFlashDuration: TimeInterval = 0.14
     static let horizontalFitFraction: CGFloat = 0.82
     static let verticalFitFraction: CGFloat = 0.66
 

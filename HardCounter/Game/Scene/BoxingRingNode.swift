@@ -19,12 +19,25 @@ final class BoxingRingNode: SKNode {
         backgroundLayer.removeAllChildren()
         foregroundLayer.removeAllChildren()
 
-        let near = projection.project(CGPoint(x: -QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth))
-        let right = projection.project(CGPoint(x: QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth))
-        let far = projection.project(CGPoint(x: QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth))
-        let left = projection.project(CGPoint(x: -QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth))
+        let worldCorners = [
+            CGPoint(x: -QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth),
+            CGPoint(x: QuarterViewProjection.halfWidth, y: -QuarterViewProjection.halfDepth),
+            CGPoint(x: QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth),
+            CGPoint(x: -QuarterViewProjection.halfWidth, y: QuarterViewProjection.halfDepth)
+        ]
+        let nearestIndex = worldCorners.indices.min {
+            projection.depthProgress(at: worldCorners[$0])
+                < projection.depthProgress(at: worldCorners[$1])
+        } ?? 0
+        let ordered = (0..<4).map {
+            projection.project(worldCorners[(nearestIndex + $0) % 4])
+        }
+        let near = ordered[0]
+        let right = ordered[1]
+        let far = ordered[2]
+        let left = ordered[3]
 
-        addArenaBackdrop(size: size, farY: max(far.y, left.y))
+        addArenaBackdrop(size: size, farY: ordered.map(\.y).max() ?? far.y)
         addMat(near: near, right: right, far: far, left: left)
         addPostsAndRopes(near: near, right: right, far: far, left: left)
     }
