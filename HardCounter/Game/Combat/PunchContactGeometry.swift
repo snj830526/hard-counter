@@ -64,7 +64,7 @@ enum PunchContactGeometry {
                 y: defenderPosition.y + 57 * defenderScale
             ),
             radiusX: targetRadius,
-            radiusY: targetRadius * 2.0
+            radiusY: targetRadius * 1.72
         )
         let head = HitEllipse(
             center: CGPoint(

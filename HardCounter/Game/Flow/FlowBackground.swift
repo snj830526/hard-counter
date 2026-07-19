@@ -5,36 +5,94 @@ struct FlowBackground: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.025, green: 0.032, blue: 0.055),
-                    Color(red: 0.055, green: 0.067, blue: 0.10),
-                    Color(red: 0.018, green: 0.024, blue: 0.043)
+                    Color(uiColor: ArenaVisualPalette.carbon),
+                    Color(uiColor: ArenaVisualPalette.void),
+                    Color(red: 0.035, green: 0.046, blue: 0.060)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
             Canvas { context, size in
-                let center = CGPoint(x: size.width * 0.56, y: size.height * 0.55)
-                for index in 0..<5 {
+                // Industrial wall panels share the same seams and signal rails
+                // as the ring apron, so every flow screen reads as a league
+                // terminal inside the same arena.
+                let horizon = size.height * 0.63
+                for index in 0...12 {
                     var path = Path()
-                    let offset = CGFloat(index) * 48
-                    path.move(to: CGPoint(x: -80, y: center.y + offset - 96))
-                    path.addLine(to: CGPoint(x: center.x, y: center.y + offset))
-                    path.addLine(to: CGPoint(x: size.width + 80, y: center.y + offset - 86))
+                    let x = CGFloat(index) * size.width / 12
+                    path.move(to: CGPoint(x: size.width * 0.5, y: horizon))
+                    path.addLine(to: CGPoint(x: x, y: size.height + 20))
                     context.stroke(
                         path,
-                        with: .color(index.isMultiple(of: 2) ? .cyan.opacity(0.16) : .red.opacity(0.13)),
-                        lineWidth: 2
+                        with: .color(.white.opacity(0.035)),
+                        lineWidth: 1
                     )
                 }
+
+                for index in 0..<7 {
+                    let y = horizon + CGFloat(index * index) * 5.2
+                    var path = Path()
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: size.width, y: y))
+                    context.stroke(path, with: .color(.white.opacity(0.035)), lineWidth: 1)
+                }
+
+                for index in 0..<6 {
+                    let panelWidth = size.width / 6
+                    let rect = CGRect(
+                        x: CGFloat(index) * panelWidth + 5,
+                        y: 8,
+                        width: panelWidth - 10,
+                        height: horizon - 22
+                    )
+                    context.stroke(
+                        Path(roundedRect: rect, cornerRadius: 3),
+                        with: .color(.white.opacity(index.isMultiple(of: 2) ? 0.055 : 0.028)),
+                        lineWidth: 1
+                    )
+                }
+
+                var cyanRail = Path()
+                cyanRail.move(to: CGPoint(x: 0, y: horizon - 7))
+                cyanRail.addLine(to: CGPoint(x: size.width * 0.46, y: horizon + 4))
+                context.stroke(cyanRail, with: .color(.cyan.opacity(0.42)), lineWidth: 3)
+
+                var amberRail = Path()
+                amberRail.move(to: CGPoint(x: size.width * 0.54, y: horizon + 4))
+                amberRail.addLine(to: CGPoint(x: size.width, y: horizon - 7))
+                context.stroke(amberRail, with: .color(.orange.opacity(0.38)), lineWidth: 3)
             }
 
             RadialGradient(
-                colors: [.white.opacity(0.08), .clear],
-                center: .topTrailing,
+                colors: [.cyan.opacity(0.12), .clear],
+                center: .topLeading,
                 startRadius: 10,
-                endRadius: 420
+                endRadius: 390
             )
+
+            RadialGradient(
+                colors: [.orange.opacity(0.08), .clear],
+                center: .bottomTrailing,
+                startRadius: 10,
+                endRadius: 360
+            )
+
+            VStack {
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.cyan.opacity(0.75), .white.opacity(0.22), .orange.opacity(0.72)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 2)
+                Spacer()
+                Rectangle()
+                    .fill(.black.opacity(0.45))
+                    .frame(height: 8)
+            }
         }
         .ignoresSafeArea()
     }

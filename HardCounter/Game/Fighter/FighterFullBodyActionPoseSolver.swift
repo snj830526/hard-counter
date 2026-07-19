@@ -8,6 +8,7 @@ struct FighterFullBodyActionFrame {
     let forward: CGFloat
     let lateral: CGFloat
     let screenHorizontal: CGFloat
+    let screenVertical: CGFloat
     let intensity: CGFloat
     let compression: CGFloat
     let weightShift: CGFloat
@@ -17,6 +18,7 @@ struct FighterFullBodyActionFrame {
         forward: 0,
         lateral: 0,
         screenHorizontal: 0,
+        screenVertical: 0,
         intensity: 0,
         compression: 0,
         weightShift: 0,
@@ -43,7 +45,11 @@ enum FighterFullBodyActionPoseSolver {
         // lateral intent loads the lead side in the rig's local stance.
         let leadLoad = max(sideLoad, 0) + max(forward, 0) * 0.25
         let rearLoad = max(-sideLoad, 0) + max(-forward, 0) * 0.20
-        pose.rootY -= 0.11 * compression
+        // Camera-space displacement is canonical and never depends on which
+        // side of the ring owns the fighter. Anatomical forward/lateral values
+        // only decide how the planted legs and torso carry that displacement.
+        pose.rootY += frame.screenVertical * amount * 0.28
+        pose.rootY -= 0.14 * compression
         pose.leadHip.x -= Float(leadLoad * 0.055)
         pose.rearHip.x -= Float(rearLoad * 0.055)
         pose.leadKnee.x += Float(0.09 * compression + leadLoad * 0.15)
@@ -56,20 +62,20 @@ enum FighterFullBodyActionPoseSolver {
         // Root position belongs to the renderer's parent coordinate space, so
         // screen-horizontal intent must not be mirrored through fighter-local
         // handedness. Local lateral still owns the anatomical weight transfer.
-        pose.rootX += frame.screenHorizontal * amount * 0.20
-        pose.rootZ += forward * 0.17
-        pose.pelvisRoll += lateral * 0.10
-        pose.pelvis.x += Float(-forward * 0.12 + compression * 0.045)
-        pose.pelvis.y += Float(lateral * 0.10)
+        pose.rootX += frame.screenHorizontal * amount * 0.30
+        pose.rootZ += forward * 0.22
+        pose.pelvisRoll += lateral * 0.13
+        pose.pelvis.x += Float(-forward * 0.16 + compression * 0.055)
+        pose.pelvis.y += Float(lateral * 0.14)
 
         // Spine position remains untouched. Rotation around the connected
         // waist creates the visible arc and the head counters just enough to
         // keep the eyes on the opponent.
         pose.spineRoll += lateral * 0.24
-        pose.spinePitch += -forward * 0.22 + compression * 0.035
-        pose.spine.y -= Float(lateral * 0.065)
-        pose.head.z -= Float(lateral * 0.13)
-        pose.head.x += Float(forward * 0.10 - compression * 0.025)
+        pose.spinePitch += -forward * 0.29 + compression * 0.045
+        pose.spine.y -= Float(lateral * 0.085)
+        pose.head.z -= Float(lateral * 0.17)
+        pose.head.x += Float(forward * 0.13 - compression * 0.032)
 
         // Both gloves travel with the rib cage. Small asymmetric elbow folds
         // preserve a compact guard instead of leaving either hand behind.
@@ -98,7 +104,7 @@ enum FighterFullBodyActionPoseSolver {
 
         let leadLoad = max(transfer, 0)
         let rearLoad = max(-transfer, 0)
-        pose.rootY -= compression * 0.075
+        pose.rootY -= compression * 0.10
         pose.leadHip.x -= Float((compression * 0.035) + leadLoad * 0.045)
         pose.rearHip.x -= Float((compression * 0.035) + rearLoad * 0.045)
         pose.leadKnee.x += Float(compression * 0.13 + leadLoad * 0.10)
@@ -106,26 +112,26 @@ enum FighterFullBodyActionPoseSolver {
 
         // Rotation is distributed, never authored as an isolated shoulder
         // snap. The pelvis leads and the rib cage overtakes it near contact.
-        pose.rootZ += frame.forward * reach * 0.075
-        pose.pelvis.y += Float(handSign * reach * 0.13)
-        pose.spine.y += Float(handSign * reach * 0.16)
-        pose.pelvisRoll += frame.lateral * 0.045 * amount
-        pose.spineRoll -= frame.lateral * 0.065 * amount
+        pose.rootZ += frame.forward * reach * 0.105
+        pose.pelvis.y += Float(handSign * reach * 0.18)
+        pose.spine.y += Float(handSign * reach * 0.23)
+        pose.pelvisRoll += frame.lateral * 0.060 * amount
+        pose.spineRoll -= frame.lateral * 0.085 * amount
 
         switch technique {
         case .straight:
-            pose.spinePitch += reach * 0.045
-            if hand == .rear { pose.rearAnklePitch += max(reach, 0) * 0.10 }
+            pose.spinePitch += reach * 0.070
+            if hand == .rear { pose.rearAnklePitch += max(reach, 0) * 0.14 }
         case .smash:
-            pose.rootRoll += handSign * reach * 0.025
-            pose.spineRoll += handSign * reach * 0.040
+            pose.rootRoll += handSign * reach * 0.035
+            pose.spineRoll += handSign * reach * 0.065
         case .uppercut:
             // Load downward, then extend both legs under the rising fist.
             let rise = max(reach - compression * 0.35, 0)
-            pose.rootY += rise * 0.085
-            pose.spinePitch += rise * 0.075
-            pose.leadKnee.x -= Float(rise * 0.055)
-            pose.rearKnee.x -= Float(rise * 0.055)
+            pose.rootY += rise * 0.12
+            pose.spinePitch += rise * 0.11
+            pose.leadKnee.x -= Float(rise * 0.070)
+            pose.rearKnee.x -= Float(rise * 0.070)
         }
         if reach > 0 {
             solveStrikingArm(

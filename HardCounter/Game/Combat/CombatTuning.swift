@@ -51,7 +51,7 @@ enum CombatTuning {
 
     static let idleMotionHalfCycle: TimeInterval = 0.62
     static let idleReturnDuration: TimeInterval = 0.16
-    static let knockoutDuration: TimeInterval = 0.52
+    static let knockoutDuration: TimeInterval = 0.78
     static let poseResetDuration: TimeInterval = 0.01
     static let healthBarAnimationDuration: TimeInterval = 0.18
     static let impactAnimationDuration: TimeInterval = 0.16
@@ -63,7 +63,7 @@ enum CombatTuning {
 
     /// Target velocity after quarter-view projection and camera zoom. Keeping
     /// this in screen points removes direction-dependent diagonal speed.
-    static let playerScreenMoveSpeed: CGFloat = 200
+    static let playerScreenMoveSpeed: CGFloat = 178
     static let punchStartupFootworkMultiplier: CGFloat = 0.72
     static let punchActiveFootworkMultiplier: CGFloat = 0.48
     static let punchRecoveryFootworkMultiplier: CGFloat = 0.82
@@ -73,15 +73,15 @@ enum CombatTuning {
     static let movementDeceleration: CGFloat = 11.5
     static let retreatSpeedMultiplier: CGFloat = 0.82
     static let lateralSpeedMultiplier: CGFloat = 0.90
-    static let cpuScreenMoveSpeed: CGFloat = 115
+    static let cpuScreenMoveSpeed: CGFloat = 104
     static let cpuMovementAcceleration: CGFloat = 5.8
     static let cpuMovementTurnAcceleration: CGFloat = 7.2
     static let cpuMovementDeceleration: CGFloat = 7.8
     /// Contact geometry at perspective scale 1. The arm reaches from the
     /// attacker's ring anchor; the target radius belongs to the defender and
     /// must never be multiplied by the attacker's reach bonus.
-    static let punchArmReachAtUnitScale: CGFloat = 56
-    static let punchTargetRadiusAtUnitScale: CGFloat = 14
+    static let punchArmReachAtUnitScale: CGFloat = 48
+    static let punchTargetRadiusAtUnitScale: CGFloat = 10
     static let retreatingPunchReachScale: CGFloat = 0.90
     static let drivingPunchReachScale: CGFloat = 1.04
     static let counterPunchReachScale: CGFloat = 1.05

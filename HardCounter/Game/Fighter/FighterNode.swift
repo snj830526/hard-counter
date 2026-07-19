@@ -1,3 +1,4 @@
+import SceneKit
 import SpriteKit
 
 final class FighterNode: SKNode {
@@ -19,8 +20,50 @@ final class FighterNode: SKNode {
     private var opponentIsTowardCamera = false
     private var isInNeutralPose = true
     private var currentPhase: FighterPhase = .idle
+    private let damageEffectRoot = SKNode()
+    private var damageVisualTier = 0
+    private var usesScreenSpaceDamageEffects = false
 
     var committedPunchAimDirection: CGVector { activePunchAimDirection }
+
+    func attachThreeDPresentation(to parent: SCNNode) {
+        threeDRenderer.attachPresentation(to: parent)
+        threeDRenderer.spriteNode.isHidden = true
+    }
+
+    func setThreeDStageTransform(position: SCNVector3, scale: Float = 1) {
+        threeDRenderer.setSharedStageTransform(position: position, scale: scale)
+    }
+
+    func threeDBodyWorldPosition(for technique: PunchTechnique = .straight) -> SCNVector3 {
+        threeDRenderer.sharedBodyWorldPosition(for: technique)
+    }
+
+    func threeDDamageWorldPosition() -> SCNVector3 {
+        threeDRenderer.sharedDamageWorldPosition()
+    }
+
+    func attachDamageEffects(to screenSpaceParent: SKNode) {
+        damageEffectRoot.removeFromParent()
+        screenSpaceParent.addChild(damageEffectRoot)
+        damageEffectRoot.zPosition = 70
+        usesScreenSpaceDamageEffects = true
+    }
+
+    func updateDamageEffectScreenPosition(_ position: CGPoint, fighterScale: CGFloat) {
+        guard usesScreenSpaceDamageEffects else { return }
+        damageEffectRoot.position = CGPoint(
+            x: position.x,
+            y: position.y + 62 * fighterScale
+        )
+        damageEffectRoot.setScale(fighterScale)
+    }
+
+    func updateDamageEffectAnchor(_ position: CGPoint, scale: CGFloat = 1) {
+        guard usesScreenSpaceDamageEffects else { return }
+        damageEffectRoot.position = position
+        damageEffectRoot.setScale(scale)
+    }
 
     private var animationRoot: SKNode { rig.animationRoot }
     private var locomotionRoot: SKNode { rig.locomotionRoot }
@@ -56,9 +99,7 @@ final class FighterNode: SKNode {
     ) {
         facing = facingRight ? 1 : -1
         orientation = FighterOrientationController(facingRight: facingRight)
-        locomotion = FighterLocomotionController(
-            cadence: motionStyle.profile.strideCadence
-        )
+        locomotion = FighterLocomotionController(style: motionStyle)
         rig = FighterRig(facing: facing, appearance: appearance)
         threeDRenderer = Fighter3DRenderer(
             appearance: appearance,
@@ -68,6 +109,9 @@ final class FighterNode: SKNode {
         super.init()
         addChild(rig.animationRoot)
         addChild(threeDRenderer.spriteNode)
+        damageEffectRoot.position = CGPoint(x: 0, y: 62)
+        damageEffectRoot.zPosition = 56
+        addChild(damageEffectRoot)
         rig.animationRoot.isHidden = usesThreeDRenderer
         threeDRenderer.spriteNode.isHidden = !usesThreeDRenderer
         threeDRenderer.spriteNode.isPlaying = usesThreeDRenderer
@@ -488,6 +532,121 @@ final class FighterNode: SKNode {
         threeDRenderer.updateStamina(fraction: fraction)
     }
 
+    func updateDamage(fraction: CGFloat) {
+        let tier = fraction <= 0.18 ? 2 : (fraction <= 0.38 ? 1 : 0)
+        guard tier != damageVisualTier else { return }
+        damageVisualTier = tier
+        damageEffectRoot.removeAllActions()
+        damageEffectRoot.removeAllChildren()
+        guard tier > 0 else { return }
+
+        let sparkInterval = tier == 2 ? 0.42 : 0.92
+        damageEffectRoot.run(.repeatForever(.sequence([
+            .wait(forDuration: sparkInterval),
+            .run { [weak self] in self?.spawnFaultSparks(severity: tier) }
+        ])), withKey: "faultSparks")
+
+        let smokeInterval = tier == 2 ? 0.68 : 1.35
+        damageEffectRoot.run(.repeatForever(.sequence([
+            .wait(forDuration: smokeInterval),
+            .run { [weak self] in self?.spawnFaultSmoke(severity: tier) }
+        ])), withKey: "faultSmoke")
+        spawnFaultSparks(severity: tier)
+        spawnFaultSmoke(severity: tier)
+    }
+
+    private func spawnFaultSparks(severity: Int) {
+        let origin = CGPoint(
+            x: severity == 2 ? CGFloat.random(in: -13...14) : 10,
+            y: CGFloat.random(in: 7...23)
+        )
+        for index in 0..<(severity == 2 ? 6 : 3) {
+            let angle = CGFloat.random(in: 0.18...2.96)
+            let distance = CGFloat.random(in: 11...27)
+            let sparkPath = CGMutablePath()
+            sparkPath.move(to: CGPoint(x: -CGFloat.random(in: 1.5...3.5), y: 0))
+            sparkPath.addLine(to: CGPoint(x: CGFloat.random(in: 2.5...6.5), y: 0))
+            let spark = SKShapeNode(path: sparkPath)
+            spark.position = origin
+            spark.zRotation = angle
+            spark.strokeColor = index.isMultiple(of: 3)
+                ? ArenaVisualPalette.whiteMark
+                : ArenaVisualPalette.amberSignal
+            spark.lineWidth = index.isMultiple(of: 2) ? 1.25 : 0.8
+            spark.lineCap = .round
+            spark.glowWidth = 1.4
+            damageEffectRoot.addChild(spark)
+            spark.run(.sequence([
+                .group([
+                    .moveBy(
+                        x: cos(angle) * distance,
+                        y: sin(angle) * distance,
+                        duration: 0.13
+                    ),
+                    .fadeAlpha(to: 0.55, duration: 0.13)
+                ]),
+                .group([
+                    .moveBy(x: cos(angle) * distance * 0.35, y: -9, duration: 0.16),
+                    .fadeOut(withDuration: 0.16)
+                ]),
+                .removeFromParent()
+            ]))
+        }
+    }
+
+    private func spawnFaultSmoke(severity: Int) {
+        let cloud = SKNode()
+        cloud.position = CGPoint(x: CGFloat.random(in: -8...9), y: 12)
+        damageEffectRoot.addChild(cloud)
+        for index in 0..<3 {
+            let radius = CGFloat(severity == 2 ? 5.5 : 4.2) + CGFloat(index) * 0.8
+            let puff = SKShapeNode(path: smokePuffPath(radius: radius, phase: index))
+            puff.position = CGPoint(x: CGFloat(index - 1) * 3.5, y: CGFloat(index) * 2)
+            puff.fillColor = SKColor(
+                white: 0.20 + CGFloat(index) * 0.035,
+                alpha: severity == 2 ? 0.30 : 0.20
+            )
+            puff.strokeColor = SKColor(white: 0.38, alpha: 0.08)
+            puff.lineWidth = 0.6
+            puff.alpha = 0
+            puff.setScale(0.65)
+            cloud.addChild(puff)
+            puff.run(.sequence([
+                .wait(forDuration: Double(index) * 0.065),
+                .group([
+                    .fadeAlpha(to: severity == 2 ? 0.46 : 0.32, duration: 0.16),
+                    .scale(to: 1.12, duration: 0.16)
+                ]),
+                .group([
+                    .moveBy(
+                        x: CGFloat.random(in: -6...7),
+                        y: 28 + CGFloat(index) * 5,
+                        duration: 0.78
+                    ),
+                    .scale(to: 2.05 + CGFloat(index) * 0.14, duration: 0.78),
+                    .fadeOut(withDuration: 0.78)
+                ])
+            ]))
+        }
+        cloud.run(.sequence([.wait(forDuration: 1.18), .removeFromParent()]))
+    }
+
+    private func smokePuffPath(radius: CGFloat, phase: Int) -> CGPath {
+        let path = CGMutablePath()
+        let points = 12
+        for index in 0..<points {
+            let angle = CGFloat(index) / CGFloat(points) * .pi * 2
+            let modulation = 0.82 + CGFloat((index * 7 + phase * 5) % 5) * 0.075
+            let point = CGPoint(
+                x: cos(angle) * radius * modulation,
+                y: sin(angle) * radius * modulation
+            )
+            index == 0 ? path.move(to: point) : path.addLine(to: point)
+        }
+        path.closeSubpath()
+        return path
+    }
+
     func resetPose() {
         removeAllActions()
         locomotionRoot.removeAllActions()
@@ -526,6 +685,7 @@ final class FighterNode: SKNode {
         locomotion.reset()
         motionClipPlayer.reset()
         threeDRenderer.reset()
+        updateDamage(fraction: 1)
         appliedPose = .guardPose
         isInNeutralPose = true
         currentPhase = .idle
@@ -755,6 +915,11 @@ final class FighterNode: SKNode {
 
     private func playKnockout() {
         removeAllActions()
+        // The 3D renderer collapses its articulated rig around the fighter's
+        // ring anchor. Moving and rotating the entire FighterNode as well was
+        // a legacy 2D fall and made the enlarged character launch across the
+        // screen while the camera continued tracking the unchanged anchor.
+        guard !usesThreeDRenderer else { return }
         let fall = SKAction.group([
             .rotate(toAngle: -facing * 1.35, duration: CombatTuning.knockoutDuration, shortestUnitArc: true),
             .moveBy(x: -facing * 34, y: -28, duration: CombatTuning.knockoutDuration)

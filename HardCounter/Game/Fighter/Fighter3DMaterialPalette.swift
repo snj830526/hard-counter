@@ -1,9 +1,10 @@
 import SceneKit
 import UIKit
 
-/// Presentation-only materials derived from one fighter appearance. Keeping
-/// these values together prevents geometry builders from independently tuning
-/// the same skin or kit color.
+/// Presentation-only materials for a purpose-built boxing machine. The old
+/// field names remain stable for the rig builders, but they now describe
+/// painted armour, recessed mechanics and luminous fight identifiers rather
+/// than human skin, hair and fabric.
 struct Fighter3DMaterialPalette {
     let skin: SCNMaterial
     let shadowSkin: SCNMaterial
@@ -12,47 +13,108 @@ struct Fighter3DMaterialPalette {
     let accent: SCNMaterial
     let hair: SCNMaterial
     let eyeWhite: SCNMaterial
+    let secondaryArmor: SCNMaterial
+    let marking: SCNMaterial
 
     init(appearance: FighterAppearance) {
-        skin = Self.make(appearance.skinColor, roughness: 0.66, specular: 0.20)
-        shadowSkin = Self.make(appearance.skinShadowColor, roughness: 0.72, specular: 0.14)
-        jointSkin = Self.make(
-            appearance.skinColor,
-            roughness: 0.96,
-            specular: 0.02
+        let paintedArmor = Self.mixed(
+            appearance.kitColor,
+            with: UIColor.white,
+            amount: 0.14
         )
-        kit = Self.make(appearance.kitColor, roughness: 0.80, specular: 0.10)
-        accent = Self.make(
+        let frameMetal = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1),
+            amount: 0.52
+        )
+        let insetMetal = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1),
+            amount: 0.74
+        )
+        let jointMetal = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.16, green: 0.18, blue: 0.22, alpha: 1),
+            amount: 0.82
+        )
+        let accentPaint = Self.mixed(
             appearance.accentColor,
-            roughness: 0.48,
-            specular: 0.32,
-            emission: 0.025
+            with: UIColor.white,
+            amount: 0.20
         )
-        hair = Self.make(appearance.hairColor, roughness: 0.94, specular: 0.04)
-        eyeWhite = Self.make(
-            UIColor(white: 0.92, alpha: 1),
-            roughness: 0.74,
-            specular: 0.08
+        let pearlArmor = Self.mixed(
+            appearance.kitColor,
+            with: UIColor(red: 0.82, green: 0.86, blue: 0.88, alpha: 1),
+            amount: 0.58
+        )
+        skin = Self.makeMatte(frameMetal)
+        shadowSkin = Self.makeMatte(insetMetal)
+        jointSkin = Self.makeMatte(jointMetal)
+        kit = Self.makeMatte(paintedArmor)
+        accent = Self.makeMatte(accentPaint)
+        hair = Self.makeMatte(insetMetal)
+        eyeWhite = Self.makeSignal(paintedArmor)
+        secondaryArmor = Self.makeMatte(pearlArmor)
+        marking = Self.makeMatte(
+            UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1)
         )
     }
 
-    private static func make(
-        _ color: UIColor,
-        roughness: CGFloat,
-        specular: CGFloat,
-        emission: CGFloat = 0
-    ) -> SCNMaterial {
+    /// Powder-coated armour uses diffuse-only lighting. PBR metalness still
+    /// produces bright facets on the low-poly mesh even at high roughness, so
+    /// the non-luminous machine surfaces deliberately use Lambert shading.
+    private static func makeMatte(_ color: UIColor) -> SCNMaterial {
         let result = SCNMaterial()
         result.diffuse.contents = color
-        result.roughness.contents = roughness
-        result.metalness.contents = 0.02
-        result.specular.contents = UIColor(white: specular, alpha: 1)
-        if emission > 0 {
-            result.emission.contents = color
-            result.emission.intensity = emission
-        }
-        result.lightingModel = .physicallyBased
+        result.ambient.contents = color.withAlphaComponent(0.42)
+        result.specular.contents = UIColor.black
+        result.reflective.contents = UIColor.black
+        result.metalness.contents = 0
+        result.roughness.contents = 1
+        result.clearCoat.contents = 0
+        // A small albedo floor keeps saturated powder coats readable against
+        // the dark arena without creating a highlight or a luminous outline.
+        result.emission.contents = color
+        result.emission.intensity = 0.12
+        result.lightingModel = .lambert
         return result
+    }
+
+    /// Sensors are the only self-lit surfaces; they do not carry a glossy
+    /// highlight, keeping the armour/signal material boundary unambiguous.
+    private static func makeSignal(_ color: UIColor) -> SCNMaterial {
+        let result = SCNMaterial()
+        result.diffuse.contents = color
+        result.emission.contents = color
+        result.emission.intensity = 0.76
+        result.specular.contents = UIColor.black
+        result.reflective.contents = UIColor.black
+        result.lightingModel = .constant
+        return result
+    }
+
+    private static func mixed(
+        _ source: UIColor,
+        with target: UIColor,
+        amount: CGFloat
+    ) -> UIColor {
+        var sr: CGFloat = 0
+        var sg: CGFloat = 0
+        var sb: CGFloat = 0
+        var sa: CGFloat = 0
+        var tr: CGFloat = 0
+        var tg: CGFloat = 0
+        var tb: CGFloat = 0
+        var ta: CGFloat = 0
+        source.getRed(&sr, green: &sg, blue: &sb, alpha: &sa)
+        target.getRed(&tr, green: &tg, blue: &tb, alpha: &ta)
+        let t = min(max(amount, 0), 1)
+        return UIColor(
+            red: sr + (tr - sr) * t,
+            green: sg + (tg - sg) * t,
+            blue: sb + (tb - sb) * t,
+            alpha: sa + (ta - sa) * t
+        )
     }
 
 }

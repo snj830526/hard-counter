@@ -27,7 +27,7 @@ struct FighterSelectionView: View {
     private var header: some View {
         HStack {
             Button(action: onBack) {
-                Label("모드 선택", systemImage: "chevron.left")
+                Label("SELECT MODE", systemImage: "chevron.left")
                     .font(.system(size: 12, weight: .bold))
             }
             .buttonStyle(.plain)
@@ -35,9 +35,9 @@ struct FighterSelectionView: View {
 
             Spacer()
             VStack(spacing: 2) {
-                Text("SELECT FIGHTER")
+                Text("SELECT MACHINE")
                     .font(.system(size: 21, weight: .black, design: .rounded))
-                Text("솔로 대전에 출전할 선수를 선택하세요")
+                Text("Choose a boxing machine for the solo match")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
@@ -54,6 +54,17 @@ struct FighterSelectionView: View {
             selected = fighter
         } label: {
             VStack(spacing: 8) {
+                HStack {
+                    Text("FRAME // \(fighter.id.uppercased())")
+                    Spacer()
+                    Circle()
+                        .fill(isSelected ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.18))
+                        .frame(width: 5, height: 5)
+                }
+                .font(.system(size: 7, weight: .black, design: .monospaced))
+                .tracking(1)
+                .foregroundStyle(.white.opacity(0.40))
+
                 FighterPortraitView(fighter: fighter)
 
                 VStack(spacing: 1) {
@@ -78,19 +89,19 @@ struct FighterSelectionView: View {
 
                 VStack(spacing: 5) {
                     statRow(
-                        "체력",
+                        "ARMOR",
                         value: fighter.healthPreview,
                         valueText: "\(fighter.stats.maximumHealth)",
                         color: .red
                     )
                     statRow(
-                        "스태미너",
+                        "ENERGY",
                         value: fighter.staminaPreview,
                         valueText: "\(Int(fighter.stats.maximumStamina))",
                         color: .green
                     )
                     statRow(
-                        "스피드",
+                        "SPEED",
                         value: fighter.speedPreview,
                         valueText: "\(Int((fighter.stats.movementSpeedMultiplier * 100).rounded()))",
                         color: .cyan
@@ -101,15 +112,40 @@ struct FighterSelectionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(.white)
             .background(
-                isSelected ? fighter.swiftUIColor.opacity(0.13) : .white.opacity(0.045),
-                in: RoundedRectangle(cornerRadius: 16)
+                LinearGradient(
+                    colors: [
+                        isSelected
+                            ? fighter.swiftUIColor.opacity(0.23)
+                            : Color(uiColor: ArenaVisualPalette.raisedMetal).opacity(0.50),
+                        Color(uiColor: ArenaVisualPalette.carbon).opacity(0.96)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: 4,
+                    bottomLeadingRadius: 15,
+                    bottomTrailingRadius: 4,
+                    topTrailingRadius: 15
+                )
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 16)
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 4,
+                    bottomLeadingRadius: 15,
+                    bottomTrailingRadius: 4,
+                    topTrailingRadius: 15
+                )
                     .stroke(
                         isSelected ? fighter.swiftUIColor : .white.opacity(0.10),
                         lineWidth: isSelected ? 2.5 : 1
                     )
+            }
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(fighter.swiftUIColor.opacity(isSelected ? 0.90 : 0.40))
+                    .frame(height: 2)
+                    .padding(.horizontal, 15)
             }
             .scaleEffect(isSelected ? 1 : 0.97)
         }
@@ -130,8 +166,9 @@ struct FighterSelectionView: View {
                 .frame(width: 42, alignment: .leading)
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.09))
-                    Capsule().fill(color).frame(width: proxy.size.width * value)
+                    Rectangle().fill(Color(uiColor: ArenaVisualPalette.carbon))
+                    Rectangle().fill(color).frame(width: proxy.size.width * value)
+                    Rectangle().fill(.white.opacity(0.18)).frame(height: 1).offset(y: -2)
                 }
             }
             .frame(height: 5)
@@ -144,7 +181,7 @@ struct FighterSelectionView: View {
 
     private var footer: some View {
         HStack {
-            Text("선택한 선수의 능력치와 기술 특성이 실제 경기에 적용됩니다")
+            Text("Frame attributes and techniques apply directly to combat")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.42))
             Spacer()
@@ -159,7 +196,18 @@ struct FighterSelectionView: View {
                 .foregroundStyle(.black)
                 .padding(.horizontal, 28)
                 .frame(height: 42)
-                .background(selected.swiftUIColor, in: RoundedRectangle(cornerRadius: 10))
+                .background(selected.swiftUIColor, in: UnevenRoundedRectangle(
+                    topLeadingRadius: 3,
+                    bottomLeadingRadius: 10,
+                    bottomTrailingRadius: 3,
+                    topTrailingRadius: 10
+                ))
+                .overlay { UnevenRoundedRectangle(
+                    topLeadingRadius: 3,
+                    bottomLeadingRadius: 10,
+                    bottomTrailingRadius: 3,
+                    topTrailingRadius: 10
+                ).stroke(.white.opacity(0.34)) }
             }
             .buttonStyle(.plain)
         }

@@ -16,25 +16,26 @@ enum Fighter3DMeshFactory {
     ) -> SCNNode {
         facetedBody(
             sections: [
-                Section(y: 0.03, halfWidth: proportions.torsoWidth * 0.31, halfDepth: proportions.torsoDepth * 0.48),
-                Section(y: 0.30, halfWidth: proportions.torsoWidth * 0.36, halfDepth: proportions.torsoDepth * 0.52),
-                Section(y: 0.67, halfWidth: max(proportions.torsoWidth * 0.50, proportions.chestWidth * 0.54), halfDepth: proportions.torsoDepth * 0.62),
-                Section(y: 0.90, halfWidth: max(proportions.torsoWidth * 0.45, proportions.chestWidth * 0.50), halfDepth: proportions.torsoDepth * 0.52)
+                Section(y: 0.03, halfWidth: proportions.torsoWidth * 0.27, halfDepth: proportions.torsoDepth * 0.40),
+                Section(y: 0.24, halfWidth: proportions.torsoWidth * 0.32, halfDepth: proportions.torsoDepth * 0.46),
+                Section(y: 0.34, halfWidth: proportions.torsoWidth * 0.39, halfDepth: proportions.torsoDepth * 0.54),
+                Section(y: 0.68, halfWidth: max(proportions.torsoWidth * 0.51, proportions.chestWidth * 0.56), halfDepth: proportions.torsoDepth * 0.67),
+                Section(y: 0.88, halfWidth: max(proportions.torsoWidth * 0.47, proportions.chestWidth * 0.52), halfDepth: proportions.torsoDepth * 0.56)
             ],
             sides: 8,
             material: material
         )
     }
 
-    static func shorts(
+    static func hipFrame(
         proportions: Fighter3DAppearanceProfile,
         material: SCNMaterial
     ) -> SCNNode {
         facetedBody(
             sections: [
-                Section(y: -proportions.shortsHeight * 0.56, halfWidth: proportions.shortsWidth * 0.47, halfDepth: proportions.shortsDepth * 0.46),
-                Section(y: -proportions.shortsHeight * 0.18, halfWidth: proportions.shortsWidth * 0.53, halfDepth: proportions.shortsDepth * 0.52),
-                Section(y: proportions.shortsHeight * 0.44, halfWidth: proportions.shortsWidth * 0.47, halfDepth: proportions.shortsDepth * 0.46)
+                Section(y: -proportions.shortsHeight * 0.54, halfWidth: proportions.shortsWidth * 0.43, halfDepth: proportions.shortsDepth * 0.42),
+                Section(y: -proportions.shortsHeight * 0.10, halfWidth: proportions.shortsWidth * 0.56, halfDepth: proportions.shortsDepth * 0.54),
+                Section(y: proportions.shortsHeight * 0.42, halfWidth: proportions.shortsWidth * 0.48, halfDepth: proportions.shortsDepth * 0.46)
             ],
             sides: 8,
             material: material,
@@ -51,11 +52,11 @@ enum Fighter3DMeshFactory {
         let depth = proportions.headDepthScale
         return facetedBody(
             sections: [
-                Section(y: -0.25 * height, halfWidth: 0.105 * width, halfDepth: 0.145 * depth),
-                Section(y: -0.17 * height, halfWidth: 0.190 * width, halfDepth: 0.205 * depth),
-                Section(y: 0.04 * height, halfWidth: 0.235 * width, halfDepth: 0.235 * depth),
-                Section(y: 0.19 * height, halfWidth: 0.205 * width, halfDepth: 0.215 * depth),
-                Section(y: 0.26 * height, halfWidth: 0.135 * width, halfDepth: 0.155 * depth)
+                Section(y: -0.25 * height, halfWidth: 0.145 * width, halfDepth: 0.165 * depth),
+                Section(y: -0.17 * height, halfWidth: 0.205 * width, halfDepth: 0.205 * depth),
+                Section(y: 0.04 * height, halfWidth: 0.238 * width, halfDepth: 0.225 * depth),
+                Section(y: 0.20 * height, halfWidth: 0.215 * width, halfDepth: 0.205 * depth),
+                Section(y: 0.27 * height, halfWidth: 0.165 * width, halfDepth: 0.145 * depth)
             ],
             sides: 8,
             material: material,

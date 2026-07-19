@@ -21,13 +21,30 @@ final class CombatScene: SKScene {
     )
     private let playerShadow = FighterGroundShadowNode()
     private let cpuShadow = FighterGroundShadowNode()
-    private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
+    private lazy var playerHealthBar = SKSpriteNode(
+        color: fighterProfile.color,
+        size: CGSize(width: 216, height: 12)
+    )
     private lazy var cpuHealthBar = SKSpriteNode(
         color: opponentProfile?.color ?? .systemOrange,
-        size: CGSize(width: 220, height: 14)
+        size: CGSize(width: 216, height: 12)
     )
-    private let playerStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
-    private let cpuStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
+    private let playerHealthDamageBar = SKSpriteNode(
+        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        size: CGSize(width: 216, height: 12)
+    )
+    private let cpuHealthDamageBar = SKSpriteNode(
+        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        size: CGSize(width: 216, height: 12)
+    )
+    private let playerStaminaBar = SKSpriteNode(
+        color: ArenaVisualPalette.greenSignal,
+        size: CGSize(width: 216, height: 5)
+    )
+    private let cpuStaminaBar = SKSpriteNode(
+        color: ArenaVisualPalette.greenSignal,
+        size: CGSize(width: 216, height: 5)
+    )
     private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
@@ -83,9 +100,14 @@ final class CombatScene: SKScene {
         turnDotThreshold: -0.12,
         idleThreshold: 0.012
     )
-    private var playerBodyMotion = FighterFullBodyMotionController()
-    private var cpuBodyMotion = FighterFullBodyMotionController()
+    private lazy var playerBodyMotion = FighterFullBodyMotionController(
+        cadence: fighterProfile.motionStyle.profile.strideCadence
+    )
+    private lazy var cpuBodyMotion = FighterFullBodyMotionController(
+        cadence: cpuMotionStyle.profile.strideCadence
+    )
     private var arenaZoom = ArenaViewTuning.baseZoom
+    private var sharedArena3DRenderer: SharedArena3DRenderer?
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
@@ -104,16 +126,22 @@ final class CombatScene: SKScene {
 #endif
         return opponentProfile?.combatStyle ?? .rival
     }
+    private let sharedThreeDArenaEnabled = !ProcessInfo.processInfo.arguments.contains("--legacy-2d-arena")
 #if DEBUG
     private let fighterStyleShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fighter-style-showcase")
     private let motionShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-showcase")
+    private let uppercutShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--uppercut-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
+    private let cameraShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--camera-showcase")
     private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
     private let guardCloseupEnabled = ProcessInfo.processInfo.arguments.contains("--guard-closeup")
-    private var motionShowcaseController = MotionShowcaseController()
+    private let damageShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--damage-showcase")
+    private var motionShowcaseController = MotionShowcaseController(
+        uppercutOnly: ProcessInfo.processInfo.arguments.contains("--uppercut-showcase")
+    )
     private var swayShowcaseController = SwayShowcaseController()
     private var motionClipShowcaseController = MotionClipShowcaseController()
     private var footworkShowcaseController = FootworkShowcaseController()
@@ -126,7 +154,7 @@ final class CombatScene: SKScene {
         nearbyService = nil
         super.init(size: size)
         scaleMode = .resizeFill
-        backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
+        backgroundColor = ArenaVisualPalette.void
     }
 
     init(
@@ -140,7 +168,7 @@ final class CombatScene: SKScene {
         nearbyService = service
         super.init(size: size)
         scaleMode = .resizeFill
-        backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
+        backgroundColor = ArenaVisualPalette.void
     }
 
     override convenience init(size: CGSize) {
@@ -173,6 +201,12 @@ final class CombatScene: SKScene {
 #endif
         haptics.prepare()
         layoutScene()
+#if DEBUG
+        if damageShowcaseEnabled {
+            player.updateDamage(fraction: 0.14)
+            cpu.updateDamage(fraction: 0.31)
+        }
+#endif
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -209,7 +243,7 @@ final class CombatScene: SKScene {
                 hasCompletedCountdown = true
                 controls.alpha = 1
                 statusLabel.text = "FIGHT!"
-                statusLabel.fontColor = .systemYellow
+                statusLabel.fontColor = ArenaVisualPalette.amberSignal
                 statusLabel.run(.sequence([.wait(forDuration: 0.45), .fadeOut(withDuration: 0.2)]))
             }
         }
@@ -228,15 +262,17 @@ final class CombatScene: SKScene {
             updateNetworkCombat(at: currentTime)
         } else if motionClipShowcaseEnabled {
             updateMotionClipShowcase(at: currentTime)
-        } else if footworkShowcaseEnabled {
+        } else if footworkShowcaseEnabled || cameraShowcaseEnabled {
             updateFootworkShowcase(at: currentTime)
         } else if fatigueShowcaseEnabled {
             updateFatigueShowcase()
         } else if guardCloseupEnabled {
             updateGuardCloseup()
+        } else if damageShowcaseEnabled {
+            updateDamageShowcase()
         } else if swayShowcaseEnabled {
             updateSwayShowcase(at: currentTime)
-        } else if motionShowcaseEnabled || impactShowcaseEnabled {
+        } else if motionShowcaseEnabled || uppercutShowcaseEnabled || impactShowcaseEnabled {
             updateMotionShowcase(at: currentTime)
         } else {
             updateCPUCombat(at: currentTime)
@@ -372,18 +408,45 @@ final class CombatScene: SKScene {
         arenaNode.addChild(player)
         arenaNode.addChild(cpu)
 
+        if sharedThreeDArenaEnabled {
+            let renderer = SharedArena3DRenderer(
+                size: size,
+                player: player,
+                opponent: cpu
+            )
+            sharedArena3DRenderer = renderer
+            addChild(renderer.viewport)
+            player.attachDamageEffects(to: self)
+            cpu.attachDamageEffects(to: self)
+            ringNode.isHidden = true
+            playerShadow.isHidden = true
+            cpuShadow.isHidden = true
+        }
+
         addHealthBarBackground(for: playerHealthBar)
         addHealthBarBackground(for: cpuHealthBar)
         addStaminaBarBackground(for: playerStaminaBar, name: "playerStaminaBackground")
         addStaminaBarBackground(for: cpuStaminaBar, name: "cpuStaminaBackground")
         playerHealthBar.anchorPoint = CGPoint(x: 0, y: 0.5)
         cpuHealthBar.anchorPoint = CGPoint(x: 1, y: 0.5)
+        playerHealthDamageBar.anchorPoint = CGPoint(x: 0, y: 0.5)
+        cpuHealthDamageBar.anchorPoint = CGPoint(x: 1, y: 0.5)
         playerStaminaBar.anchorPoint = CGPoint(x: 0, y: 0.5)
         cpuStaminaBar.anchorPoint = CGPoint(x: 1, y: 0.5)
+        playerHealthDamageBar.zPosition = 9.7
+        cpuHealthDamageBar.zPosition = 9.7
+        addChild(playerHealthDamageBar)
+        addChild(cpuHealthDamageBar)
         addChild(playerHealthBar)
         addChild(cpuHealthBar)
         addChild(playerStaminaBar)
         addChild(cpuStaminaBar)
+        decorateGaugeFill(playerHealthBar)
+        decorateGaugeFill(cpuHealthBar)
+        decorateGaugeFill(playerStaminaBar)
+        decorateGaugeFill(cpuStaminaBar)
+        decorateDamageTrack(playerHealthDamageBar, facesRight: true)
+        decorateDamageTrack(cpuHealthDamageBar, facesRight: false)
 
         statusLabel.fontSize = 26
         statusLabel.fontColor = .white
@@ -417,14 +480,14 @@ final class CombatScene: SKScene {
         roundEndOverlay.isHidden = true
         addChild(roundEndOverlay)
 
-        restartButton.fillColor = .systemOrange
-        restartButton.strokeColor = SKColor.white.withAlphaComponent(0.9)
+        restartButton.fillColor = ArenaVisualPalette.gunmetal
+        restartButton.strokeColor = ArenaVisualPalette.amberSignal.withAlphaComponent(0.92)
         restartButton.lineWidth = 2
         restartButton.zPosition = 160
         restartButton.isHidden = true
         addChild(restartButton)
 
-        restartLabel.text = "다시 하기"
+        restartLabel.text = "PLAY AGAIN"
         restartLabel.fontSize = 18
         restartLabel.fontColor = .white
         restartLabel.verticalAlignmentMode = .center
@@ -433,22 +496,118 @@ final class CombatScene: SKScene {
     }
 
     private func addHealthBarBackground(for bar: SKSpriteNode) {
-        let background = SKSpriteNode(color: SKColor.white.withAlphaComponent(0.13), size: CGSize(width: 228, height: 22))
+        let background = SKSpriteNode(color: .clear, size: CGSize(width: 238, height: 24))
         background.name = bar === playerHealthBar ? "playerHealthBackground" : "cpuHealthBackground"
         background.zPosition = 9
+        addGaugeFrame(
+            to: background,
+            size: background.size,
+            signal: bar === playerHealthBar
+                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+        )
         addChild(background)
         bar.zPosition = 10
     }
 
     private func addStaminaBarBackground(for bar: SKSpriteNode, name: String) {
         let background = SKSpriteNode(
-            color: SKColor.white.withAlphaComponent(0.11),
-            size: CGSize(width: 228, height: 10)
+            color: .clear,
+            size: CGSize(width: 238, height: 12)
         )
         background.name = name
         background.zPosition = 9
+        let signal = name.hasPrefix("player")
+            ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+        addGaugeFrame(to: background, size: CGSize(width: 232, height: 11), signal: signal)
         addChild(background)
         bar.zPosition = 10
+    }
+
+    private func addGaugeFrame(
+        to background: SKSpriteNode,
+        size: CGSize,
+        signal: SKColor
+    ) {
+        let inset: CGFloat = size.height >= 20 ? 5 : 3
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: -size.width / 2 + inset, y: -size.height / 2))
+        path.addLine(to: CGPoint(x: size.width / 2 - inset, y: -size.height / 2))
+        path.addLine(to: CGPoint(x: size.width / 2, y: -size.height / 2 + inset))
+        path.addLine(to: CGPoint(x: size.width / 2, y: size.height / 2 - inset))
+        path.addLine(to: CGPoint(x: size.width / 2 - inset, y: size.height / 2))
+        path.addLine(to: CGPoint(x: -size.width / 2 + inset, y: size.height / 2))
+        path.addLine(to: CGPoint(x: -size.width / 2, y: size.height / 2 - inset))
+        path.addLine(to: CGPoint(x: -size.width / 2, y: -size.height / 2 + inset))
+        path.closeSubpath()
+
+        let panel = SKShapeNode(path: path)
+        panel.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.78)
+        panel.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.96)
+        panel.lineWidth = 1.2
+        panel.zPosition = 0.5
+        background.addChild(panel)
+
+        let signalRail = SKSpriteNode(
+            color: signal.withAlphaComponent(0.78),
+            size: CGSize(width: size.width - inset * 4, height: size.height >= 20 ? 1.6 : 1.0)
+        )
+        signalRail.position.y = -size.height / 2 + 2
+        signalRail.zPosition = 1.2
+        background.addChild(signalRail)
+
+        let tickHeight = max(size.height - 8, 2)
+        for index in 1..<10 {
+            let tick = SKSpriteNode(
+                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.10),
+                size: CGSize(width: 0.8, height: tickHeight)
+            )
+            tick.position.x = -size.width / 2 + CGFloat(index) * size.width / 10
+            tick.zPosition = 2.4
+            background.addChild(tick)
+        }
+
+        for side: CGFloat in [-1, 1] {
+            let bolt = SKShapeNode(circleOfRadius: size.height >= 20 ? 1.5 : 1.0)
+            bolt.position = CGPoint(
+                x: side * (size.width / 2 - inset - 2),
+                y: size.height / 2 - inset - 1
+            )
+            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.28)
+            bolt.strokeColor = .clear
+            bolt.zPosition = 2.5
+            background.addChild(bolt)
+        }
+    }
+
+    private func decorateGaugeFill(_ bar: SKSpriteNode) {
+        let highlight = SKSpriteNode(
+            color: SKColor.white.withAlphaComponent(0.09),
+            size: CGSize(width: bar.size.width, height: 1)
+        )
+        highlight.position.y = bar.size.height * 0.5 - 0.5
+        highlight.zPosition = 1
+        bar.addChild(highlight)
+    }
+
+    /// The full-width damage track sits behind the live health fill. Damage
+    /// exposes this red warning surface instead of disappearing into a black
+    /// panel, making both the lost amount and the depletion direction obvious.
+    private func decorateDamageTrack(
+        _ track: SKSpriteNode,
+        facesRight: Bool
+    ) {
+        track.colorBlendFactor = 1
+        for index in 0..<12 {
+            let slash = SKSpriteNode(
+                color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.46),
+                size: CGSize(width: 2, height: 16)
+            )
+            let offset = CGFloat(index) * 18 + 9
+            slash.position.x = facesRight ? offset : -offset
+            slash.zRotation = facesRight ? -0.58 : 0.58
+            slash.zPosition = 1
+            track.addChild(slash)
+        }
     }
 
     private func configureNameLabel(
@@ -480,16 +639,17 @@ final class CombatScene: SKScene {
 
         if playerArenaPosition == .zero || cpuArenaPosition == .zero {
 #if DEBUG
-            if guardCloseupEnabled {
+            if guardCloseupEnabled || damageShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -82, y: 0)
                 cpuArenaPosition = CGPoint(x: 82, y: 0)
-            } else if footworkShowcaseEnabled || fatigueShowcaseEnabled
+            } else if footworkShowcaseEnabled || cameraShowcaseEnabled || fatigueShowcaseEnabled
                 || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
-            } else if impactShowcaseEnabled || motionClipShowcaseEnabled || swayShowcaseEnabled {
-                playerArenaPosition = CGPoint(x: -22, y: 0)
-                cpuArenaPosition = CGPoint(x: 22, y: 0)
+            } else if impactShowcaseEnabled || motionShowcaseEnabled || uppercutShowcaseEnabled
+                || motionClipShowcaseEnabled || swayShowcaseEnabled {
+                playerArenaPosition = CGPoint(x: -16, y: 0)
+                cpuArenaPosition = CGPoint(x: 16, y: 0)
             } else {
                 playerArenaPosition = CGPoint(
                     x: -ArenaViewTuning.startingHorizontalOffset,
@@ -511,7 +671,7 @@ final class CombatScene: SKScene {
             )
 #endif
         }
-        clampAndRenderFighters()
+        clampAndRenderFighters(deltaTime: 0)
         updateFighterMotion(
             playerMovement: .zero,
             cpuMovement: .zero,
@@ -523,12 +683,16 @@ final class CombatScene: SKScene {
         )
         positionCameraImmediately()
 
-        childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
-        childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
-        childNode(withName: "playerStaminaBackground")?.position = CGPoint(x: left + 110, y: top - 18)
-        childNode(withName: "cpuStaminaBackground")?.position = CGPoint(x: right - 110, y: top - 18)
+        sharedArena3DRenderer?.layout(size: size)
+
+        childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 108, y: top)
+        childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 108, y: top)
+        childNode(withName: "playerStaminaBackground")?.position = CGPoint(x: left + 108, y: top - 18)
+        childNode(withName: "cpuStaminaBackground")?.position = CGPoint(x: right - 108, y: top - 18)
         playerHealthBar.position = CGPoint(x: left, y: top)
         cpuHealthBar.position = CGPoint(x: right, y: top)
+        playerHealthDamageBar.position = CGPoint(x: left, y: top)
+        cpuHealthDamageBar.position = CGPoint(x: right, y: top)
         playerStaminaBar.position = CGPoint(x: left, y: top - 18)
         cpuStaminaBar.position = CGPoint(x: right, y: top - 18)
         playerName.position = CGPoint(x: left, y: top - 34)
@@ -568,11 +732,21 @@ final class CombatScene: SKScene {
 
         let localMovement = localInputSource.movementCommand(at: gameTime).movementVector ?? .zero
         let targetMovement: CGVector
+#if DEBUG
+        if cameraShowcaseEnabled {
+            targetMovement = footworkShowcaseController.frame(at: gameTime).screenMovement
+        } else if let networkConfiguration {
+            targetMovement = networkConfiguration.localFighterID == .player ? localMovement : remoteMovement
+        } else {
+            targetMovement = localMovement
+        }
+#else
         if let networkConfiguration {
             targetMovement = networkConfiguration.localFighterID == .player ? localMovement : remoteMovement
         } else {
             targetMovement = localMovement
         }
+#endif
         let phaseMultiplier = footworkMultiplier(for: .player)
         let playerBodyFrame = playerBodyMotion.update(
             movementIntent: targetMovement,
@@ -584,7 +758,7 @@ final class CombatScene: SKScene {
             toward: playerBodyFrame.resolvedMovement,
             deltaTime: deltaTime
         )
-        let worldMovement = ringProjection.worldDirection(forScreenVector: screenMovement)
+        let worldMovement = presentationWorldDirection(forScreenVector: screenMovement)
         let directionMultiplier = directionalFootworkMultiplier(for: worldMovement)
         let movementMultiplier = phaseMultiplier * directionMultiplier
             * staminaFootworkMultiplier(for: .player)
@@ -608,8 +782,8 @@ final class CombatScene: SKScene {
         if let networkConfiguration {
             cpuTargetMovement = networkConfiguration.localFighterID == .cpu ? localMovement : remoteMovement
         } else if let showcaseMovement = footworkShowcaseMovement(at: gameTime) {
-            cpuTargetMovement = ringProjection.worldDirection(
-                forScreenVector: showcaseMovement
+            cpuTargetMovement = presentationWorldDirection(
+                forScreenVector: cameraShowcaseOpponentMovement(showcaseMovement)
             )
         } else if cpuCanMove {
             cpuTargetMovement = cpuInputSource
@@ -641,7 +815,7 @@ final class CombatScene: SKScene {
         if cpuCanMove {
             let staminaMultiplier = staminaFootworkMultiplier(for: .cpu)
             if networkConfiguration != nil {
-                let cpuWorldMovement = ringProjection.worldDirection(forScreenVector: cpuMovement)
+                let cpuWorldMovement = presentationWorldDirection(forScreenVector: cpuMovement)
                 let multiplier = footworkMultiplier(for: .cpu)
                     * directionalFootworkMultiplier(for: cpuWorldMovement, fighter: .cpu)
                     * staminaMultiplier
@@ -662,7 +836,7 @@ final class CombatScene: SKScene {
             }
         }
 
-        clampAndRenderFighters()
+        clampAndRenderFighters(deltaTime: deltaTime)
         updateCamera(deltaTime: deltaTime)
         updateFighterMotion(
             playerMovement: CGVector(
@@ -671,7 +845,7 @@ final class CombatScene: SKScene {
             ),
             cpuMovement: cpuCanMove
                 ? (networkConfiguration == nil
-                    ? ringProjection.screenVector(forWorldVector: cpuMovement)
+                    ? presentationScreenDirection(forWorldVector: cpuMovement)
                     : cpuMovement) : .zero,
             playerBodyMotion: playerBodyFrame,
             cpuBodyMotion: cpuBodyFrame,
@@ -786,8 +960,8 @@ final class CombatScene: SKScene {
             dx: movement.dx / inputAmount,
             dy: movement.dy / inputAmount
         )
-        let projectedUnit = ringProjection.screenVector(forWorldVector: worldUnit)
-        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        let screenPointsPerWorldPoint = presentationGeometry
+            .screenPointsPerWorldPoint(for: worldUnit)
         guard screenPointsPerWorldPoint > 0.001 else { return .zero }
 
         let worldSpeed = screenSpeed * inputAmount / screenPointsPerWorldPoint
@@ -800,24 +974,35 @@ final class CombatScene: SKScene {
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
         let distance = hypot(delta.dx, delta.dy)
-        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
-        let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
-        let averagePerspectiveScale = (
-            fighterScreenScale(at: playerArenaPosition)
-                + fighterScreenScale(at: cpuArenaPosition)
-        ) * 0.5
-        let minimumScreenSeparation = CombatTuning.minimumFighterSeparationAtUnitScale
-            * averagePerspectiveScale
-        guard screenDistance < minimumScreenSeparation else { return }
-
         let direction: CGVector
         if distance > 0.001 {
             direction = CGVector(dx: delta.dx / distance, dy: delta.dy / distance)
         } else {
             direction = CGVector(dx: 1, dy: 0)
         }
-        let projectedUnit = ringProjection.screenVector(forWorldVector: direction)
-        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy) * arenaZoom
+        if let minimumWorldSeparation = presentationGeometry
+            .sharedMinimumWorldSeparation(along: direction) {
+            separateSharedArenaFighters(
+                direction: direction,
+                currentDistance: distance,
+                minimumDistance: minimumWorldSeparation
+            )
+            return
+        }
+
+        let projectedDelta = presentationScreenVector(forWorldVector: delta)
+        let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy)
+        let averagePerspectiveScale = (
+            fighterScreenScale(at: playerArenaPosition)
+                + fighterScreenScale(at: cpuArenaPosition)
+        ) * 0.5
+        let minimumScreenSeparation = CombatTuning.minimumFighterSeparationAtUnitScale
+            * averagePerspectiveScale
+            * presentationGeometry.fighterSeparationScale
+        guard screenDistance < minimumScreenSeparation else { return }
+
+        let projectedUnit = presentationScreenVector(forWorldVector: direction)
+        let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy)
         guard screenPointsPerWorldPoint > 0.001 else { return }
         let targetWorldDistance = minimumScreenSeparation / screenPointsPerWorldPoint
         let correction = max(targetWorldDistance - distance, 0)
@@ -834,8 +1019,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let correctedScreenDelta = ringProjection.screenVector(forWorldVector: correctedDelta)
-        let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy) * arenaZoom
+        let correctedScreenDelta = presentationScreenVector(forWorldVector: correctedDelta)
+        let correctedScreenDistance = hypot(correctedScreenDelta.dx, correctedScreenDelta.dy)
         let remaining = max(
             (minimumScreenSeparation - correctedScreenDistance) / screenPointsPerWorldPoint,
             0
@@ -850,8 +1035,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let finalScreenDelta = ringProjection.screenVector(forWorldVector: finalDelta)
-        let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy) * arenaZoom
+        let finalScreenDelta = presentationScreenVector(forWorldVector: finalDelta)
+        let finalScreenDistance = hypot(finalScreenDelta.dx, finalScreenDelta.dy)
         let finalRemaining = max(
             (minimumScreenSeparation - finalScreenDistance) / screenPointsPerWorldPoint,
             0
@@ -864,14 +1049,65 @@ final class CombatScene: SKScene {
         }
     }
 
-    private func clampAndRenderFighters() {
+    private func separateSharedArenaFighters(
+        direction: CGVector,
+        currentDistance: CGFloat,
+        minimumDistance: CGFloat
+    ) {
+        let correction = max(minimumDistance - currentDistance, 0)
+        guard correction > 0.001 else { return }
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * correction * 0.5,
+            y: playerArenaPosition.y - direction.dy * correction * 0.5
+        ))
+        cpuArenaPosition = clampedToRing(CGPoint(
+            x: cpuArenaPosition.x + direction.dx * correction * 0.5,
+            y: cpuArenaPosition.y + direction.dy * correction * 0.5
+        ))
+
+        let correctedDistance = hypot(
+            cpuArenaPosition.x - playerArenaPosition.x,
+            cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let remaining = max(minimumDistance - correctedDistance, 0)
+        guard remaining > 0.001 else { return }
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * remaining,
+            y: playerArenaPosition.y - direction.dy * remaining
+        ))
+        let finalDistance = hypot(
+            cpuArenaPosition.x - playerArenaPosition.x,
+            cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let finalRemaining = max(minimumDistance - finalDistance, 0)
+        if finalRemaining > 0.001 {
+            cpuArenaPosition = clampedToRing(CGPoint(
+                x: cpuArenaPosition.x + direction.dx * finalRemaining,
+                y: cpuArenaPosition.y + direction.dy * finalRemaining
+            ))
+        }
+    }
+
+    private func clampAndRenderFighters(deltaTime: TimeInterval) {
         playerArenaPosition = clampedToRing(playerArenaPosition)
         cpuArenaPosition = clampedToRing(cpuArenaPosition)
         separateFighters()
 
-        let playerScreenPosition = ringProjection.project(playerArenaPosition)
-        let cpuScreenPosition = ringProjection.project(cpuArenaPosition)
-        playerToCPUScreenDirection = ringProjection.screenVector(forWorldVector: CGVector(
+        sharedArena3DRenderer?.update(
+            player: player,
+            opponent: cpu,
+            playerWorldPosition: playerArenaPosition,
+            opponentWorldPosition: cpuArenaPosition,
+            deltaTime: deltaTime
+        )
+
+        let playerScreenPosition = presentationGeometry.screenPoint(
+            forWorldPosition: playerArenaPosition
+        )
+        let cpuScreenPosition = presentationGeometry.screenPoint(
+            forWorldPosition: cpuArenaPosition
+        )
+        playerToCPUScreenDirection = presentationScreenDirection(forWorldVector: CGVector(
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         ))
@@ -881,10 +1117,47 @@ final class CombatScene: SKScene {
 
         applyPerspective(to: player, shadow: playerShadow, worldPosition: playerArenaPosition, screenPosition: playerScreenPosition)
         applyPerspective(to: cpu, shadow: cpuShadow, worldPosition: cpuArenaPosition, screenPosition: cpuScreenPosition)
+        if let sharedArena3DRenderer {
+            player.updateDamageEffectAnchor(
+                sharedArena3DRenderer.damageEffectPoint(for: player)
+            )
+            cpu.updateDamageEffectAnchor(
+                sharedArena3DRenderer.damageEffectPoint(for: cpu)
+            )
+        } else {
+            player.updateDamageEffectScreenPosition(
+                playerScreenPosition,
+                fighterScale: player.xScale
+            )
+            cpu.updateDamageEffectScreenPosition(
+                cpuScreenPosition,
+                fighterScale: cpu.xScale
+            )
+        }
     }
 
     private func clampedToRing(_ position: CGPoint) -> CGPoint {
         ringProjection.clamped(position)
+    }
+
+    private func presentationWorldDirection(forScreenVector vector: CGVector) -> CGVector {
+        presentationGeometry.worldDirection(forScreenVector: vector)
+    }
+
+    private func presentationScreenDirection(forWorldVector vector: CGVector) -> CGVector {
+        presentationGeometry.screenDirection(forWorldVector: vector)
+    }
+
+    private func presentationScreenVector(forWorldVector vector: CGVector) -> CGVector {
+        presentationGeometry.screenVector(forWorldVector: vector)
+    }
+
+    private var presentationGeometry: ArenaPresentationGeometry {
+        ArenaPresentationGeometry(
+            quarterProjection: ringProjection,
+            arenaZoom: arenaZoom,
+            sharedArena: sharedArena3DRenderer
+        )
     }
 
     private func cameraFocusPoint() -> CGPoint {
@@ -900,18 +1173,32 @@ final class CombatScene: SKScene {
         cameraRig.setScale(arenaZoom)
         let focus = cameraFocusPoint()
         let target = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
-        cameraRig.position = clampedCameraPosition(CGPoint(
-            x: target.x - focus.x * arenaZoom,
-            y: target.y - focus.y * arenaZoom
-        ))
+        cameraRig.position = cameraPositionKeepingFightersVisible(
+            clampedCameraPosition(CGPoint(
+                x: target.x - focus.x * arenaZoom,
+                y: target.y - focus.y * arenaZoom
+            )),
+            zoom: arenaZoom
+        )
     }
 
     private func updateCamera(deltaTime: TimeInterval) {
         guard deltaTime > 0 else { return }
         let focus = cameraFocusPoint()
         let previousZoom = arenaZoom
-        let zoomBlend = 1 - CGFloat(exp(-ArenaViewTuning.zoomResponse * deltaTime))
-        arenaZoom += (desiredArenaZoom() - arenaZoom) * zoomBlend
+        let desiredZoom = desiredArenaZoom()
+        // Zoom out aggressively when either fighter approaches an edge. A
+        // slower zoom-in keeps close exchanges from breathing on every network
+        // correction while an urgent zoom-out prevents one-frame escapes.
+        let zoomResponse = desiredZoom < arenaZoom
+            ? ArenaViewTuning.zoomResponse * 2.4
+            : ArenaViewTuning.zoomResponse
+        let zoomBlend = 1 - CGFloat(exp(-zoomResponse * deltaTime))
+        arenaZoom += (desiredZoom - arenaZoom) * zoomBlend
+        // Network authority can move an anchor farther than interpolation did
+        // on the previous frame. Never let smoothing keep a zoom that is too
+        // tight for the current pair of complete silhouettes.
+        arenaZoom = min(arenaZoom, maximumFighterContainmentZoom())
         cameraRig.position = CGPoint(
             x: cameraRig.position.x + focus.x * (previousZoom - arenaZoom),
             y: cameraRig.position.y + focus.y * (previousZoom - arenaZoom)
@@ -923,7 +1210,10 @@ final class CombatScene: SKScene {
             y: focus.y * arenaZoom + cameraRig.position.y
         )
         let center = CGPoint(x: size.width * 0.5, y: size.height * 0.43)
-        let deadZone = CGSize(width: size.width * 0.15, height: size.height * 0.13)
+        let deadZone = CGSize(
+            width: size.width * ArenaViewTuning.cameraDeadZoneWidthFraction,
+            height: size.height * ArenaViewTuning.cameraDeadZoneHeightFraction
+        )
         var correction = CGVector.zero
         if focusOnScreen.x < center.x - deadZone.width { correction.dx = center.x - deadZone.width - focusOnScreen.x }
         if focusOnScreen.x > center.x + deadZone.width { correction.dx = center.x + deadZone.width - focusOnScreen.x }
@@ -936,9 +1226,16 @@ final class CombatScene: SKScene {
                 y: cameraRig.position.y + correction.dy
             ))
         let blend = 1 - CGFloat(exp(-ArenaViewTuning.cameraFollowResponse * deltaTime))
-        cameraRig.position = CGPoint(
+        let smoothedPosition = CGPoint(
             x: cameraRig.position.x + (target.x - cameraRig.position.x) * blend,
             y: cameraRig.position.y + (target.y - cameraRig.position.y) * blend
+        )
+        // Focus following is aesthetic; containment is a gameplay guarantee.
+        // Clamp after smoothing so authoritative network corrections cannot
+        // leave either complete silhouette outside the device safe area.
+        cameraRig.position = cameraPositionKeepingFightersVisible(
+            smoothedPosition,
+            zoom: arenaZoom
         )
     }
 
@@ -959,15 +1256,111 @@ final class CombatScene: SKScene {
         let combatZoom = ArenaViewTuning.closeZoom
             + (ArenaViewTuning.farZoom - ArenaViewTuning.closeZoom) * distanceProgress
 
-        let horizontalFit = abs(delta.dx) > 1
-            ? size.width * ArenaViewTuning.horizontalFitFraction / abs(delta.dx)
-            : ArenaViewTuning.closeZoom
-        let verticalFit = abs(delta.dy) > 1
-            ? size.height * ArenaViewTuning.verticalFitFraction / abs(delta.dy)
-            : ArenaViewTuning.closeZoom
+        let containmentZoom = maximumFighterContainmentZoom()
         return min(
-            max(min(combatZoom, min(horizontalFit, verticalFit)), ArenaViewTuning.farZoom),
+            max(
+                min(combatZoom, containmentZoom),
+                ArenaViewTuning.containmentMinimumZoom
+            ),
             ArenaViewTuning.closeZoom
+        )
+    }
+
+    private func maximumFighterContainmentZoom() -> CGFloat {
+        let presentationBounds = fighterPresentationBounds()
+        let safeFrame = fighterCameraSafeFrame()
+        let horizontalFit = presentationBounds.width > 1
+            ? safeFrame.width / presentationBounds.width
+            : ArenaViewTuning.closeZoom
+        let verticalFit = presentationBounds.height > 1
+            ? safeFrame.height / presentationBounds.height
+            : ArenaViewTuning.closeZoom
+        return min(horizontalFit, verticalFit, ArenaViewTuning.closeZoom)
+    }
+
+    private func fighterPresentationBounds() -> CGRect {
+        fighterPresentationFrame(
+            at: player.position,
+            worldPosition: playerArenaPosition
+        ).union(fighterPresentationFrame(
+            at: cpu.position,
+            worldPosition: cpuArenaPosition
+        ))
+    }
+
+    private func fighterPresentationFrame(
+        at position: CGPoint,
+        worldPosition: CGPoint
+    ) -> CGRect {
+        let scale = perspectiveScale(at: worldPosition)
+            / ArenaViewTuning.baseZoom
+            * ArenaViewTuning.fighterScaleBoost
+        let halfWidth = ArenaViewTuning.fighterVisibleHalfWidth * scale
+        let bottom = ArenaViewTuning.fighterVisibleBottom * scale
+        let top = ArenaViewTuning.fighterVisibleTop * scale
+        return CGRect(
+            x: position.x - halfWidth,
+            y: position.y - bottom,
+            width: halfWidth * 2,
+            height: bottom + top
+        )
+    }
+
+    private func fighterCameraSafeFrame() -> CGRect {
+        let left = safeInsets.left + ArenaViewTuning.cameraHorizontalSafetyMargin
+        let right = size.width - safeInsets.right
+            - ArenaViewTuning.cameraHorizontalSafetyMargin
+        let bottom = safeInsets.bottom + ArenaViewTuning.cameraBottomSafetyMargin
+        let top = size.height - safeInsets.top
+            - ArenaViewTuning.cameraTopSafetyMargin
+        return CGRect(
+            x: left,
+            y: bottom,
+            width: max(right - left, 1),
+            height: max(top - bottom, 1)
+        )
+    }
+
+    private func cameraPositionKeepingFightersVisible(
+        _ proposed: CGPoint,
+        zoom: CGFloat
+    ) -> CGPoint {
+        let bounds = fighterPresentationBounds()
+        let safeFrame = fighterCameraSafeFrame()
+
+        func fittedAxis(
+            proposed: CGFloat,
+            contentMinimum: CGFloat,
+            contentMaximum: CGFloat,
+            safeMinimum: CGFloat,
+            safeMaximum: CGFloat
+        ) -> CGFloat {
+            let minimumPosition = safeMinimum - contentMinimum * zoom
+            let maximumPosition = safeMaximum - contentMaximum * zoom
+            guard minimumPosition <= maximumPosition else {
+                let contentCenter = (contentMinimum + contentMaximum) * 0.5
+                let safeCenter = (safeMinimum + safeMaximum) * 0.5
+                return safeCenter - contentCenter * zoom
+            }
+            return min(max(proposed, minimumPosition), maximumPosition)
+        }
+
+        let broadlyClamped = clampedCameraPosition(proposed)
+        return CGPoint(
+            x: fittedAxis(
+                proposed: broadlyClamped.x,
+                contentMinimum: bounds.minX,
+                contentMaximum: bounds.maxX,
+                safeMinimum: safeFrame.minX,
+                safeMaximum: safeFrame.maxX
+            ),
+            y: fittedAxis(
+                proposed: broadlyClamped.y,
+                contentMinimum: bounds.minY,
+                contentMaximum: bounds.maxY,
+                safeMinimum: safeFrame.minY,
+                safeMaximum: safeFrame.maxY
+            )
         )
     }
 
@@ -1029,14 +1422,38 @@ final class CombatScene: SKScene {
         case .smash: techniqueReachScale = CombatTuning.smashReachScale
         case .uppercut: techniqueReachScale = CombatTuning.uppercutReachScale
         }
+        if let sharedArena3DRenderer {
+            let attackerWorld = attacker == .player
+                ? playerArenaPosition : cpuArenaPosition
+            let defenderWorld = attacker == .player
+                ? cpuArenaPosition : playerArenaPosition
+            let attackerNode = attacker == .player ? player : cpu
+            let defenderNode = attacker == .player ? cpu : player
+            let contactPoint = sharedArena3DRenderer.punchContactPoint(
+                attackerWorldPosition: attackerWorld,
+                defenderWorldPosition: defenderWorld,
+                committedScreenAim: attackerNode.committedPunchAimDirection,
+                defender: defenderNode,
+                profile: profile,
+                reachScale: motionReachScale
+                    * techniqueReachScale
+                    * CGFloat(profile.reachScale)
+            )
+            pendingPunchContactPoints[attacker] = contactPoint
+            return contactPoint != nil
+        }
         let attackerNode = attacker == .player ? player : cpu
         let defenderNode = attacker == .player ? cpu : player
+        // Visual framing may enlarge the fighters for readability. Contact
+        // distance must stay at the calibrated boxing scale instead of growing
+        // with that presentation-only boost.
+        let contactScaleNormalization = ArenaViewTuning.fighterScaleBoost
         let contactPoint = PunchContactGeometry.contactPointOnFighter(
             attackerPosition: attackerNode.position,
-            attackerScale: attackerNode.xScale,
+            attackerScale: attackerNode.xScale / contactScaleNormalization,
             aimDirection: attackerNode.committedPunchAimDirection,
             defenderPosition: defenderNode.position,
-            defenderScale: defenderNode.xScale,
+            defenderScale: defenderNode.xScale / contactScaleNormalization,
             profile: profile,
             reachScale: motionReachScale
                 * techniqueReachScale
@@ -1051,8 +1468,8 @@ final class CombatScene: SKScene {
             dx: cpuArenaPosition.x - playerArenaPosition.x,
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
-        let projectedDelta = ringProjection.screenVector(forWorldVector: delta)
-        return hypot(projectedDelta.dx, projectedDelta.dy) * arenaZoom
+        let projectedDelta = presentationScreenVector(forWorldVector: delta)
+        return hypot(projectedDelta.dx, projectedDelta.dy)
     }
 
     private func maximumVisiblePunchDistance(
@@ -1062,17 +1479,19 @@ final class CombatScene: SKScene {
         let attackerPosition = attacker == .player ? playerArenaPosition : cpuArenaPosition
         let defenderPosition = attacker == .player ? cpuArenaPosition : playerArenaPosition
         let armReach = CombatTuning.punchArmReachAtUnitScale
-            * fighterScreenScale(at: attackerPosition)
+            * fighterCombatScale(at: attackerPosition)
             * armReachScale
         let targetRadius = CombatTuning.punchTargetRadiusAtUnitScale
-            * fighterScreenScale(at: defenderPosition)
+            * fighterCombatScale(at: defenderPosition)
         return armReach + targetRadius
     }
 
     private func fighterScreenScale(at position: CGPoint) -> CGFloat {
-        perspectiveScale(at: position)
-            * arenaZoom / ArenaViewTuning.baseZoom
-            * ArenaViewTuning.fighterScaleBoost
+        fighterCombatScale(at: position) * ArenaViewTuning.fighterScaleBoost
+    }
+
+    private func fighterCombatScale(at position: CGPoint) -> CGFloat {
+        perspectiveScale(at: position) * arenaZoom / ArenaViewTuning.baseZoom
     }
 
     private func perspectiveScale(at position: CGPoint) -> CGFloat {
@@ -1088,7 +1507,7 @@ final class CombatScene: SKScene {
             : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
         return localInputSource.swayIntent(
             at: gameTime,
-            towardOpponent: ringProjection.screenVector(forWorldVector: towardOpponent)
+            towardOpponent: presentationScreenDirection(forWorldVector: towardOpponent)
         )
     }
 
@@ -1101,7 +1520,7 @@ final class CombatScene: SKScene {
             dx: smoother.dx * 0.70 + rawMovement.dx * 0.30,
             dy: smoother.dy * 0.70 + rawMovement.dy * 0.30
         )
-        let worldMovement = ringProjection.worldDirection(forScreenVector: effectiveMovement)
+        let worldMovement = presentationWorldDirection(forScreenVector: effectiveMovement)
         let opponentVector = localFighter == .player
             ? CGVector(dx: cpuArenaPosition.x - playerArenaPosition.x, dy: cpuArenaPosition.y - playerArenaPosition.y)
             : CGVector(dx: playerArenaPosition.x - cpuArenaPosition.x, dy: playerArenaPosition.y - cpuArenaPosition.y)
@@ -1121,8 +1540,9 @@ final class CombatScene: SKScene {
 
     private var isMotionShowcaseEnabled: Bool {
 #if DEBUG
-        motionShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
+        motionShowcaseEnabled || uppercutShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
             || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
+            || damageShowcaseEnabled || cameraShowcaseEnabled
 #else
         false
 #endif
@@ -1130,10 +1550,19 @@ final class CombatScene: SKScene {
 
     private func footworkShowcaseMovement(at time: TimeInterval) -> CGVector? {
 #if DEBUG
-        guard footworkShowcaseEnabled else { return nil }
+        guard footworkShowcaseEnabled || cameraShowcaseEnabled else { return nil }
         return footworkShowcaseController.frame(at: time).screenMovement
 #else
         return nil
+#endif
+    }
+
+    private func cameraShowcaseOpponentMovement(_ movement: CGVector) -> CGVector {
+#if DEBUG
+        guard cameraShowcaseEnabled else { return movement }
+        return CGVector(dx: -movement.dx, dy: -movement.dy)
+#else
+        return movement
 #endif
     }
 
@@ -1232,9 +1661,7 @@ final class CombatScene: SKScene {
                 sequence: sequence,
                 kind: .sway,
                 x: Double(intent.screenDirection.dx),
-                y: Double(intent.screenDirection.dy),
-                swayDirection: networkName(for: intent.direction),
-                isTowardOpponent: intent.isTowardOpponent
+                y: Double(intent.screenDirection.dy)
             )
         }
     }
@@ -1257,14 +1684,14 @@ final class CombatScene: SKScene {
                 issuedAt: gameTime
             ))
         case .sway:
-            guard let name = input.swayDirection, let direction = swayDirection(named: name) else { return }
+            let screenDirection = CGVector(dx: input.x, dy: input.y)
+            let intent = resolvedSwayIntent(
+                for: remoteFighter,
+                screenDirection: screenDirection
+            )
             execute(FighterCommand(
                 fighter: remoteFighter,
-                payload: .action(.sway(SwayIntent(
-                    direction: direction,
-                    isTowardOpponent: input.isTowardOpponent,
-                    screenDirection: CGVector(dx: input.x, dy: input.y)
-                ))),
+                payload: .action(.sway(intent)),
                 issuedAt: gameTime
             ))
         }
@@ -1327,23 +1754,23 @@ final class CombatScene: SKScene {
         }
     }
 
-    private func networkName(for direction: SwayDirection) -> String {
-        switch direction {
-        case .left: "left"
-        case .right: "right"
-        case .back: "back"
-        case .forward: "forward"
-        }
-    }
-
-    private func swayDirection(named name: String) -> SwayDirection? {
-        switch name {
-        case "left": .left
-        case "right": .right
-        case "back": .back
-        case "forward": .forward
-        default: nil
-        }
+    private func resolvedSwayIntent(
+        for fighter: FighterID,
+        screenDirection: CGVector
+    ) -> SwayIntent {
+        let towardOpponent = fighter == .player
+            ? CGVector(
+                dx: cpuArenaPosition.x - playerArenaPosition.x,
+                dy: cpuArenaPosition.y - playerArenaPosition.y
+            )
+            : CGVector(
+                dx: playerArenaPosition.x - cpuArenaPosition.x,
+                dy: playerArenaPosition.y - cpuArenaPosition.y
+            )
+        return SwayInputResolver.resolve(
+            movement: screenDirection,
+            towardOpponent: presentationScreenDirection(forWorldVector: towardOpponent)
+        )
     }
 
 #if DEBUG
@@ -1355,6 +1782,16 @@ final class CombatScene: SKScene {
         statusLabel.alpha = 1
         statusLabel.fontColor = .systemCyan
         statusLabel.text = "GUARD CLOSEUP"
+    }
+
+    private func updateDamageShowcase() {
+        playerHealthBar.xScale = 0.14
+        cpuHealthBar.xScale = 0.31
+        guard statusLabel.text != "DAMAGE SYSTEM" else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = ArenaVisualPalette.dangerSignal
+        statusLabel.text = "DAMAGE SYSTEM"
     }
 
     private func updateFatigueShowcase() {
@@ -1592,7 +2029,7 @@ final class CombatScene: SKScene {
                 statusLabel.zPosition = 161
                 roundEndOverlay.isHidden = false
                 restartButton.isHidden = false
-                restartLabel.text = networkConfiguration == nil ? "다시 하기" : "재대결 요청"
+                restartLabel.text = networkConfiguration == nil ? "PLAY AGAIN" : "REQUEST REMATCH"
                 controls.alpha = 0.35
                 localInputSource.reset(at: gameTime)
                 controls.endMovement()
@@ -1617,6 +2054,7 @@ final class CombatScene: SKScene {
         let maximumHealth = engine.state(for: fighter).stats.maximumHealth
         let fraction = CGFloat(health) / CGFloat(maximumHealth)
         let bar = fighter == .player ? playerHealthBar : cpuHealthBar
+        node(for: fighter).updateDamage(fraction: fraction)
         let action = SKAction.scaleX(to: fraction, duration: CombatTuning.healthBarAnimationDuration)
         action.timingMode = .easeOut
         bar.run(action)
@@ -1629,11 +2067,11 @@ final class CombatScene: SKScene {
         let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
         bar.xScale = fraction
         if stamina <= state.stats.lowStaminaThreshold {
-            bar.color = .systemRed
+            bar.color = ArenaVisualPalette.dangerSignal
         } else if stamina <= state.stats.maximumStamina * 0.50 {
-            bar.color = .systemYellow
+            bar.color = ArenaVisualPalette.amberSignal
         } else {
-            bar.color = .systemGreen
+            bar.color = ArenaVisualPalette.greenSignal
         }
     }
 
@@ -1663,7 +2101,7 @@ final class CombatScene: SKScene {
         let root = SKNode()
         root.position = contactPoint
         root.zPosition = 60
-        root.setScale(0.52 / arenaZoom)
+        root.setScale(0.52 * impactPresentationScale)
 
         let radius: CGFloat
         switch (kind, profile.technique) {
@@ -1697,11 +2135,21 @@ final class CombatScene: SKScene {
             technique: profile.technique,
             isCounter: kind == .counter
         )
+        showMechanicalFragments(
+            at: contactPoint,
+            color: color,
+            direction: direction,
+            isCounter: kind == .counter,
+            power: CGFloat(profile.powerScale)
+        )
 
-        arenaNode.addChild(root)
+        impactPresentationLayer.addChild(root)
         root.run(.sequence([
             .group([
-                .scale(to: 1.28 / arenaZoom, duration: CombatTuning.impactAnimationDuration),
+                .scale(
+                    to: 1.28 * impactPresentationScale,
+                    duration: CombatTuning.impactAnimationDuration
+                ),
                 .fadeOut(withDuration: CombatTuning.impactAnimationDuration)
             ]),
             .removeFromParent()
@@ -1775,6 +2223,65 @@ final class CombatScene: SKScene {
         }
     }
 
+    private func showMechanicalFragments(
+        at contactPoint: CGPoint,
+        color: SKColor,
+        direction: CGVector,
+        isCounter: Bool,
+        power: CGFloat
+    ) {
+        let root = SKNode()
+        root.position = contactPoint
+        root.zPosition = 62
+        root.setScale(impactPresentationScale)
+        impactPresentationLayer.addChild(root)
+
+        let baseAngle = atan2(direction.dy, direction.dx)
+        let count = isCounter ? 14 : 9
+        let clampedPower = min(max(power, 0.7), 1.35)
+        for index in 0..<count {
+            let spread = (CGFloat(index) / CGFloat(max(count - 1, 1)) - 0.5)
+                * (isCounter ? 2.2 : 1.72)
+            let angle = baseAngle + spread + CGFloat((index * 17) % 9 - 4) * 0.035
+            let distance = CGFloat(30 + (index * 13) % 31)
+                * clampedPower * (isCounter ? 1.22 : 1)
+            let fragment = SKShapeNode(rectOf: CGSize(
+                width: index.isMultiple(of: 3) ? 8 : 5,
+                height: index.isMultiple(of: 2) ? 1.8 : 1.2
+            ), cornerRadius: 0.6)
+            fragment.fillColor = index.isMultiple(of: 4)
+                ? ArenaVisualPalette.whiteMark
+                : (index.isMultiple(of: 3) ? color : ArenaVisualPalette.amberSignal)
+            fragment.strokeColor = .clear
+            fragment.glowWidth = isCounter ? 4 : 2.5
+            fragment.zRotation = angle
+            root.addChild(fragment)
+
+            let firstLeg = SKAction.group([
+                .moveBy(
+                    x: cos(angle) * distance * 0.68,
+                    y: sin(angle) * distance * 0.68 + 8,
+                    duration: 0.11
+                ),
+                .rotate(byAngle: spread * 1.8, duration: 0.11),
+                .scale(to: 0.72, duration: 0.11)
+            ])
+            firstLeg.timingMode = .easeOut
+            let fall = SKAction.group([
+                .moveBy(
+                    x: cos(angle) * distance * 0.32,
+                    y: sin(angle) * distance * 0.18 - 20,
+                    duration: 0.18
+                ),
+                .rotate(byAngle: spread * 1.4, duration: 0.18),
+                .fadeOut(withDuration: 0.18)
+            ])
+            fall.timingMode = .easeIn
+            fragment.run(.sequence([firstLeg, fall, .removeFromParent()]))
+        }
+        root.run(.sequence([.wait(forDuration: 0.32), .removeFromParent()]))
+    }
+
     private func playImpactFeedback(
         _ kind: HitKind,
         profile: PunchProfile,
@@ -1818,13 +2325,23 @@ final class CombatScene: SKScene {
         let distance = baseDistance * techniqueScale / arenaZoom
         let dx = direction.dx / length * distance
         let dy = direction.dy / length * distance + (profile.technique == .uppercut ? distance * 0.45 : 0)
-        arenaNode.removeAction(forKey: "shake")
-        arenaNode.run(.sequence([
+        let shakeNode = sharedArena3DRenderer?.viewport ?? arenaNode
+        let restingPosition = shakeNode.position
+        shakeNode.removeAction(forKey: "shake")
+        shakeNode.run(.sequence([
             .moveBy(x: dx, y: dy, duration: CombatTuning.cameraShakeDuration * 0.16),
             .moveBy(x: -dx * 1.75, y: -dy * 1.75, duration: CombatTuning.cameraShakeDuration * 0.23),
             .moveBy(x: dx * 1.20, y: dy * 1.20, duration: CombatTuning.cameraShakeDuration * 0.21),
-            .move(to: .zero, duration: CombatTuning.cameraShakeDuration * 0.40)
+            .move(to: restingPosition, duration: CombatTuning.cameraShakeDuration * 0.40)
         ]), withKey: "shake")
+    }
+
+    private var impactPresentationLayer: SKNode {
+        sharedArena3DRenderer == nil ? arenaNode : self
+    }
+
+    private var impactPresentationScale: CGFloat {
+        sharedArena3DRenderer == nil ? 1 / arenaZoom : 1
     }
 
     private func showCounterTitle() {
@@ -1849,16 +2366,16 @@ final class CombatScene: SKScene {
         statusLabel.removeAllActions()
         statusLabel.alpha = 1
         if local {
-            restartLabel.text = "요청 취소"
-            statusLabel.text = "상대의 재대결 수락을 기다리는 중"
+            restartLabel.text = "CANCEL REQUEST"
+            statusLabel.text = "WAITING FOR REMATCH RESPONSE"
             statusLabel.fontColor = .systemYellow
         } else if remote {
-            restartLabel.text = "재대결 수락"
-            statusLabel.text = "상대가 재대결을 요청했습니다"
+            restartLabel.text = "ACCEPT REMATCH"
+            statusLabel.text = "OPPONENT REQUESTED A REMATCH"
             statusLabel.fontColor = .systemGreen
         } else {
-            restartLabel.text = "재대결 요청"
-            statusLabel.text = "재대결을 요청하거나 대전을 종료하세요"
+            restartLabel.text = "REQUEST REMATCH"
+            statusLabel.text = "REQUEST A REMATCH OR LEAVE THE MATCH"
             statusLabel.fontColor = .white
         }
     }

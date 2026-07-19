@@ -19,7 +19,78 @@ struct FighterLocomotionFrame {
     var frontFootInitiates: Bool
 }
 
+private struct FighterFootworkPresentation {
+    let launchRange: ClosedRange<CGFloat>
+    let followRange: ClosedRange<CGFloat>
+    let amplitudeBase: CGFloat
+    let amplitudeGain: CGFloat
+    let strideScale: CGFloat
+    let liftScale: CGFloat
+    let crouchScale: CGFloat
+    let loadScale: CGFloat
+    let catchScale: CGFloat
+    let upperBodyLag: CGFloat
+
+    static func profile(for style: Fighter3DMotionStyle) -> Self {
+        switch style {
+        case .allRounder:
+            return Self(
+                launchRange: 0.10...0.48,
+                followRange: 0.52...0.90,
+                amplitudeBase: 0.70,
+                amplitudeGain: 1.02,
+                strideScale: 1.15,
+                liftScale: 1.00,
+                crouchScale: 1.00,
+                loadScale: 1.00,
+                catchScale: 1.00,
+                upperBodyLag: 1.00
+            )
+        case .pressure:
+            return Self(
+                launchRange: 0.14...0.55,
+                followRange: 0.60...0.96,
+                amplitudeBase: 0.76,
+                amplitudeGain: 1.08,
+                strideScale: 1.12,
+                liftScale: 0.70,
+                crouchScale: 1.22,
+                loadScale: 1.24,
+                catchScale: 1.18,
+                upperBodyLag: 0.82
+            )
+        case .outBoxer:
+            return Self(
+                launchRange: 0.06...0.38,
+                followRange: 0.42...0.76,
+                amplitudeBase: 0.64,
+                amplitudeGain: 1.10,
+                strideScale: 1.38,
+                liftScale: 1.28,
+                crouchScale: 0.72,
+                loadScale: 0.82,
+                catchScale: 0.76,
+                upperBodyLag: 1.26
+            )
+        case .rival:
+            return Self(
+                launchRange: 0.11...0.50,
+                followRange: 0.55...0.92,
+                amplitudeBase: 0.72,
+                amplitudeGain: 1.04,
+                strideScale: 1.18,
+                liftScale: 0.88,
+                crouchScale: 1.08,
+                loadScale: 1.10,
+                catchScale: 1.12,
+                upperBodyLag: 0.92
+            )
+        }
+    }
+}
+
 struct FighterLocomotionController {
+    private let footwork: FighterFootworkPresentation
     private var clock: TimeInterval = 0
     private var displayedIntensity: CGFloat = 0
     private var frontFootPlantOffset = CGPoint.zero
@@ -32,11 +103,8 @@ struct FighterLocomotionController {
     private var displayedUpperPosition = CGPoint.zero
     private var displayedUpperRotation: CGFloat = 0
 
-    init(cadence: CGFloat = 1) {
-        // Cadence is now consumed by the authoritative body planner. Keep the
-        // argument during the migration so character construction remains API
-        // compatible while the visual controller owns no second step clock.
-        _ = cadence
+    init(style: Fighter3DMotionStyle) {
+        footwork = .profile(for: style)
     }
 
     mutating func update(
@@ -57,9 +125,9 @@ struct FighterLocomotionController {
             fallback: normalized(movement, fallback: CGVector(dx: facing, dy: 0))
         )
         let frontFootInitiates: Bool
-        switch bodyMotion.supportFoot {
-        case .rear: frontFootInitiates = true
-        case .lead: frontFootInitiates = false
+        switch bodyMotion.initiatingFoot {
+        case .lead: frontFootInitiates = true
+        case .rear: frontFootInitiates = false
         case .both: frontFootInitiates = bodyMotion.weightOnLeadFoot <= 0.5
         }
         let commandedIntensity = min(hypot(movement.dx, movement.dy), 1)
@@ -73,7 +141,7 @@ struct FighterLocomotionController {
             commandedIntensity,
             max(measuredIntensity, commandedIntensity * 0.28)
         )
-        let visualResponse: CGFloat = targetIntensity > displayedIntensity ? 10.5 : 8.5
+        let visualResponse: CGFloat = targetIntensity > displayedIntensity ? 8.2 : 6.8
         displayedIntensity = damp(
             displayedIntensity,
             toward: targetIntensity,
@@ -85,18 +153,27 @@ struct FighterLocomotionController {
         // A boxing shuffle is not two walking arcs. Weight loads onto the
         // support leg first, the initiating foot travels and lands, then the
         // support foot catches up while the body settles over the new stance.
-        let launchLift = pow(pulse(phase, start: 0.11, end: 0.43), 1.28)
-        let followLift = pow(pulse(phase, start: 0.51, end: 0.86), 1.34)
+        let launchLift = pow(pulse(
+            phase,
+            start: footwork.launchRange.lowerBound,
+            end: footwork.launchRange.upperBound
+        ), 1.22)
+        let followLift = pow(pulse(
+            phase,
+            start: footwork.followRange.lowerBound,
+            end: footwork.followRange.upperBound
+        ), 1.28)
         let landing = pulse(phase, start: 0.30, end: 0.88)
         let preload = pulse(phase, start: 0, end: 0.30)
 
         let frontLift = frontFootInitiates ? launchLift : followLift
         let backLift = frontFootInitiates ? followLift : launchLift
 
-        // The fighters are intentionally small in the quarter view. A linear
-        // one-to-one amplitude disappears at that scale, so decisive stick
-        // input gets a stronger animation curve without increasing move speed.
-        let motionAmplitude = 0.62 + stepIntensity * 0.88
+        // Even with the closer quarter-view framing, a linear one-to-one foot
+        // offset reads as a slide. Decisive stick input gets a stronger step
+        // silhouette without increasing the actual movement speed.
+        let motionAmplitude = footwork.amplitudeBase
+            + stepIntensity * footwork.amplitudeGain
 
         let localDirectionX = stepDirection.dx * facing
         let forwardDrive = stepDirection.dx * opponentDirection.dx
@@ -147,13 +224,17 @@ struct FighterLocomotionController {
         // Stay in a guarded crouch while travelling, then load a little more
         // before push-off and on landing. This is the low, weighty shuffle that
         // keeps the torso from looking bolted onto sliding legs.
-        let guardedCrouch = displayedIntensity * 0.62
+        let guardedCrouch = displayedIntensity * 0.70 * footwork.crouchScale
         let compression = -(
-            guardedCrouch + preload * 1.08 + landing * 0.72
+            guardedCrouch
+                + preload * 1.18 * footwork.loadScale
+                + landing * 0.82 * footwork.catchScale
         ) * motionAmplitude
         let supportSign: CGFloat = frontFootInitiates ? -1 : 1
-        let weightLoad = supportSign * preload * motionAmplitude * 3.45
-        let weightCatch = -supportSign * landing * motionAmplitude * 2.05
+        let weightLoad = supportSign * preload * motionAmplitude
+            * 3.25 * footwork.loadScale
+        let weightCatch = -supportSign * landing * motionAmplitude
+            * 2.05 * footwork.catchScale
         let directionalLean = localDirectionX * displayedIntensity
         let guardedForwardLoad = forwardDrive * displayedIntensity
         let guardedLateralLoad = lateralDrive * facing * displayedIntensity
@@ -163,21 +244,22 @@ struct FighterLocomotionController {
         let guardPulse = sin(CGFloat(clock) * 5.10 + 0.35)
 
         let targetPelvisPosition = CGPoint(
-            x: weightLoad + weightCatch + guardedLateralLoad * 1.25,
-            y: compression + directionalDepth * 0.55
+            x: weightLoad + weightCatch + guardedLateralLoad * 1.55,
+            y: compression + directionalDepth * 0.72
         )
         let targetPelvisRotation = supportSign * (preload - landing * 0.55)
-            * motionAmplitude * 0.045 - directionalLean * 0.030
+            * motionAmplitude * 0.056 - directionalLean * 0.038
         let targetUpperPosition = CGPoint(
-            x: (weightLoad + weightCatch) * 0.72 + directionalLean * 1.75
-                + guardedLateralLoad * 1.15,
-            y: compression * 0.72 + breath * idleAmount * 0.72
-                + guardPulse * idleAmount * 0.18 + directionalDepth * 0.95
+            x: (weightLoad + weightCatch) * 0.68
+                + directionalLean * 2.25 * footwork.upperBodyLag
+                + guardedLateralLoad * 1.42 * footwork.upperBodyLag,
+            y: compression * 0.68 + breath * idleAmount * 0.48
+                + guardPulse * idleAmount * 0.10 + directionalDepth * 1.18
         )
         let targetUpperRotation = -supportSign * (preload - landing * 0.45)
-            * motionAmplitude * 0.036 - directionalLean * 0.032
-            - guardedLateralLoad * 0.022 + guardedForwardLoad * 0.012
-            + breath * idleAmount * 0.007
+            * motionAmplitude * 0.046 - directionalLean * 0.041
+            - guardedLateralLoad * 0.030 + guardedForwardLoad * 0.018
+            + breath * idleAmount * 0.004
 
         displayedPelvisPosition = damp(
             displayedPelvisPosition,
@@ -207,23 +289,25 @@ struct FighterLocomotionController {
         return FighterLocomotionFrame(
             frontFootOffset: CGPoint(
                 x: frontFootPlantOffset.x
-                    + localDirectionX * frontLift * motionAmplitude * 3.2,
+                    + localDirectionX * frontLift * motionAmplitude
+                        * 3.8 * footwork.strideScale,
                 y: frontFootPlantOffset.y + frontLift * motionAmplitude
-                    * (5.4 + stepDirection.dy * 1.6)
+                    * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
             ),
             backFootOffset: CGPoint(
                 x: backFootPlantOffset.x
-                    + localDirectionX * backLift * motionAmplitude * 3.2,
+                    + localDirectionX * backLift * motionAmplitude
+                        * 3.8 * footwork.strideScale,
                 y: backFootPlantOffset.y + backLift * motionAmplitude
-                    * (5.4 + stepDirection.dy * 1.6)
+                    * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
             ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
             pelvisRotation: displayedPelvisRotation,
             upperBodyPosition: displayedUpperPosition,
             upperBodyRotation: displayedUpperRotation,
-            frontAnkleLift: frontLift * motionAmplitude * 0.075,
-            backAnkleLift: backLift * motionAmplitude * 0.075,
+            frontAnkleLift: frontLift * motionAmplitude * 0.090 * footwork.liftScale,
+            backAnkleLift: backLift * motionAmplitude * 0.090 * footwork.liftScale,
             movementIntensity: displayedIntensity,
             forwardDrive: forwardDrive,
             lateralDrive: lateralDrive,

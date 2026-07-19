@@ -10,7 +10,7 @@ final class NearbyLobbyService: ObservableObject {
     @Published private(set) var rooms: [NearbyRoom] = []
     @Published private(set) var role: NearbyLobbyRole?
     @Published private(set) var localPlayerName = UIDevice.current.name
-    @Published private(set) var remotePlayerName = "상대 선수"
+    @Published private(set) var remotePlayerName = "OPPONENT"
     @Published private(set) var remoteFighter: FighterProfile = .allRounder
     @Published private(set) var remoteIsReady = false
     @Published private(set) var matchConfiguration: NearbyMatchConfiguration?
@@ -58,7 +58,7 @@ final class NearbyLobbyService: ObservableObject {
         role = .host
         phase = .hosting
         remoteIsReady = false
-        remotePlayerName = "상대 선수"
+        remotePlayerName = "OPPONENT"
 
         do {
             let parameters = Self.networkParameters()
@@ -76,7 +76,7 @@ final class NearbyLobbyService: ObservableObject {
             self.listener = listener
             listener.start(queue: networkQueue)
         } catch {
-            fail("방을 만들 수 없습니다: \(error.localizedDescription)")
+            fail("Unable to create room: \(error.localizedDescription)")
         }
     }
 
@@ -189,7 +189,7 @@ final class NearbyLobbyService: ObservableObject {
         }
         listener?.cancel()
         listener = nil
-        phase = .connecting("상대 선수")
+        phase = .connecting("OPPONENT")
         beginConnection(newConnection)
     }
 
@@ -209,7 +209,7 @@ final class NearbyLobbyService: ObservableObject {
         case .ready:
             phase = .hosting
         case let .failed(error):
-            fail("방을 열 수 없습니다: \(error.localizedDescription)")
+            fail("Unable to open room: \(error.localizedDescription)")
         case .cancelled:
             break
         default:
@@ -222,11 +222,11 @@ final class NearbyLobbyService: ObservableObject {
         case .ready:
             phase = .browsing
         case .waiting:
-            // 첫 로컬 네트워크 권한 응답을 기다리는 동안에도 이 상태가 올 수 있다.
-            // 브라우저를 취소하지 않으면 권한 허용 후 자동으로 검색을 계속한다.
+            // This state may arrive while the initial Local Network permission response is pending.
+            // Keeping the browser active allows discovery to continue after permission is granted.
             phase = .browsing
         case let .failed(error):
-            fail("주변 방을 찾을 수 없습니다: \(error.localizedDescription)")
+            fail("Unable to find nearby rooms: \(error.localizedDescription)")
         case .cancelled:
             break
         default:
@@ -245,10 +245,10 @@ final class NearbyLobbyService: ObservableObject {
         case let .waiting(error):
             phase = .connecting(error.localizedDescription)
         case let .failed(error):
-            fail("연결이 끊어졌습니다: \(error.localizedDescription)")
+            fail("Connection lost: \(error.localizedDescription)")
         case .cancelled:
             if !isStopping, phase == .connected {
-                fail("상대와의 연결이 종료되었습니다.")
+                fail("The opponent ended the connection.")
             }
         default:
             break
@@ -276,13 +276,13 @@ final class NearbyLobbyService: ObservableObject {
             frame.append(payload)
             connection.send(content: frame, completion: .contentProcessed { [weak self] error in
                 guard let self, let error else { return }
-                let message = "로비 정보를 보낼 수 없습니다: \(error.localizedDescription)"
+                let message = "Unable to send lobby data: \(error.localizedDescription)"
                 Task { @MainActor [self] in
                     self.fail(message)
                 }
             })
         } catch {
-            fail("네트워크 정보를 만들 수 없습니다: \(error.localizedDescription)")
+            fail("Unable to create network data: \(error.localizedDescription)")
         }
     }
 
@@ -296,11 +296,11 @@ final class NearbyLobbyService: ObservableObject {
                     self.processReceivedFrames()
                 }
                 if let error {
-                    self.fail("로비 정보를 받을 수 없습니다: \(error.localizedDescription)")
+                    self.fail("Unable to receive lobby data: \(error.localizedDescription)")
                     return
                 }
                 if isComplete {
-                    self.fail("상대가 로비를 나갔습니다.")
+                    self.fail("The opponent left the lobby.")
                     return
                 }
                 self.receiveNext(on: connection)
@@ -312,7 +312,7 @@ final class NearbyLobbyService: ObservableObject {
         while receiveBuffer.count >= MemoryLayout<UInt32>.size {
             let length = receiveBuffer.prefix(4).reduce(UInt32.zero) { ($0 << 8) | UInt32($1) }
             guard length <= 65_536 else {
-                fail("호환되지 않는 로비 데이터를 받았습니다.")
+                fail("Received incompatible lobby data.")
                 return
             }
             let frameLength = 4 + Int(length)
@@ -323,12 +323,12 @@ final class NearbyLobbyService: ObservableObject {
             do {
                 let message = try JSONDecoder().decode(NearbyLobbyMessage.self, from: payload)
                 guard message.version == NearbyLobbyMessage.protocolVersion else {
-                    fail("서로 다른 버전의 게임은 연결할 수 없습니다.")
+                    fail("Different game versions cannot connect.")
                     return
                 }
                 process(message)
             } catch {
-                fail("로비 정보를 해석할 수 없습니다.")
+                fail("Unable to read lobby data.")
                 return
             }
         }
@@ -341,7 +341,7 @@ final class NearbyLobbyService: ObservableObject {
                   let fighterID = message.fighterID,
                   let fighter = FighterProfile(rawValue: fighterID),
                   let isReady = message.isReady else {
-                fail("호환되지 않는 로비 정보를 받았습니다.")
+                fail("Received incompatible lobby information.")
                 return
             }
             remotePlayerName = playerName
@@ -439,7 +439,7 @@ final class NearbyLobbyService: ObservableObject {
         if case let .service(serviceName, _, _, _) = result.endpoint {
             name = serviceName
         } else {
-            name = "HARD COUNTER 방"
+            name = "HARD COUNTER ROOM"
         }
         return NearbyRoom(id: String(describing: result.endpoint), name: name, endpoint: result.endpoint)
     }

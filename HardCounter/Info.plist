@@ -25,7 +25,7 @@
 		<string>_hardcounter._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>가까운 iPhone과 대전 로비를 찾고 연결하는 데 사용합니다.</string>
+	<string>Used to discover and connect to nearby iPhones for local matches.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

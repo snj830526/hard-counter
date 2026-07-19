@@ -43,7 +43,7 @@ struct NearbyLobbyMessage: Codable {
         case restartRound
     }
 
-    static let protocolVersion = 3
+    static let protocolVersion = 4
 
     let version: Int
     let kind: Kind
@@ -88,8 +88,6 @@ struct NearbyCombatInput: Codable {
     var forwardDrive: Double = 0
     var lateralDrive: Double = 0
     var movementIntensity: Double = 0
-    var swayDirection: String?
-    var isTowardOpponent = false
 }
 
 struct NearbyCombatState: Codable {
