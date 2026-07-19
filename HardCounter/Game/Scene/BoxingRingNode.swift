@@ -37,7 +37,7 @@ final class BoxingRingNode: SKNode {
             width: size.width,
             height: max(size.height - wallBottom, 0)
         ))
-        wall.fillColor = SKColor(red: 0.018, green: 0.025, blue: 0.040, alpha: 1)
+        wall.fillColor = ArenaVisualPalette.void
         wall.strokeColor = .clear
         wall.zPosition = -12
         backgroundLayer.addChild(wall)
@@ -50,7 +50,7 @@ final class BoxingRingNode: SKNode {
             CGPoint(x: size.width * 0.34, y: size.height),
             CGPoint(x: 0, y: size.height)
         ])
-        leftPanel.fillColor = SKColor(red: 0.035, green: 0.055, blue: 0.078, alpha: 1)
+        leftPanel.fillColor = ArenaVisualPalette.carbon
         leftPanel.strokeColor = .clear
         leftPanel.zPosition = -11
         backgroundLayer.addChild(leftPanel)
@@ -61,37 +61,52 @@ final class BoxingRingNode: SKNode {
             CGPoint(x: size.width, y: size.height),
             CGPoint(x: size.width * 0.66, y: size.height)
         ])
-        rightPanel.fillColor = SKColor(red: 0.050, green: 0.038, blue: 0.055, alpha: 1)
+        rightPanel.fillColor = SKColor(red: 0.065, green: 0.050, blue: 0.055, alpha: 1)
         rightPanel.strokeColor = .clear
         rightPanel.zPosition = -11
         backgroundLayer.addChild(rightPanel)
 
         for row in 0..<3 {
-            let rowY = wallBottom + 18 + CGFloat(row) * 18
-            let tier = SKShapeNode(rect: CGRect(x: 0, y: rowY - 5, width: size.width, height: 10))
-            tier.fillColor = SKColor(red: 0.055, green: 0.066, blue: 0.082, alpha: 0.96)
-            tier.strokeColor = SKColor.white.withAlphaComponent(0.035)
+            let rowY = wallBottom + 17 + CGFloat(row) * 18
+            let tier = SKShapeNode(rect: CGRect(x: 0, y: rowY - 6, width: size.width, height: 12))
+            tier.fillColor = ArenaVisualPalette.gunmetal.withAlphaComponent(0.96)
+            tier.strokeColor = SKColor.white.withAlphaComponent(0.06)
             tier.lineWidth = 1
             tier.zPosition = -9
             backgroundLayer.addChild(tier)
 
-            let count = 18 + row * 3
+            let count = 12 + row * 2
             for index in 0..<count {
                 let x = (CGFloat(index) + 0.5) * size.width / CGFloat(count)
-                let offset = CGFloat((index * 7 + row * 3) % 3) * 1.5
-                let head = SKShapeNode(circleOfRadius: 2.4 + CGFloat((index + row) % 2) * 0.5)
-                head.position = CGPoint(x: x, y: rowY + 5 + offset)
-                head.fillColor = SKColor(
-                    red: 0.16 + CGFloat(index % 3) * 0.018,
-                    green: 0.17 + CGFloat(row) * 0.012,
-                    blue: 0.19 + CGFloat((index + row) % 2) * 0.018,
-                    alpha: 0.82
-                )
-                head.strokeColor = .clear
-                head.zPosition = -8
-                backgroundLayer.addChild(head)
+                let bay = SKShapeNode(rectOf: CGSize(width: 18, height: 7), cornerRadius: 1.5)
+                bay.position = CGPoint(x: x, y: rowY + 3)
+                bay.fillColor = SKColor.black.withAlphaComponent(0.55)
+                bay.strokeColor = (index + row).isMultiple(of: 3)
+                    ? ArenaVisualPalette.cyanSignal.withAlphaComponent(0.34)
+                    : SKColor.white.withAlphaComponent(0.08)
+                bay.lineWidth = 0.7
+                bay.zPosition = -8
+                backgroundLayer.addChild(bay)
+
+                let indicator = SKShapeNode(rectOf: CGSize(width: 7, height: 1.5), cornerRadius: 0.5)
+                indicator.position = CGPoint(x: x, y: rowY + 3)
+                indicator.fillColor = (index + row).isMultiple(of: 4)
+                    ? ArenaVisualPalette.amberSignal.withAlphaComponent(0.72)
+                    : ArenaVisualPalette.cyanSignal.withAlphaComponent(0.48)
+                indicator.strokeColor = .clear
+                indicator.glowWidth = 1
+                indicator.zPosition = -7.8
+                backgroundLayer.addChild(indicator)
             }
         }
+
+        let leagueBanner = SKLabelNode(fontNamed: "Menlo-Bold")
+        leagueBanner.text = "HC // MECHA COMBAT LEAGUE"
+        leagueBanner.fontSize = 9
+        leagueBanner.fontColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.62)
+        leagueBanner.position = CGPoint(x: size.width / 2, y: wallBottom + 69)
+        leagueBanner.zPosition = -6.5
+        backgroundLayer.addChild(leagueBanner)
 
         let trussY = size.height - 18
         addLine(
@@ -116,8 +131,8 @@ final class BoxingRingNode: SKNode {
 
     private func addMat(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
         let mat = polygon([near, right, far, left])
-        mat.fillColor = SKColor(red: 0.145, green: 0.185, blue: 0.215, alpha: 1)
-        mat.strokeColor = SKColor(red: 0.34, green: 0.43, blue: 0.47, alpha: 1)
+        mat.fillColor = SKColor(red: 0.075, green: 0.098, blue: 0.115, alpha: 1)
+        mat.strokeColor = ArenaVisualPalette.raisedMetal
         mat.lineWidth = 3
         mat.zPosition = -2
         backgroundLayer.addChild(mat)
@@ -141,8 +156,8 @@ final class BoxingRingNode: SKNode {
         let innerCanvas = polygon([near, right, far, left].map {
             CGPoint(x: center.x + ($0.x - center.x) * 0.88, y: center.y + ($0.y - center.y) * 0.88)
         })
-        innerCanvas.fillColor = SKColor(red: 0.17, green: 0.215, blue: 0.245, alpha: 0.48)
-        innerCanvas.strokeColor = SKColor.white.withAlphaComponent(0.055)
+        innerCanvas.fillColor = SKColor(red: 0.12, green: 0.145, blue: 0.16, alpha: 0.52)
+        innerCanvas.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.10)
         innerCanvas.lineWidth = 1
         innerCanvas.zPosition = -1.8
         backgroundLayer.addChild(innerCanvas)
@@ -153,7 +168,7 @@ final class BoxingRingNode: SKNode {
             addLine(
                 from: point(between: near, and: left, fraction: fraction),
                 to: point(between: right, and: far, fraction: fraction),
-                color: SKColor.white.withAlphaComponent(0.045),
+                color: ArenaVisualPalette.cyanSignal.withAlphaComponent(0.055),
                 width: 0.8,
                 to: backgroundLayer,
                 z: -1.5
@@ -161,7 +176,7 @@ final class BoxingRingNode: SKNode {
             addLine(
                 from: point(between: near, and: right, fraction: fraction),
                 to: point(between: left, and: far, fraction: fraction),
-                color: SKColor.black.withAlphaComponent(0.09),
+                color: ArenaVisualPalette.amberSignal.withAlphaComponent(0.045),
                 width: 0.8,
                 to: backgroundLayer,
                 z: -1.5
@@ -171,8 +186,8 @@ final class BoxingRingNode: SKNode {
         let centerMark = polygon([near, right, far, left].map {
             CGPoint(x: center.x + ($0.x - center.x) * 0.28, y: center.y + ($0.y - center.y) * 0.28)
         })
-        centerMark.fillColor = SKColor(red: 0.32, green: 0.40, blue: 0.44, alpha: 0.13)
-        centerMark.strokeColor = SKColor.white.withAlphaComponent(0.035)
+        centerMark.fillColor = ArenaVisualPalette.gunmetal.withAlphaComponent(0.22)
+        centerMark.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.08)
         centerMark.lineWidth = 1
         centerMark.zPosition = -1
         backgroundLayer.addChild(centerMark)
@@ -185,7 +200,9 @@ final class BoxingRingNode: SKNode {
                 )
             })
             diamond.fillColor = .clear
-            diamond.strokeColor = SKColor.white.withAlphaComponent(scale == 0.18 ? 0.075 : 0.10)
+            diamond.strokeColor = (scale == 0.18
+                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal)
+                .withAlphaComponent(scale == 0.18 ? 0.12 : 0.15)
             diamond.lineWidth = scale == 0.18 ? 1.2 : 1.8
             diamond.zPosition = -0.8
             backgroundLayer.addChild(diamond)
@@ -211,9 +228,9 @@ final class BoxingRingNode: SKNode {
 
     private func addPostsAndRopes(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
         let ropeColors: [SKColor] = [
-            SKColor(red: 0.82, green: 0.12, blue: 0.10, alpha: 1),
-            SKColor.white.withAlphaComponent(0.92),
-            SKColor(red: 0.15, green: 0.31, blue: 0.72, alpha: 1)
+            ArenaVisualPalette.amberSignal,
+            ArenaVisualPalette.whiteMark.withAlphaComponent(0.92),
+            ArenaVisualPalette.cyanSignal
         ]
 
         for level in 0..<3 {
@@ -261,10 +278,10 @@ final class BoxingRingNode: SKNode {
             addLine(from: nearRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 32)
         }
 
-        addPost(at: far, color: .systemRed, to: backgroundLayer, z: 3)
-        addPost(at: left, color: .systemBlue, to: foregroundLayer, z: 33)
-        addPost(at: right, color: .systemBlue, to: foregroundLayer, z: 33)
-        addPost(at: near, color: .systemRed, to: foregroundLayer, z: 34)
+        addPost(at: far, color: ArenaVisualPalette.amberSignal, to: backgroundLayer, z: 3)
+        addPost(at: left, color: ArenaVisualPalette.cyanSignal, to: foregroundLayer, z: 33)
+        addPost(at: right, color: ArenaVisualPalette.cyanSignal, to: foregroundLayer, z: 33)
+        addPost(at: near, color: ArenaVisualPalette.amberSignal, to: foregroundLayer, z: 34)
     }
 
     private func addApron(from start: CGPoint, to end: CGPoint, outward: CGVector) {
@@ -273,21 +290,41 @@ final class BoxingRingNode: SKNode {
             CGPoint(x: end.x + outward.dx, y: end.y + outward.dy),
             CGPoint(x: start.x + outward.dx, y: start.y + outward.dy)
         ])
-        apron.fillColor = SKColor(red: 0.08, green: 0.11, blue: 0.14, alpha: 1)
+        apron.fillColor = ArenaVisualPalette.carbon
         apron.strokeColor = .black.withAlphaComponent(0.6)
         apron.lineWidth = 2
         apron.zPosition = 25
         foregroundLayer.addChild(apron)
+
+        let signal = addLineNode(
+            from: CGPoint(x: start.x + outward.dx * 0.45, y: start.y + outward.dy * 0.45),
+            to: CGPoint(x: end.x + outward.dx * 0.45, y: end.y + outward.dy * 0.45),
+            color: outward.dx < 0
+                ? ArenaVisualPalette.amberSignal.withAlphaComponent(0.65)
+                : ArenaVisualPalette.cyanSignal.withAlphaComponent(0.65),
+            width: 1.5,
+            z: 25.2
+        )
+        signal.glowWidth = 1.5
+        foregroundLayer.addChild(signal)
     }
 
     private func addPost(at point: CGPoint, color: SKColor, to layer: SKNode, z: CGFloat) {
         let post = SKShapeNode(rectOf: CGSize(width: 10, height: 78), cornerRadius: 2)
         post.position = CGPoint(x: point.x, y: point.y + 38)
-        post.fillColor = color
-        post.strokeColor = .black.withAlphaComponent(0.65)
+        post.fillColor = ArenaVisualPalette.gunmetal
+        post.strokeColor = color.withAlphaComponent(0.78)
         post.lineWidth = 2
         post.zPosition = z
         layer.addChild(post)
+
+        let postSignal = SKShapeNode(rectOf: CGSize(width: 2.5, height: 66), cornerRadius: 1)
+        postSignal.position = CGPoint(x: point.x, y: point.y + 38)
+        postSignal.fillColor = color.withAlphaComponent(0.72)
+        postSignal.strokeColor = .clear
+        postSignal.glowWidth = 1.5
+        postSignal.zPosition = z + 0.1
+        layer.addChild(postSignal)
 
         let pad = SKShapeNode(rectOf: CGSize(width: 18, height: 30), cornerRadius: 4)
         pad.position = CGPoint(x: point.x, y: point.y + 55)
@@ -306,6 +343,17 @@ final class BoxingRingNode: SKNode {
     }
 
     private func addLine(from start: CGPoint, to end: CGPoint, color: SKColor, width: CGFloat, to layer: SKNode, z: CGFloat) {
+        let line = addLineNode(from: start, to: end, color: color, width: width, z: z)
+        layer.addChild(line)
+    }
+
+    private func addLineNode(
+        from start: CGPoint,
+        to end: CGPoint,
+        color: SKColor,
+        width: CGFloat,
+        z: CGFloat
+    ) -> SKShapeNode {
         let line = SKShapeNode()
         let path = CGMutablePath()
         path.move(to: start)
@@ -314,7 +362,7 @@ final class BoxingRingNode: SKNode {
         line.strokeColor = color
         line.lineWidth = width
         line.zPosition = z
-        layer.addChild(line)
+        return line
     }
 
     private func polygon(_ points: [CGPoint]) -> SKShapeNode {

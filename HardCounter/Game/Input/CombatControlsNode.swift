@@ -115,26 +115,32 @@ final class CombatControlsNode: SKNode {
     }
 
     private func buildControls() {
-        dpad.fillColor = SKColor.black.withAlphaComponent(0.38)
-        dpad.strokeColor = SKColor.white.withAlphaComponent(0.34)
-        dpad.lineWidth = 2
+        dpad.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.82)
+        dpad.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.42)
+        dpad.lineWidth = 2.5
         addChild(dpad)
+
+        let dpadInner = SKShapeNode(circleOfRadius: 43)
+        dpadInner.fillColor = .clear
+        dpadInner.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.15)
+        dpadInner.lineWidth = 1
+        dpad.addChild(dpadInner)
 
         for angle in stride(from: CGFloat(0), to: 2 * .pi, by: .pi / 2) {
             let arrow = SKShapeNode(path: arrowPath())
-            arrow.fillColor = SKColor.white.withAlphaComponent(0.72)
+            arrow.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.72)
             arrow.strokeColor = .clear
             arrow.zRotation = angle
             dpad.addChild(arrow)
         }
 
-        dpadCenterDot.fillColor = SKColor.white.withAlphaComponent(0.28)
-        dpadCenterDot.strokeColor = SKColor.white.withAlphaComponent(0.55)
+        dpadCenterDot.fillColor = ArenaVisualPalette.gunmetal.withAlphaComponent(0.92)
+        dpadCenterDot.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.62)
         dpadCenterDot.lineWidth = 1
         addChild(dpadCenterDot)
 
-        configureButton(punchButton, color: .systemOrange)
-        configureButton(swayButton, color: .systemCyan)
+        configureButton(punchButton, color: ArenaVisualPalette.amberSignal, radius: 39)
+        configureButton(swayButton, color: ArenaVisualPalette.cyanSignal, radius: 34)
         addChild(punchButton)
         addChild(swayButton)
 
@@ -144,11 +150,29 @@ final class CombatControlsNode: SKNode {
         addChild(swayLabel)
     }
 
-    private func configureButton(_ button: SKShapeNode, color: SKColor) {
-        button.fillColor = color.withAlphaComponent(0.72)
+    private func configureButton(
+        _ button: SKShapeNode,
+        color: SKColor,
+        radius: CGFloat
+    ) {
+        button.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.86)
         button.strokeColor = color.withAlphaComponent(0.95)
         button.lineWidth = 3
         button.glowWidth = 2
+
+        let face = SKShapeNode(circleOfRadius: radius - 6)
+        face.fillColor = color.withAlphaComponent(0.58)
+        face.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.22)
+        face.lineWidth = 1
+        face.zPosition = 0.5
+        button.addChild(face)
+
+        let sheen = SKShapeNode(rectOf: CGSize(width: radius * 0.95, height: 2), cornerRadius: 1)
+        sheen.position.y = radius * 0.42
+        sheen.fillColor = SKColor.white.withAlphaComponent(0.26)
+        sheen.strokeColor = .clear
+        sheen.zPosition = 0.8
+        button.addChild(sheen)
     }
 
     private func configureLabel(_ label: SKLabelNode, text: String, size: CGFloat) {

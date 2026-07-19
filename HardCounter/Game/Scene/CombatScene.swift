@@ -26,8 +26,8 @@ final class CombatScene: SKScene {
         color: opponentProfile?.color ?? .systemOrange,
         size: CGSize(width: 220, height: 14)
     )
-    private let playerStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
-    private let cpuStaminaBar = SKSpriteNode(color: .systemGreen, size: CGSize(width: 220, height: 6))
+    private let playerStaminaBar = SKSpriteNode(color: ArenaVisualPalette.greenSignal, size: CGSize(width: 220, height: 6))
+    private let cpuStaminaBar = SKSpriteNode(color: ArenaVisualPalette.greenSignal, size: CGSize(width: 220, height: 6))
     private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
@@ -130,7 +130,7 @@ final class CombatScene: SKScene {
         nearbyService = nil
         super.init(size: size)
         scaleMode = .resizeFill
-        backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
+        backgroundColor = ArenaVisualPalette.void
     }
 
     init(
@@ -144,7 +144,7 @@ final class CombatScene: SKScene {
         nearbyService = service
         super.init(size: size)
         scaleMode = .resizeFill
-        backgroundColor = SKColor(red: 0.035, green: 0.045, blue: 0.075, alpha: 1)
+        backgroundColor = ArenaVisualPalette.void
     }
 
     override convenience init(size: CGSize) {
@@ -213,7 +213,7 @@ final class CombatScene: SKScene {
                 hasCompletedCountdown = true
                 controls.alpha = 1
                 statusLabel.text = "FIGHT!"
-                statusLabel.fontColor = .systemYellow
+                statusLabel.fontColor = ArenaVisualPalette.amberSignal
                 statusLabel.run(.sequence([.wait(forDuration: 0.45), .fadeOut(withDuration: 0.2)]))
             }
         }
@@ -388,6 +388,10 @@ final class CombatScene: SKScene {
         addChild(cpuHealthBar)
         addChild(playerStaminaBar)
         addChild(cpuStaminaBar)
+        decorateGaugeFill(playerHealthBar)
+        decorateGaugeFill(cpuHealthBar)
+        decorateGaugeFill(playerStaminaBar)
+        decorateGaugeFill(cpuStaminaBar)
 
         statusLabel.fontSize = 26
         statusLabel.fontColor = .white
@@ -421,8 +425,8 @@ final class CombatScene: SKScene {
         roundEndOverlay.isHidden = true
         addChild(roundEndOverlay)
 
-        restartButton.fillColor = .systemOrange
-        restartButton.strokeColor = SKColor.white.withAlphaComponent(0.9)
+        restartButton.fillColor = ArenaVisualPalette.gunmetal
+        restartButton.strokeColor = ArenaVisualPalette.amberSignal.withAlphaComponent(0.92)
         restartButton.lineWidth = 2
         restartButton.zPosition = 160
         restartButton.isHidden = true
@@ -437,22 +441,58 @@ final class CombatScene: SKScene {
     }
 
     private func addHealthBarBackground(for bar: SKSpriteNode) {
-        let background = SKSpriteNode(color: SKColor.white.withAlphaComponent(0.13), size: CGSize(width: 228, height: 22))
+        let background = SKSpriteNode(color: ArenaVisualPalette.carbon.withAlphaComponent(0.94), size: CGSize(width: 232, height: 22))
         background.name = bar === playerHealthBar ? "playerHealthBackground" : "cpuHealthBackground"
         background.zPosition = 9
+        addGaugeFrame(to: background, size: CGSize(width: 232, height: 22), signal: bar === playerHealthBar ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal)
         addChild(background)
         bar.zPosition = 10
     }
 
     private func addStaminaBarBackground(for bar: SKSpriteNode, name: String) {
         let background = SKSpriteNode(
-            color: SKColor.white.withAlphaComponent(0.11),
-            size: CGSize(width: 228, height: 10)
+            color: ArenaVisualPalette.carbon.withAlphaComponent(0.94),
+            size: CGSize(width: 232, height: 11)
         )
         background.name = name
         background.zPosition = 9
+        let signal = name.hasPrefix("player")
+            ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+        addGaugeFrame(to: background, size: CGSize(width: 232, height: 11), signal: signal)
         addChild(background)
         bar.zPosition = 10
+    }
+
+    private func addGaugeFrame(
+        to background: SKSpriteNode,
+        size: CGSize,
+        signal: SKColor
+    ) {
+        let frame = SKShapeNode(rectOf: size, cornerRadius: 2)
+        frame.strokeColor = signal.withAlphaComponent(0.50)
+        frame.fillColor = .clear
+        frame.lineWidth = 1.2
+        frame.zPosition = 1
+        background.addChild(frame)
+
+        for side: CGFloat in [-1, 1] {
+            let bolt = SKShapeNode(rectOf: CGSize(width: 3, height: 3), cornerRadius: 0.5)
+            bolt.position = CGPoint(x: side * (size.width / 2 - 5), y: 0)
+            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.34)
+            bolt.strokeColor = .clear
+            bolt.zPosition = 1.2
+            background.addChild(bolt)
+        }
+    }
+
+    private func decorateGaugeFill(_ bar: SKSpriteNode) {
+        let highlight = SKSpriteNode(
+            color: SKColor.white.withAlphaComponent(0.20),
+            size: CGSize(width: bar.size.width, height: max(bar.size.height * 0.18, 1))
+        )
+        highlight.position.y = bar.size.height * 0.26
+        highlight.zPosition = 1
+        bar.addChild(highlight)
     }
 
     private func configureNameLabel(
@@ -1759,11 +1799,11 @@ final class CombatScene: SKScene {
         let bar = fighter == .player ? playerStaminaBar : cpuStaminaBar
         bar.xScale = fraction
         if stamina <= state.stats.lowStaminaThreshold {
-            bar.color = .systemRed
+            bar.color = ArenaVisualPalette.dangerSignal
         } else if stamina <= state.stats.maximumStamina * 0.50 {
-            bar.color = .systemYellow
+            bar.color = ArenaVisualPalette.amberSignal
         } else {
-            bar.color = .systemGreen
+            bar.color = ArenaVisualPalette.greenSignal
         }
     }
 

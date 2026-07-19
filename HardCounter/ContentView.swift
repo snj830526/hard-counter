@@ -7,6 +7,14 @@ struct ContentView: View {
     init() {
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--fighter-selection-showcase") {
+            _destination = State(initialValue: .fighterSelection)
+            return
+        }
+        if arguments.contains("--nearby-lobby-showcase") {
+            _destination = State(initialValue: .nearbyLobby)
+            return
+        }
         let shouldLaunchMotionShowcase = [
             "--footwork-showcase",
             "--motion-showcase",

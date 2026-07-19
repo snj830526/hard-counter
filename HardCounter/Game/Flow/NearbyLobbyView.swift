@@ -90,7 +90,7 @@ struct NearbyLobbyView: View {
     private var waitingPanel: some View {
         VStack(spacing: 16) {
             ZStack {
-                Circle().stroke(.cyan.opacity(0.16), lineWidth: 3).frame(width: 100, height: 100)
+                Circle().stroke(Color(uiColor: ArenaVisualPalette.gunmetal), lineWidth: 3).frame(width: 100, height: 100)
                 Circle().trim(from: 0.1, to: 0.8)
                     .stroke(.cyan, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .frame(width: 100, height: 100)
@@ -136,7 +136,8 @@ struct NearbyLobbyView: View {
                         .foregroundStyle(.white.opacity(0.58))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
+                .background(Color(uiColor: ArenaVisualPalette.carbon).opacity(0.88), in: RoundedRectangle(cornerRadius: 5))
+                .overlay { RoundedRectangle(cornerRadius: 5).stroke(.orange.opacity(0.20)) }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 9) {
@@ -161,8 +162,18 @@ struct NearbyLobbyView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 18)
                                 .frame(height: 62)
-                                .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
-                                .overlay { RoundedRectangle(cornerRadius: 12).stroke(.orange.opacity(0.34)) }
+                                .background(Color(uiColor: ArenaVisualPalette.carbon).opacity(0.92), in: UnevenRoundedRectangle(
+                                    topLeadingRadius: 3,
+                                    bottomLeadingRadius: 11,
+                                    bottomTrailingRadius: 3,
+                                    topTrailingRadius: 11
+                                ))
+                                .overlay { UnevenRoundedRectangle(
+                                    topLeadingRadius: 3,
+                                    bottomLeadingRadius: 11,
+                                    bottomTrailingRadius: 3,
+                                    topTrailingRadius: 11
+                                ).stroke(.orange.opacity(0.42)) }
                             }
                             .buttonStyle(.plain)
                         }
@@ -199,7 +210,7 @@ struct NearbyLobbyView: View {
             HStack {
                 Text(service.bothPlayersReady ? "양쪽 머신 준비 완료 · 경기를 시작합니다" : "머신을 선택한 뒤 준비 버튼을 누르세요")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(service.bothPlayersReady ? .green : .white.opacity(0.48))
+                    .foregroundStyle(service.bothPlayersReady ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.48))
                 Spacer()
                 secondaryButton("나가기", action: service.stop)
                 Button(action: service.toggleReady) {
@@ -208,7 +219,12 @@ struct NearbyLobbyView: View {
                         .foregroundStyle(service.localIsReady ? .white : .black)
                         .padding(.horizontal, 26)
                         .frame(height: 40)
-                        .background(service.localIsReady ? Color.white.opacity(0.12) : Color.green, in: RoundedRectangle(cornerRadius: 10))
+                        .background(
+                            service.localIsReady
+                                ? Color(uiColor: ArenaVisualPalette.gunmetal)
+                                : Color(uiColor: ArenaVisualPalette.greenSignal),
+                            in: RoundedRectangle(cornerRadius: 5)
+                        )
                 }
                 .buttonStyle(.plain)
             }
@@ -237,7 +253,7 @@ struct NearbyLobbyView: View {
                 Spacer()
                 Label(isReady ? "READY" : "SELECTING", systemImage: isReady ? "checkmark.circle.fill" : "ellipsis.circle")
                     .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundStyle(isReady ? .green : .white.opacity(0.42))
+                    .foregroundStyle(isReady ? Color(uiColor: ArenaVisualPalette.greenSignal) : .white.opacity(0.42))
             }
 
             HStack(spacing: 12) {
@@ -270,7 +286,12 @@ struct NearbyLobbyView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 29)
                                 .foregroundStyle(service.localFighter == option ? .black : .white.opacity(0.7))
-                                .background(service.localFighter == option ? option.swiftUIColor : .white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+                                .background(
+                                    service.localFighter == option
+                                        ? option.swiftUIColor
+                                        : Color(uiColor: ArenaVisualPalette.carbon),
+                                    in: RoundedRectangle(cornerRadius: 4)
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -286,8 +307,25 @@ struct NearbyLobbyView: View {
         .padding(14)
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(fighter.swiftUIColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(fighter.swiftUIColor.opacity(0.48), lineWidth: 1.5) }
+        .background(
+            LinearGradient(
+                colors: [fighter.swiftUIColor.opacity(0.18), Color(uiColor: ArenaVisualPalette.carbon).opacity(0.96)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: UnevenRoundedRectangle(
+                topLeadingRadius: 4,
+                bottomLeadingRadius: 15,
+                bottomTrailingRadius: 4,
+                topTrailingRadius: 15
+            )
+        )
+        .overlay { UnevenRoundedRectangle(
+            topLeadingRadius: 4,
+            bottomLeadingRadius: 15,
+            bottomTrailingRadius: 4,
+            topTrailingRadius: 15
+        ).stroke(fighter.swiftUIColor.opacity(0.58), lineWidth: 1.5) }
     }
 
     private func progressPanel(title: String, detail: String) -> some View {
@@ -326,7 +364,7 @@ struct NearbyLobbyView: View {
     private var connectionBadge: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(service.isConnected ? Color.green : Color.white.opacity(0.26))
+                .fill(service.isConnected ? Color(uiColor: ArenaVisualPalette.greenSignal) : Color.white.opacity(0.26))
                 .frame(width: 6, height: 6)
             Text(service.isConnected ? "CONNECTED" : "OFFLINE")
         }
@@ -355,8 +393,28 @@ struct NearbyLobbyView: View {
             .foregroundStyle(.white)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: 230)
-            .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 18))
-            .overlay { RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.42), lineWidth: 1.5) }
+            .background(
+                LinearGradient(
+                    colors: [Color(uiColor: ArenaVisualPalette.raisedMetal).opacity(0.65), Color(uiColor: ArenaVisualPalette.carbon).opacity(0.96)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: 4,
+                    bottomLeadingRadius: 18,
+                    bottomTrailingRadius: 4,
+                    topTrailingRadius: 18
+                )
+            )
+            .overlay { UnevenRoundedRectangle(
+                topLeadingRadius: 4,
+                bottomLeadingRadius: 18,
+                bottomTrailingRadius: 4,
+                topTrailingRadius: 18
+            ).stroke(tint.opacity(0.52), lineWidth: 1.5) }
+            .overlay(alignment: .top) {
+                Rectangle().fill(tint.opacity(0.72)).frame(height: 2).padding(.horizontal, 18)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -368,6 +426,7 @@ struct NearbyLobbyView: View {
             .foregroundStyle(.white.opacity(0.66))
             .padding(.horizontal, 13)
             .frame(height: 34)
-            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            .background(Color(uiColor: ArenaVisualPalette.carbon).opacity(0.92), in: RoundedRectangle(cornerRadius: 4))
+            .overlay { RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.12)) }
     }
 }
