@@ -636,14 +636,29 @@ final class Fighter3DRenderer {
         pose.rearShoulder.z -= Float(guardRhythm * 0.82)
         pose.rearElbow.z += Float(guardRhythm * 0.58)
 
-        let screenUpperX = locomotionFrame.upperBodyPosition.x * facingSign * 0.012
+        // Locomotion positions form a hierarchy: the faster pelvis channel
+        // moves the complete kinetic chain first, then the slower rib-cage
+        // channel is expressed relative to it. Applying only the upper value
+        // made the torso appear to tow passive legs around the ring.
+        let screenPelvisX = locomotionFrame.pelvisPosition.x
+            * facingSign * 0.012
+        pose.rootX += screenPelvisX
+        pose.rootY += locomotionFrame.pelvisPosition.y * 0.007
+
+        let relativeUpperX = (
+            locomotionFrame.upperBodyPosition.x
+                - locomotionFrame.pelvisPosition.x
+        ) * facingSign * 0.012
         let bodyYaw = atan2(
             opponentScreenDirection.dx,
             -opponentScreenDirection.dy
         ) + CGFloat(pose.pelvis.y)
-        pose.spineX += screenUpperX * cos(bodyYaw)
-        pose.spineZ += screenUpperX * sin(bodyYaw)
-        pose.spineY += locomotionFrame.upperBodyPosition.y * 0.007
+        pose.spineX += relativeUpperX * cos(bodyYaw)
+        pose.spineZ += relativeUpperX * sin(bodyYaw)
+        pose.spineY += (
+            locomotionFrame.upperBodyPosition.y
+                - locomotionFrame.pelvisPosition.y
+        ) * 0.007
         applyFootworkIdentity(
             to: &pose,
             movementAmount: movementAmount,

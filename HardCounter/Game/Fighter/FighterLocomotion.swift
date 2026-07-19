@@ -246,17 +246,18 @@ struct FighterLocomotionController {
         let guardPulse = sin(CGFloat(clock) * 5.10 + 0.35)
 
         let targetPelvisPosition = CGPoint(
-            x: weightLoad + weightCatch + guardedLateralLoad * 1.55,
-            y: compression + directionalDepth * 0.72
+            x: weightLoad + weightCatch + directionalLean * 3.20
+                + guardedLateralLoad * 2.20,
+            y: compression + directionalDepth * 1.35
         )
         let targetPelvisRotation = supportSign * (preload - landing * 0.55)
             * motionAmplitude * 0.056 - directionalLean * 0.038
         let targetUpperPosition = CGPoint(
             x: (weightLoad + weightCatch) * 0.68
-                + directionalLean * 2.25 * footwork.upperBodyLag
-                + guardedLateralLoad * 1.42 * footwork.upperBodyLag,
+                + directionalLean * 1.20 * footwork.upperBodyLag
+                + guardedLateralLoad * 1.10 * footwork.upperBodyLag,
             y: compression * 0.68 + breath * idleAmount * 0.48
-                + guardPulse * idleAmount * 0.10 + directionalDepth * 1.18
+                + guardPulse * idleAmount * 0.10 + directionalDepth * 0.75
         )
         let targetUpperRotation = -supportSign * (preload - landing * 0.45)
             * motionAmplitude * 0.046 - directionalLean * 0.041
