@@ -21,6 +21,7 @@ struct CPUController {
     private let difficulty: CPUDifficultyProfile
     private var nextAttackTime: TimeInterval?
     private var nextMovementDecisionTime: TimeInterval = 0
+    private var nextProactiveSwayTime: TimeInterval = 0
     private var pendingDefenseAt: TimeInterval?
     private var pendingCounterAt: TimeInterval?
     private var observedCounterWindowEndsAt: TimeInterval = 0
@@ -32,6 +33,7 @@ struct CPUController {
     private var tacticalModeEndsAt: TimeInterval = 0
     private var combinationStepsRemaining = 0
     private var hasInitiatedAttack = false
+    private var shouldSetUpNextAttackWithSway = false
 
     init(difficulty: CPUDifficultyProfile = .challenger) {
         self.difficulty = difficulty
@@ -40,6 +42,7 @@ struct CPUController {
     mutating func reset(at time: TimeInterval) {
         nextAttackTime = time + CombatTuning.cpuInitialDelay
         nextMovementDecisionTime = time
+        nextProactiveSwayTime = time + Double.random(in: difficulty.proactiveSwayInterval)
         pendingDefenseAt = nil
         pendingCounterAt = nil
         observedCounterWindowEndsAt = 0
@@ -51,6 +54,7 @@ struct CPUController {
         tacticalModeEndsAt = time
         combinationStepsRemaining = 0
         hasInitiatedAttack = false
+        shouldSetUpNextAttackWithSway = false
     }
 
     mutating func combatAction(for perception: CPUPerception) -> CombatAction? {
@@ -66,9 +70,9 @@ struct CPUController {
             // considering reactive defense, so a passive player is pressured.
             return pressureAttack(for: perception)
         }
-        if let attack = pressureAttack(for: perception) { return attack }
         if let defense = defenseAction(for: perception) { return defense }
-        return nil
+        if let sway = proactiveSwayAction(for: perception) { return sway }
+        return pressureAttack(for: perception)
     }
 
     mutating func movement(for perception: CPUPerception) -> CGVector {
@@ -102,7 +106,9 @@ struct CPUController {
 
         if isTired {
             movementVector = roll < 0.58 ? away : (roll < 0.92 ? circle : .zero)
-        } else if attackIsDue, distanceScale > 0.92 {
+        } else if attackIsDue,
+                  distanceScale > 0.92,
+                  (!hasInitiatedAttack || tacticalMode == .pressure) {
             // Once an attack is due, take the initiative and finish closing
             // distance instead of circling forever just outside punch range.
             movementVector = blended(toward, circle, circleAmount: 0.12)
@@ -117,7 +123,7 @@ struct CPUController {
             case .angle:
                 movementVector = roll < 0.76 ? circle : away
             case .reset:
-                movementVector = roll < 0.72 ? away : circle
+                movementVector = blended(away, circle, circleAmount: 0.22)
             }
         } else {
             let pressure = min(difficulty.pressureBias + (opponentIsTired ? 0.16 : 0), 0.82)
@@ -129,7 +135,9 @@ struct CPUController {
             case .angle:
                 movementVector = roll < 0.72 ? circle : (roll < 0.90 ? toward : .zero)
             case .reset:
-                movementVector = roll < 0.62 ? away : (roll < 0.90 ? circle : .zero)
+                movementVector = distanceScale < 1.15
+                    ? blended(away, circle, circleAmount: 0.22)
+                    : circle
             }
         }
         return movementVector
@@ -149,12 +157,16 @@ struct CPUController {
     private mutating func scheduleCombinationIfAvailable(_ perception: CPUPerception) {
         let justRecovered = lastSelfPhase == .punchRecovery
             && perception.selfState.phase == .idle
-        guard justRecovered,
-              perception.selfState.stamina > difficulty.staminaReserve,
-              perception.visibleDistance <= perception.preferredPunchRange * 1.10 else { return }
+        guard justRecovered else { return }
+        let canContinue = perception.selfState.stamina > difficulty.staminaReserve
+            && perception.visibleDistance <= perception.preferredPunchRange * 1.10
         let continuesCombination = combinationStepsRemaining > 0
-        guard continuesCombination
-                || Double.random(in: 0...1) < difficulty.combinationChance else { return }
+        guard canContinue,
+              continuesCombination
+                || Double.random(in: 0...1) < difficulty.combinationChance else {
+            beginPostExchangeReset(at: perception.time)
+            return
+        }
         if continuesCombination {
             combinationStepsRemaining -= 1
         } else {
@@ -164,6 +176,16 @@ struct CPUController {
         tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.9)
         let followUp = perception.time + Double.random(in: 0.18...0.32)
         nextAttackTime = min(nextAttackTime ?? followUp, followUp)
+    }
+
+    private mutating func beginPostExchangeReset(at time: TimeInterval) {
+        combinationStepsRemaining = 0
+        tacticalMode = .reset
+        let resetEndsAt = time + Double.random(in: difficulty.postExchangeResetDuration)
+        tacticalModeEndsAt = resetEndsAt
+        shouldSetUpNextAttackWithSway = true
+        nextProactiveSwayTime = min(nextProactiveSwayTime, time + 0.16)
+        nextAttackTime = max(nextAttackTime ?? resetEndsAt, resetEndsAt + 0.22)
     }
 
     private mutating func counterAction(
@@ -206,6 +228,8 @@ struct CPUController {
         let toward = normalized(perception.screenTowardOpponent)
         let side: CGFloat = Bool.random() ? 1 : -1
         let lateral = CGVector(dx: -toward.dy * side, dy: toward.dx * side)
+        nextProactiveSwayTime = perception.time
+            + Double.random(in: difficulty.proactiveSwayInterval)
         return .sway(SwayIntent(
             direction: side > 0 ? .left : .right,
             isTowardOpponent: false,
@@ -218,7 +242,9 @@ struct CPUController {
     ) -> CombatAction? {
         guard let nextAttackTime,
               perception.time >= nextAttackTime,
-              perception.selfState.phase == .idle else { return nil }
+              perception.selfState.phase == .idle,
+              !shouldSetUpNextAttackWithSway,
+              tacticalMode != .reset || perception.time >= tacticalModeEndsAt else { return nil }
         guard perception.visibleDistance <= perception.preferredPunchRange * 1.10 else {
             // Keep the attack ready while footwork closes the final gap.
             self.nextAttackTime = perception.time
@@ -239,6 +265,47 @@ struct CPUController {
             forwardDrive: Double(forwardDrive),
             lateralDrive: lateralDrive,
             movementIntensity: Double(min(distanceScale, 1))
+        ))
+    }
+
+    private mutating func proactiveSwayAction(
+        for perception: CPUPerception
+    ) -> CombatAction? {
+        guard perception.time >= nextProactiveSwayTime,
+              perception.selfState.phase == .idle,
+              perception.selfState.stamina >= CombatTuning.swayStaminaCost,
+              perception.visibleDistance <= perception.preferredPunchRange * 1.45 else {
+            return nil
+        }
+        nextProactiveSwayTime = perception.time
+            + Double.random(in: difficulty.proactiveSwayInterval)
+        let setupIsRequired = shouldSetUpNextAttackWithSway
+        guard setupIsRequired
+                || Double.random(in: 0...1) < difficulty.proactiveSwayChance else { return nil }
+        shouldSetUpNextAttackWithSway = false
+
+        let toward = normalized(perception.screenTowardOpponent)
+        let usesPullback = tacticalMode == .reset || Double.random(in: 0...1) < 0.28
+        if usesPullback {
+            tacticalMode = .reset
+            tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.72)
+            return .sway(SwayIntent(
+                direction: .back,
+                isTowardOpponent: false,
+                screenDirection: CGVector(dx: -toward.dx, dy: -toward.dy)
+            ))
+        }
+
+        let side: CGFloat = Bool.random() ? 1 : -1
+        tacticalMode = .angle
+        tacticalModeEndsAt = max(tacticalModeEndsAt, perception.time + 0.72)
+        return .sway(SwayIntent(
+            direction: side > 0 ? .left : .right,
+            isTowardOpponent: false,
+            screenDirection: CGVector(
+                dx: -toward.dy * side,
+                dy: toward.dx * side
+            )
         ))
     }
 

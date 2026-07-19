@@ -1367,7 +1367,7 @@ final class CombatScene: SKScene {
         if let command = cpuInputSource.combatCommand(for: perception) {
             execute(command)
             if engine.state(for: .cpu).phase == .punchStartup {
-                nextCPUAttackDeadline = time + 1.05
+                nextCPUAttackDeadline = time + CombatTuning.cpuAttackWatchdogInterval
             }
             return
         }
@@ -1389,7 +1389,7 @@ final class CombatScene: SKScene {
             ))),
             issuedAt: time
         ))
-        nextCPUAttackDeadline = time + 1.05
+        nextCPUAttackDeadline = time + CombatTuning.cpuAttackWatchdogInterval
     }
 
     private func attachNetworkHandlers() {
