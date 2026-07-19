@@ -48,6 +48,7 @@ xcrun simctl launch <SIMULATOR_UDID> \
 - `--motion-showcase`: 스트레이트·스매시·어퍼컷에서 골반, 가슴, 어깨, 주먹의 회전 순서
 - `--sway-showcase`: 가까운 거리에서 좌우 슬립, 풀백과 전진 실패의 실루엣
 - `--impact-showcase`: 기술별 피격 방향과 전신 반응
+- `--knockout-showcase`: 쓰러지는 전 구간에서 실제 메시 최저점의 캔버스 접촉
 - `--footwork-showcase`: 8방향 셔플, 급반전, 정지 착지와 이동 중 펀치·스웨이 전환
 - `--fatigue-showcase`: 저스태미너 가드, 호흡과 하체 무게 표현
 - 일반 솔로 경기: 이동 중 양발의 앞뒤 깊이, 무릎 굽힘과 발바닥 접지
@@ -162,6 +163,15 @@ xcrun simctl launch <SIMULATOR_UDID> com.soonispapa.HardCounter --impact-showcas
 
 CPU가 스트레이트, 스매시, 어퍼컷을 실제 전투 판정으로 적중시킨다. Debug 시연에서만
 시작 간격을 좁히며 일반 경기의 시작 위치, 사거리와 히트박스는 바꾸지 않는다.
+
+쓰러짐의 바닥 접촉을 단독 확인할 때는 다음 인자를 사용한다.
+
+```bash
+xcrun simctl launch <SIMULATOR_UDID> com.soonispapa.HardCounter --knockout-showcase
+```
+
+CPU 리그가 무릎 꺾임부터 옆으로 눕는 마지막 프레임까지 진행한다. 발 IK가 해제된 뒤에도
+머리·어깨·장갑·다리 중 가장 낮은 메시가 캔버스 아래로 내려가거나 사라지지 않아야 한다.
 
 ## 조작 회귀 테스트
 

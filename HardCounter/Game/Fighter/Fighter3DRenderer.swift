@@ -1071,10 +1071,41 @@ final class Fighter3DRenderer {
             maximum: 0.72
         )
         applyMechanicalSecondaryMotion(pose: pose)
+        applyKnockoutGrounding()
         applyFootPlanting(
             locomotionFrame: locomotionFrame,
             bodyMotion: bodyMotion
         )
+    }
+
+    /// Once the articulated rig falls sideways, feet are no longer the lowest
+    /// contact points. Clamp the actual animated mesh bounds to the canvas so
+    /// shoulders, gloves or the head cannot pass through the ring while the
+    /// authored knockout pose rotates around its root.
+    private func applyKnockoutGrounding() {
+        guard phase == .knockedOut else { return }
+        var lowestPoint = Float.greatestFiniteMagnitude
+        let groundingSpace = presentationRoot
+        skeletonRoot.enumerateChildNodes { node, _ in
+            guard node.geometry != nil else { return }
+            let bounds = node.boundingBox
+            for x in [bounds.min.x, bounds.max.x] {
+                for y in [bounds.min.y, bounds.max.y] {
+                    for z in [bounds.min.z, bounds.max.z] {
+                        let point = node.convertPosition(
+                            SCNVector3(x, y, z),
+                            to: groundingSpace
+                        )
+                        lowestPoint = min(lowestPoint, point.y)
+                    }
+                }
+            }
+        }
+        guard lowestPoint.isFinite else { return }
+        let canvasClearance: Float = 0.025
+        if lowestPoint < canvasClearance {
+            skeletonRoot.position.y += canvasClearance - lowestPoint
+        }
     }
 
     private func buildCamera(in scene: SCNScene) {

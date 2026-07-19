@@ -31,6 +31,7 @@ struct ContentView: View {
             "--motion-clip-showcase",
             "--sway-showcase",
             "--impact-showcase",
+            "--knockout-showcase",
             "--fatigue-showcase",
             "--guard-closeup",
             "--fighter-style-showcase",

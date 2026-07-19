@@ -117,6 +117,7 @@ final class CombatScene: SKScene {
     private let uppercutShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--uppercut-showcase")
     private let swayShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--sway-showcase")
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
+    private let knockoutShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--knockout-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
     private let cameraShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--camera-showcase")
@@ -250,6 +251,8 @@ final class CombatScene: SKScene {
             updateFootworkShowcase(at: currentTime)
         } else if fatigueShowcaseEnabled {
             updateFatigueShowcase()
+        } else if knockoutShowcaseEnabled {
+            updateKnockoutShowcase()
         } else if guardCloseupEnabled {
             updateGuardCloseup()
         } else if damageShowcaseEnabled {
@@ -1304,7 +1307,7 @@ final class CombatScene: SKScene {
 #if DEBUG
         motionShowcaseEnabled || uppercutShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
             || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
-            || damageShowcaseEnabled || cameraShowcaseEnabled
+            || damageShowcaseEnabled || cameraShowcaseEnabled || knockoutShowcaseEnabled
 #else
         false
 #endif
@@ -1554,6 +1557,15 @@ final class CombatScene: SKScene {
         statusLabel.alpha = 1
         statusLabel.fontColor = ArenaVisualPalette.dangerSignal
         statusLabel.text = "DAMAGE SYSTEM"
+    }
+
+    private func updateKnockoutShowcase() {
+        guard statusLabel.text != "KNOCKOUT GROUNDING" else { return }
+        statusLabel.removeAllActions()
+        statusLabel.alpha = 1
+        statusLabel.fontColor = ArenaVisualPalette.dangerSignal
+        statusLabel.text = "KNOCKOUT GROUNDING"
+        cpu.show(phase: .knockedOut)
     }
 
     private func updateFatigueShowcase() {

@@ -41,6 +41,7 @@ enum FighterFullBodyActionPoseSolver {
         ), 1.48)
         let lateral = frame.lateral * amount
         let forward = frame.forward * amount
+        let screenHorizontal = frame.screenHorizontal * amount
         let sideLoad = frame.weightShift * amount
         let compression = frame.compression * amount
 
@@ -67,25 +68,29 @@ enum FighterFullBodyActionPoseSolver {
         // handedness. Local lateral still owns the anatomical weight transfer.
         pose.rootX += frame.screenHorizontal * amount * 0.30
         pose.rootZ += forward * 0.22
-        pose.pelvisRoll += lateral * 0.13
+        // The visible lean follows the stick in camera space. SceneKit's
+        // positive Z rotation leans an upright chain toward screen-left, so
+        // use the inverse screen sign here instead of fighter-local lateral.
+        // Local lateral remains responsible only for anatomical leg loading.
+        pose.pelvisRoll -= screenHorizontal * 0.13
         pose.pelvis.x += Float(-forward * 0.16 + compression * 0.055)
         pose.pelvis.y += Float(lateral * 0.14)
 
         // Spine position remains untouched. Rotation around the connected
         // waist creates the visible arc and the head counters just enough to
         // keep the eyes on the opponent.
-        pose.spineRoll += lateral * 0.24
+        pose.spineRoll -= screenHorizontal * 0.24
         pose.spinePitch += -forward * 0.29 + compression * 0.045
         pose.spine.y -= Float(lateral * 0.085)
-        pose.head.z -= Float(lateral * 0.17)
+        pose.head.z += Float(screenHorizontal * 0.17)
         pose.head.x += Float(forward * 0.13 - compression * 0.032)
 
         // Both gloves travel with the rib cage. Small asymmetric elbow folds
         // preserve a compact guard instead of leaving either hand behind.
-        pose.leadShoulder.z -= Float(lateral * 0.055)
-        pose.rearShoulder.z -= Float(lateral * 0.045)
-        pose.leadElbow.z += Float(lateral * 0.035)
-        pose.rearElbow.z += Float(lateral * 0.030)
+        pose.leadShoulder.z += Float(screenHorizontal * 0.055)
+        pose.rearShoulder.z += Float(screenHorizontal * 0.045)
+        pose.leadElbow.z -= Float(screenHorizontal * 0.035)
+        pose.rearElbow.z -= Float(screenHorizontal * 0.030)
         return pose
     }
 
