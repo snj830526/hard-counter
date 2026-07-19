@@ -41,7 +41,10 @@ enum FighterFullBodyActionPoseSolver {
         ), 1.48)
         let lateral = frame.lateral * amount
         let forward = frame.forward * amount
-        let screenHorizontal = frame.screenHorizontal * amount
+        // The shared 3D viewport mirrors its camera-space horizontal motion
+        // relative to the SpriteKit stick vector. Keep this correction in one
+        // canonical value so root travel and the connected torso lean agree.
+        let screenHorizontal = -frame.screenHorizontal * amount
         let sideLoad = frame.weightShift * amount
         let compression = frame.compression * amount
 
@@ -52,11 +55,7 @@ enum FighterFullBodyActionPoseSolver {
         // Camera-space displacement is canonical and never depends on which
         // side of the ring owns the fighter. Anatomical forward/lateral values
         // only decide how the planted legs and torso carry that displacement.
-        // SK3DNode presents SceneKit's projected Y axis opposite to the
-        // SpriteKit stick vector. Invert only the canonical screen-vertical
-        // displacement so forward/back input follows the visible direction;
-        // horizontal input already shares the same sign in both spaces.
-        pose.rootY -= frame.screenVertical * amount * 0.28
+        pose.rootY += frame.screenVertical * amount * 0.28
         pose.rootY -= 0.14 * compression
         pose.leadHip.x -= Float(leadLoad * 0.055)
         pose.rearHip.x -= Float(rearLoad * 0.055)
@@ -67,10 +66,9 @@ enum FighterFullBodyActionPoseSolver {
 
         // The root displacement is deliberately smaller than the chest arc.
         // A sway is a weight transfer inside the stance, not a teleport.
-        // Root position belongs to the renderer's parent coordinate space, so
-        // screen-horizontal intent must not be mirrored through fighter-local
-        // handedness. Local lateral still owns the anatomical weight transfer.
-        pose.rootX += frame.screenHorizontal * amount * 0.30
+        // Root position belongs to the renderer's parent coordinate space.
+        // Local lateral still owns only the anatomical weight transfer.
+        pose.rootX += screenHorizontal * 0.30
         pose.rootZ += forward * 0.22
         // The visible lean follows the stick in camera space. SceneKit's
         // positive Z rotation leans an upright chain toward screen-left, so
