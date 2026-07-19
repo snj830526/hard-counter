@@ -43,7 +43,7 @@ struct NearbyLobbyMessage: Codable {
         case restartRound
     }
 
-    static let protocolVersion = 5
+    static let protocolVersion = 4
 
     let version: Int
     let kind: Kind

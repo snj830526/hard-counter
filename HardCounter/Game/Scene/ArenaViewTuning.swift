@@ -1,5 +1,4 @@
 import CoreGraphics
-import Foundation
 
 /// Ring size and camera values that are tuned as one gameplay presentation.
 enum ArenaViewTuning {
@@ -21,14 +20,10 @@ enum ArenaViewTuning {
     static let zoomResponse: CGFloat = 5.2
 
     static let fighterScaleBoost: CGFloat = 1.43
-    // Sixteen fixed ringside cameras are spaced at 22.5-degree intervals.
-    // They never pan or orbit: fighter movement selects a camera and only its
-    // optical zoom changes. A small sector margin and hold time prevent cuts
-    // from chattering when the action sits on a camera boundary.
-    static let cameraBankCount = 16
-    static let cameraSectorHysteresis: CGFloat = 0.045
-    static let cameraShotMinimumHold: TimeInterval = 0.70
-    static let cameraCutFlashDuration: TimeInterval = 0.10
+    static let playerFocusWeight: CGFloat = 0.58
+    static let cameraFollowResponse: CGFloat = 6.4
+    static let cameraDeadZoneWidthFraction: CGFloat = 0.13
+    static let cameraDeadZoneHeightFraction: CGFloat = 0.11
     static let horizontalFitFraction: CGFloat = 0.82
     static let verticalFitFraction: CGFloat = 0.66
 
