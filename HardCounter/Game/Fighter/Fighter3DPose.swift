@@ -334,12 +334,12 @@ struct Fighter3DPose {
         pose.leadHip = pose.leadHip.clamped(
             x: -0.62...0.62,
             y: -0.10...0.10,
-            z: -0.035...0.035
+            z: -0.24...0.24
         )
         pose.rearHip = pose.rearHip.clamped(
             x: -0.62...0.62,
             y: -0.10...0.10,
-            z: -0.035...0.035
+            z: -0.24...0.24
         )
         pose.leadKnee = pose.leadKnee.clamped(
             x: 0.08...0.96,

@@ -685,15 +685,15 @@ final class Fighter3DRenderer {
         if movingLead {
             pushPose.rearKnee.x -= Float(0.075 * intensity)
             pushPose.rearAnklePitch += 0.09 * intensity
-            pushPose.leadHip.x += Float((0.22 + forward * 0.24) * stride * intensity)
-            pushPose.leadHip.z += Float(lateral * 0.20 * intensity)
-            pushPose.leadKnee.x += Float(0.40 * intensity)
+            pushPose.leadHip.x += Float((0.30 + forward * 0.28) * stride * intensity)
+            pushPose.leadHip.z += Float(lateral * 0.30 * intensity)
+            pushPose.leadKnee.x += Float(0.28 * intensity)
         } else {
             pushPose.leadKnee.x -= Float(0.075 * intensity)
             pushPose.leadAnklePitch += 0.09 * intensity
-            pushPose.rearHip.x += Float((0.22 + forward * 0.24) * stride * intensity)
-            pushPose.rearHip.z += Float(lateral * 0.20 * intensity)
-            pushPose.rearKnee.x += Float(0.40 * intensity)
+            pushPose.rearHip.x += Float((0.30 + forward * 0.28) * stride * intensity)
+            pushPose.rearHip.z += Float(lateral * 0.30 * intensity)
+            pushPose.rearKnee.x += Float(0.28 * intensity)
         }
 
         var travelPose = pushPose
@@ -703,12 +703,12 @@ final class Fighter3DRenderer {
         travelPose.pelvisRoll -= supportSign * 0.055 * intensity
         travelPose.spineRoll += supportSign * 0.043 * intensity
         if movingLead {
-            travelPose.leadHip.x += Float(0.14 * stride * intensity)
-            travelPose.leadKnee.x += Float(0.20 * intensity)
+            travelPose.leadHip.x += Float(0.20 * stride * intensity)
+            travelPose.leadKnee.x += Float(0.12 * intensity)
             travelPose.leadAnklePitch += 0.17 * intensity
         } else {
-            travelPose.rearHip.x += Float(0.14 * stride * intensity)
-            travelPose.rearKnee.x += Float(0.20 * intensity)
+            travelPose.rearHip.x += Float(0.20 * stride * intensity)
+            travelPose.rearKnee.x += Float(0.12 * intensity)
             travelPose.rearAnklePitch += 0.17 * intensity
         }
 
@@ -720,12 +720,12 @@ final class Fighter3DRenderer {
         catchPose.pelvisRoll -= supportSign * 0.032 * intensity
         catchPose.spineRoll += supportSign * 0.025 * intensity
         if movingLead {
-            catchPose.rearHip.x += Float((0.15 + forward * 0.14) * stride * intensity)
-            catchPose.rearKnee.x += Float(0.34 * intensity)
+            catchPose.rearHip.x += Float((0.22 + forward * 0.18) * stride * intensity)
+            catchPose.rearKnee.x += Float(0.24 * intensity)
             catchPose.rearAnklePitch += 0.13 * intensity
         } else {
-            catchPose.leadHip.x += Float((0.15 + forward * 0.14) * stride * intensity)
-            catchPose.leadKnee.x += Float(0.34 * intensity)
+            catchPose.leadHip.x += Float((0.22 + forward * 0.18) * stride * intensity)
+            catchPose.leadKnee.x += Float(0.24 * intensity)
             catchPose.leadAnklePitch += 0.13 * intensity
         }
 
