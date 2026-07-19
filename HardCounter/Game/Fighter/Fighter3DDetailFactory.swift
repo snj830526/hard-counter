@@ -45,7 +45,7 @@ enum Fighter3DDetailFactory {
                     height: 0.34,
                     length: 0.055,
                     chamfer: 0.025,
-                    material: palette.skin
+                    material: side < 0 ? palette.secondaryArmor : palette.skin
                 )
                 panel.position = SCNVector3(
                     side * (proportions.shortsWidth / 2 - 0.065),
@@ -108,7 +108,7 @@ enum Fighter3DDetailFactory {
                     height: 0.34,
                     length: 0.065,
                     chamfer: 0.045,
-                    material: palette.kit
+                    material: side < 0 ? palette.secondaryArmor : palette.kit
                 )
                 chestPlate.position = SCNVector3(
                     side * proportions.chestWidth * 0.23,
@@ -124,7 +124,7 @@ enum Fighter3DDetailFactory {
                 height: 0.44,
                 length: 0.10,
                 chamfer: 0.065,
-                material: palette.kit
+                material: palette.secondaryArmor
             )
             breastplate.position = SCNVector3(0, 0.58, front)
             spine.addChildNode(breastplate)
@@ -132,7 +132,7 @@ enum Fighter3DDetailFactory {
                 let bolt = Fighter3DMeshFactory.cylinder(
                     radius: 0.045,
                     height: 0.04,
-                    material: palette.accent
+                    material: palette.kit
                 )
                 bolt.eulerAngles.x = .pi / 2
                 bolt.position = SCNVector3(side * proportions.chestWidth * 0.34, 0.66, front + 0.07)
@@ -161,6 +161,16 @@ enum Fighter3DDetailFactory {
                 spine.addChildNode(rib)
             }
         }
+        let fightMark = Fighter3DMeshFactory.box(
+            width: style == .pressure ? 0.19 : 0.13,
+            height: 0.035,
+            length: 0.025,
+            chamfer: 0.007,
+            material: palette.marking
+        )
+        fightMark.position = SCNVector3(0, 0.79, front + 0.065)
+        fightMark.eulerAngles.z = style == .speed ? -0.24 : 0
+        spine.addChildNode(fightMark)
         return core
     }
 
@@ -185,7 +195,7 @@ enum Fighter3DDetailFactory {
                 height: 0.12,
                 length: 0.34,
                 chamfer: 0.045,
-                material: palette.skin
+                material: palette.secondaryArmor
             )
             crown.position = SCNVector3(0, 0.20, 0)
             helmetRoot.addChildNode(crown)
@@ -205,7 +215,7 @@ enum Fighter3DDetailFactory {
                 height: 0.15,
                 length: 0.38,
                 chamfer: 0.065,
-                material: palette.kit
+                material: palette.secondaryArmor
             )
             reinforcedCrown.position = SCNVector3(0, 0.19, -0.005)
             helmetRoot.addChildNode(reinforcedCrown)

@@ -1132,6 +1132,7 @@ final class Fighter3DRenderer {
             jointMaterial: palette.jointSkin,
             gloveMaterial: palette.kit,
             accentMaterial: palette.accent,
+            markingMaterial: palette.marking,
             proportions: proportions,
             to: spine
         )
@@ -1144,6 +1145,7 @@ final class Fighter3DRenderer {
             jointMaterial: palette.jointSkin,
             gloveMaterial: palette.kit,
             accentMaterial: palette.accent,
+            markingMaterial: palette.marking,
             proportions: proportions,
             to: spine
         )
@@ -1155,7 +1157,8 @@ final class Fighter3DRenderer {
             z: 0.17 * motionProfile.stanceDepth,
             material: palette.skin,
             jointMaterial: palette.jointSkin,
-            shoeMaterial: palette.accent,
+            shoeMaterial: palette.kit,
+            markingMaterial: palette.marking,
             proportions: proportions,
             to: pelvis
         )
@@ -1167,7 +1170,8 @@ final class Fighter3DRenderer {
             z: -0.17 * motionProfile.stanceDepth,
             material: palette.skin,
             jointMaterial: palette.jointSkin,
-            shoeMaterial: palette.accent,
+            shoeMaterial: palette.kit,
+            markingMaterial: palette.marking,
             proportions: proportions,
             to: pelvis
         )
@@ -1261,6 +1265,7 @@ final class Fighter3DRenderer {
         jointMaterial: SCNMaterial,
         gloveMaterial: SCNMaterial,
         accentMaterial: SCNMaterial,
+        markingMaterial: SCNMaterial,
         proportions: Fighter3DAppearanceProfile,
         to parent: SCNNode
     ) {
@@ -1316,6 +1321,16 @@ final class Fighter3DRenderer {
         )
         forearmGuard.position = SCNVector3(0, -0.25, 0.015)
         elbow.addChildNode(forearmGuard)
+        let forearmMark = Fighter3DMeshFactory.box(
+            width: 0.055 * proportions.limbRadiusScale,
+            height: 0.20,
+            length: 0.025,
+            chamfer: 0.006,
+            material: markingMaterial
+        )
+        forearmMark.position = SCNVector3(0, -0.25, 0.12)
+        forearmMark.eulerAngles.z = x >= 0 ? -0.18 : 0.18
+        elbow.addChildNode(forearmMark)
         let cuff = Fighter3DMeshFactory.cylinder(
             radius: 0.105 * proportions.cuffScale,
             height: 0.16,
@@ -1344,6 +1359,7 @@ final class Fighter3DRenderer {
         material: SCNMaterial,
         jointMaterial: SCNMaterial,
         shoeMaterial: SCNMaterial,
+        markingMaterial: SCNMaterial,
         proportions: Fighter3DAppearanceProfile,
         to parent: SCNNode
     ) {
@@ -1391,6 +1407,15 @@ final class Fighter3DRenderer {
         calfActuator.position = SCNVector3(x >= 0 ? 0.075 : -0.075, -0.31, 0)
         knee.addChildNode(calfActuator)
         legActuators.append(calfActuator)
+        let shinMark = Fighter3DMeshFactory.box(
+            width: 0.050 * proportions.limbRadiusScale,
+            height: 0.22,
+            length: 0.025,
+            chamfer: 0.006,
+            material: markingMaterial
+        )
+        shinMark.position = SCNVector3(0, -0.31, 0.115)
+        knee.addChildNode(shinMark)
         knee.addChildNode(ankle)
         ankle.position.y = -0.64
         let boot = Fighter3DMeshFactory.cylinder(
