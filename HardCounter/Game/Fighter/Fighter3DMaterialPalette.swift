@@ -31,10 +31,9 @@ struct Fighter3DMaterialPalette {
         )
         skin = Self.make(
             frameMetal,
-            roughness: 0.68,
-            specular: 0.50,
-            metalness: 0.88,
-            clearCoat: 0.04
+            roughness: 0.82,
+            specular: 0.24,
+            metalness: 0.78
         )
         shadowSkin = Self.make(
             insetMetal,
@@ -44,56 +43,48 @@ struct Fighter3DMaterialPalette {
         )
         jointSkin = Self.make(
             jointMetal,
-            roughness: 0.36,
-            specular: 0.72,
-            metalness: 0.94,
-            clearCoat: 0.18
+            roughness: 0.76,
+            specular: 0.28,
+            metalness: 0.86
         )
         kit = Self.make(
             appearance.kitColor,
-            roughness: 0.16,
-            specular: 0.94,
-            metalness: 0.68,
-            clearCoat: 0.92,
-            clearCoatRoughness: 0.07
+            roughness: 0.78,
+            specular: 0.25,
+            metalness: 0.38
         )
         accent = Self.make(
             appearance.accentColor,
-            roughness: 0.58,
-            specular: 0.48,
-            metalness: 0.72,
-            clearCoat: 0.10
+            roughness: 0.84,
+            specular: 0.20,
+            metalness: 0.46
         )
         hair = Self.make(
             insetMetal,
-            roughness: 0.12,
-            specular: 0.96,
-            metalness: 0.96,
-            clearCoat: 0.72,
-            clearCoatRoughness: 0.05
+            roughness: 0.88,
+            specular: 0.18,
+            metalness: 0.82
         )
         eyeWhite = Self.make(
             appearance.kitColor,
-            roughness: 0.10,
-            specular: 0.98,
+            roughness: 0.42,
+            specular: 0.48,
             metalness: 0.12,
-            clearCoat: 1,
-            clearCoatRoughness: 0.03,
-            emission: 0.92
+            clearCoat: 0.10,
+            clearCoatRoughness: 0.48,
+            emission: 0.82
         )
         secondaryArmor = Self.make(
             pearlArmor,
-            roughness: 0.27,
-            specular: 0.86,
-            metalness: 0.62,
-            clearCoat: 0.68,
-            clearCoatRoughness: 0.12
+            roughness: 0.74,
+            specular: 0.28,
+            metalness: 0.44
         )
         marking = Self.make(
             UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1),
-            roughness: 0.48,
-            specular: 0.38,
-            metalness: 0.18
+            roughness: 0.82,
+            specular: 0.16,
+            metalness: 0.08
         )
     }
 
