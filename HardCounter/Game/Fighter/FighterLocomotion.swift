@@ -125,9 +125,9 @@ struct FighterLocomotionController {
             fallback: normalized(movement, fallback: CGVector(dx: facing, dy: 0))
         )
         let frontFootInitiates: Bool
-        switch bodyMotion.supportFoot {
-        case .rear: frontFootInitiates = true
-        case .lead: frontFootInitiates = false
+        switch bodyMotion.initiatingFoot {
+        case .lead: frontFootInitiates = true
+        case .rear: frontFootInitiates = false
         case .both: frontFootInitiates = bodyMotion.weightOnLeadFoot <= 0.5
         }
         let commandedIntensity = min(hypot(movement.dx, movement.dy), 1)

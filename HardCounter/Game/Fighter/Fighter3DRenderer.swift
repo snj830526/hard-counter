@@ -25,8 +25,14 @@ final class Fighter3DRenderer {
     private let rearAnkle = SCNNode()
     private var leadFootIK: SCNIKConstraint?
     private var rearFootIK: SCNIKConstraint?
-    private var leadFootGroundY: Float?
-    private var rearFootGroundY: Float?
+    private var leadFootPlantTarget: SCNVector3?
+    private var rearFootPlantTarget: SCNVector3?
+    private var neutralLeadFootPosition: SCNVector3?
+    private var neutralRearFootPosition: SCNVector3?
+    private var leadFootStepStart: SCNVector3?
+    private var rearFootStepStart: SCNVector3?
+    private var previousStepProgress: CGFloat = 1
+    private var previousInitiatingFoot: FighterSupportFoot = .both
     private var armActuators: [SCNNode] = []
     private var legActuators: [SCNNode] = []
     private var powerCore: SCNNode?
@@ -69,7 +75,7 @@ final class Fighter3DRenderer {
         buildLights(in: scene)
         buildFighter(in: scene, appearance: appearance)
         apply(guardPose)
-        captureFootGroundHeight()
+        captureNeutralFootPositions()
     }
 
     func show(phase newPhase: FighterPhase) {
@@ -133,6 +139,12 @@ final class Fighter3DRenderer {
         targetStaminaFraction = 1
         displayedStaminaFraction = 1
         lastAppliedPose = guardPose
+        leadFootPlantTarget = nil
+        rearFootPlantTarget = nil
+        leadFootStepStart = nil
+        rearFootStepStart = nil
+        previousStepProgress = 1
+        previousInitiatingFoot = .both
         skeletonRoot.opacity = 1
         apply(guardPose)
     }
@@ -1234,15 +1246,6 @@ final class Fighter3DRenderer {
         rearFootIK = rear
     }
 
-    /// The fighter root bobs, compresses and drives during locomotion. Using
-    /// the ankle's current height as the IK target makes that whole motion lift
-    /// the feet as well, which reads as skating above the canvas. Capture the
-    /// neutral stance once and let only the authored swing-foot lift leave it.
-    private func captureFootGroundHeight() {
-        leadFootGroundY = leadAnkle.convertPosition(SCNVector3Zero, to: nil).y
-        rearFootGroundY = rearAnkle.convertPosition(SCNVector3Zero, to: nil).y
-    }
-
     private func applyFootPlanting(
         locomotionFrame: FighterLocomotionFrame?,
         bodyMotion: FighterBodyMotionFrame
@@ -1251,44 +1254,155 @@ final class Fighter3DRenderer {
               let frame = locomotionFrame,
               let leadFootIK,
               let rearFootIK,
-              let leadFootGroundY,
-              let rearFootGroundY else {
+              let neutralLeadFootPosition,
+              let neutralRearFootPosition else {
             leadFootIK?.influenceFactor = 0
             rearFootIK?.influenceFactor = 0
             return
         }
 
-        // The internal orthographic camera shows 3.12 SceneKit units over a
-        // 192-point viewport. Locomotion offsets use the legacy rig's point
-        // scale, so a slightly conservative conversion keeps IK corrective
-        // instead of allowing it to redesign the authored stance.
-        let pointToScene: CGFloat = 0.0105
-        let leadBase = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
-        let rearBase = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
-        leadFootIK.targetPosition = SCNVector3(
-            leadBase.x + Float(frame.frontFootOffset.x * pointToScene),
-            leadFootGroundY + Float(frame.frontFootOffset.y * pointToScene),
-            leadBase.z
+        // The feet own one deterministic step-and-slide path. The initiating
+        // foot travels and lands first; only then may the trailing foot catch
+        // up. Hip and torso clips can still express style, but they no longer
+        // invent a second, conflicting location for either foot.
+        leadFootIK.influenceFactor = 0
+        rearFootIK.influenceFactor = 0
+        let leadCurrent = leadAnkle.convertPosition(SCNVector3Zero, to: nil)
+        let rearCurrent = rearAnkle.convertPosition(SCNVector3Zero, to: nil)
+        let desiredLead = presentationRoot.convertPosition(
+            neutralLeadFootPosition,
+            to: nil
         )
-        rearFootIK.targetPosition = SCNVector3(
-            rearBase.x + Float(frame.backFootOffset.x * pointToScene),
-            rearFootGroundY + Float(frame.backFootOffset.y * pointToScene),
-            rearBase.z
+        let desiredRear = presentationRoot.convertPosition(
+            neutralRearFootPosition,
+            to: nil
         )
+        if leadFootPlantTarget == nil { leadFootPlantTarget = desiredLead }
+        if rearFootPlantTarget == nil { rearFootPlantTarget = desiredRear }
 
-        let supportInfluence: CGFloat = 0.90
-        let travellingInfluence: CGFloat = 0.64
-        switch bodyMotion.supportFoot {
-        case .lead:
-            leadFootIK.influenceFactor = supportInfluence
-            rearFootIK.influenceFactor = travellingInfluence
-        case .rear:
-            leadFootIK.influenceFactor = travellingInfluence
-            rearFootIK.influenceFactor = supportInfluence
-        case .both:
-            leadFootIK.influenceFactor = 0.86
-            rearFootIK.influenceFactor = 0.86
+        let beganNewStep = frame.stepProgress + 0.001 < previousStepProgress
+            || bodyMotion.initiatingFoot != previousInitiatingFoot
+        if beganNewStep, bodyMotion.initiatingFoot != .both {
+            leadFootStepStart = leadFootPlantTarget ?? leadCurrent
+            rearFootStepStart = rearFootPlantTarget ?? rearCurrent
         }
+
+        if bodyMotion.initiatingFoot == .both {
+            leadFootPlantTarget = desiredLead
+            rearFootPlantTarget = desiredRear
+            leadFootStepStart = desiredLead
+            rearFootStepStart = desiredRear
+        } else {
+            let leadStart = leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent
+            let rearStart = rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent
+            let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
+            switch bodyMotion.initiatingFoot {
+            case .lead:
+                if frame.stepProgress <= 0.50 {
+                    leadFootPlantTarget = steppingTarget(
+                        from: leadStart,
+                        toward: desiredLead,
+                        progress: frame.stepProgress / 0.50,
+                        lift: frame.frontAnkleLift * scale
+                    )
+                }
+                if frame.stepProgress >= 0.52, frame.stepProgress <= 0.92 {
+                    rearFootPlantTarget = steppingTarget(
+                        from: rearStart,
+                        toward: desiredRear,
+                        progress: (frame.stepProgress - 0.52) / 0.40,
+                        lift: frame.backAnkleLift * scale
+                    )
+                }
+            case .rear:
+                if frame.stepProgress <= 0.50 {
+                    rearFootPlantTarget = steppingTarget(
+                        from: rearStart,
+                        toward: desiredRear,
+                        progress: frame.stepProgress / 0.50,
+                        lift: frame.backAnkleLift * scale
+                    )
+                }
+                if frame.stepProgress >= 0.52, frame.stepProgress <= 0.92 {
+                    leadFootPlantTarget = steppingTarget(
+                        from: leadStart,
+                        toward: desiredLead,
+                        progress: (frame.stepProgress - 0.52) / 0.40,
+                        lift: frame.frontAnkleLift * scale
+                    )
+                }
+            case .both:
+                break
+            }
+        }
+
+        leadFootPlantTarget = reachablePlantTarget(
+            leadFootPlantTarget ?? leadCurrent,
+            from: leadCurrent
+        )
+        rearFootPlantTarget = reachablePlantTarget(
+            rearFootPlantTarget ?? rearCurrent,
+            from: rearCurrent
+        )
+        leadFootIK.targetPosition = leadFootPlantTarget ?? leadCurrent
+        rearFootIK.targetPosition = rearFootPlantTarget ?? rearCurrent
+        let activeInfluence: CGFloat = bodyMotion.initiatingFoot == .both ? 0.90 : 0.96
+        leadFootIK.influenceFactor = activeInfluence
+        rearFootIK.influenceFactor = activeInfluence
+        previousStepProgress = frame.stepProgress
+        previousInitiatingFoot = bodyMotion.initiatingFoot
+    }
+
+    private func captureNeutralFootPositions() {
+        neutralLeadFootPosition = leadAnkle.convertPosition(
+            SCNVector3Zero,
+            to: presentationRoot
+        )
+        neutralRearFootPosition = rearAnkle.convertPosition(
+            SCNVector3Zero,
+            to: presentationRoot
+        )
+    }
+
+    private func steppingTarget(
+        from start: SCNVector3,
+        toward destination: SCNVector3,
+        progress: CGFloat,
+        lift: CGFloat
+    ) -> SCNVector3 {
+        let amount = smooth(progress)
+        return SCNVector3(
+            start.x + (destination.x - start.x) * Float(amount),
+            start.y + (destination.y - start.y) * Float(amount) + Float(max(lift, 0)),
+            start.z + (destination.z - start.z) * Float(amount)
+        )
+    }
+
+    /// Prevents a planted target from forcing an impossible leg extension if
+    /// collision resolution or network correction moves the fighter root by a
+    /// large amount in one frame. The target yields only as much as necessary,
+    /// preserving contact without allowing the knee to fold unpredictably.
+    private func reachablePlantTarget(
+        _ target: SCNVector3,
+        from current: SCNVector3
+    ) -> SCNVector3 {
+        let scale = max(abs(presentationRoot.presentation.scale.x), 0.01)
+        let maximumPlanarCorrection = 0.30 * scale
+        let dx = target.x - current.x
+        let dz = target.z - current.z
+        let distance = hypot(dx, dz)
+        var result = target
+        if distance > maximumPlanarCorrection {
+            let retained = maximumPlanarCorrection / distance
+            result.x = current.x + dx * retained
+            result.z = current.z + dz * retained
+        }
+        let maximumVerticalCorrection = 0.10 * scale
+        result.y = min(max(
+            result.y,
+            current.y - maximumVerticalCorrection
+        ), current.y + maximumVerticalCorrection)
+        return result
     }
 
     private func attachArm(

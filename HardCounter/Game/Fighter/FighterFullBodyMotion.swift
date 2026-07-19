@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-enum FighterSupportFoot {
+enum FighterSupportFoot: Equatable {
     case lead
     case rear
     case both
@@ -15,6 +15,10 @@ struct FighterBodyMotionFrame {
     let localForward: CGFloat
     let localLateral: CGFloat
     let supportFoot: FighterSupportFoot
+    /// The foot that opens this boxing step. The support foot changes after
+    /// this foot lands, but the step order must remain stable for the whole
+    /// push-travel-catch cycle.
+    let initiatingFoot: FighterSupportFoot
     let weightOnLeadFoot: CGFloat
     let centerOfMassOffset: CGPoint
     let compression: CGFloat
@@ -29,6 +33,7 @@ struct FighterBodyMotionFrame {
         localForward: 0,
         localLateral: 0,
         supportFoot: .both,
+        initiatingFoot: .both,
         weightOnLeadFoot: 0.5,
         centerOfMassOffset: .zero,
         compression: 0,
@@ -47,6 +52,7 @@ struct FighterFullBodyMotionController {
     private var committedDirection = CGVector.zero
     private var committedIntensity: CGFloat = 0
     private var supportFoot: FighterSupportFoot = .both
+    private var initiatingFoot: FighterSupportFoot = .both
 
     init(cadence: CGFloat = 1) {
         let authoredCadence = min(max(cadence, 0.72), 1.32)
@@ -125,7 +131,9 @@ struct FighterFullBodyMotionController {
             direction: committedDirection,
             towardOpponent: towardOpponent
         )
-        let supportSign: CGFloat = supportFoot == .lead ? -1 : 1
+        let initialSupportFoot = supportFoot
+        let displayedSupportFoot = supportFoot(at: stepProgress)
+        let supportSign: CGFloat = initialSupportFoot == .lead ? -1 : 1
         let loading = pulse(stepProgress, start: 0, end: 0.32)
         let landing = pulse(stepProgress, start: 0.58, end: 1)
         let weightTransfer = (loading - landing * 0.72) * supportSign
@@ -146,7 +154,8 @@ struct FighterFullBodyMotionController {
             stepIntensity: committedIntensity,
             localForward: local.forward,
             localLateral: local.lateral,
-            supportFoot: supportFoot,
+            supportFoot: displayedSupportFoot,
+            initiatingFoot: initiatingFoot,
             weightOnLeadFoot: weightOnLead,
             centerOfMassOffset: center,
             compression: -(loading * 0.80 + landing * 0.52) * committedIntensity,
@@ -175,6 +184,7 @@ struct FighterFullBodyMotionController {
             ? local.forward >= 0
             : local.lateral >= 0
         supportFoot = leadFootMoves ? .rear : .lead
+        initiatingFoot = leadFootMoves ? .lead : .rear
     }
 
     private mutating func resetStep() {
@@ -182,6 +192,7 @@ struct FighterFullBodyMotionController {
         committedDirection = .zero
         committedIntensity = 0
         supportFoot = .both
+        initiatingFoot = .both
     }
 
     private func restingFrame(intent: CGVector) -> FighterBodyMotionFrame {
@@ -192,13 +203,27 @@ struct FighterFullBodyMotionController {
             stepIntensity: committedIntensity,
             localForward: 0,
             localLateral: 0,
-            supportFoot: supportFoot,
+            supportFoot: .both,
+            initiatingFoot: .both,
             weightOnLeadFoot: supportFoot == .lead ? 0.64 : (supportFoot == .rear ? 0.36 : 0.5),
             centerOfMassOffset: .zero,
             compression: 0,
             stepProgress: stepProgress,
             plantedness: 1
         )
+    }
+
+    /// A boxing step has two distinct plants. The original support foot holds
+    /// while the initiating foot travels; once it lands, that foot becomes the
+    /// base and the trailing foot catches up. Treating one foot as the support
+    /// for the entire cycle made the trailing leg slide while still "planted".
+    private func supportFoot(at progress: CGFloat) -> FighterSupportFoot {
+        guard supportFoot != .both else { return .both }
+        if progress < 0.52 { return supportFoot }
+        if progress < 0.92 {
+            return supportFoot == .lead ? .rear : .lead
+        }
+        return .both
     }
 
     private func mobilityScale(for phase: FighterPhase) -> CGFloat {
