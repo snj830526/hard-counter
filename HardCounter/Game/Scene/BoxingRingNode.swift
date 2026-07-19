@@ -231,7 +231,7 @@ final class BoxingRingNode: SKNode {
     private func addPostsAndRopes(near: CGPoint, right: CGPoint, far: CGPoint, left: CGPoint) {
         let ropeColors: [SKColor] = [
             ArenaVisualPalette.amberSignal,
-            ArenaVisualPalette.whiteMark.withAlphaComponent(0.92),
+            ArenaVisualPalette.raisedMetal,
             ArenaVisualPalette.cyanSignal
         ]
 
@@ -274,32 +274,85 @@ final class BoxingRingNode: SKNode {
                 to: foregroundLayer,
                 z: 31.5
             )
-            addLine(from: leftRope, to: farRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
-            addLine(from: farRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.78), width: 4, to: backgroundLayer, z: 2)
-            addLine(from: leftRope, to: nearRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 31)
-            addLine(from: nearRope, to: rightRope, color: ropeColors[level].withAlphaComponent(0.88), width: 3.5, to: foregroundLayer, z: 32)
-            addLine(
-                from: CGPoint(x: leftRope.x, y: leftRope.y + 1.1),
-                to: CGPoint(x: nearRope.x, y: nearRope.y + 1.1),
-                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.20),
-                width: 0.8,
-                to: foregroundLayer,
-                z: 31.2
-            )
-            addLine(
-                from: CGPoint(x: nearRope.x, y: nearRope.y + 1.1),
-                to: CGPoint(x: rightRope.x, y: rightRope.y + 1.1),
-                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.20),
-                width: 0.8,
-                to: foregroundLayer,
-                z: 32.2
-            )
+            addLayeredRope(from: leftRope, to: farRope, color: ropeColors[level], width: 4, to: backgroundLayer, z: 2)
+            addLayeredRope(from: farRope, to: rightRope, color: ropeColors[level], width: 4, to: backgroundLayer, z: 2)
+            addLayeredRope(from: leftRope, to: nearRope, color: ropeColors[level], width: 3.5, to: foregroundLayer, z: 31)
+            addLayeredRope(from: nearRope, to: rightRope, color: ropeColors[level], width: 3.5, to: foregroundLayer, z: 32)
         }
 
         addPost(at: far, color: ArenaVisualPalette.amberSignal, to: backgroundLayer, z: 3)
         addPost(at: left, color: ArenaVisualPalette.cyanSignal, to: foregroundLayer, z: 33)
         addPost(at: right, color: ArenaVisualPalette.cyanSignal, to: foregroundLayer, z: 33)
         addPost(at: near, color: ArenaVisualPalette.amberSignal, to: foregroundLayer, z: 34)
+    }
+
+    private func addLayeredRope(
+        from start: CGPoint,
+        to end: CGPoint,
+        color: SKColor,
+        width: CGFloat,
+        to layer: SKNode,
+        z: CGFloat
+    ) {
+        addLine(
+            from: start,
+            to: end,
+            color: SKColor.black.withAlphaComponent(0.82),
+            width: width + 2.6,
+            to: layer,
+            z: z
+        )
+        addLine(
+            from: start,
+            to: end,
+            color: color.withAlphaComponent(0.90),
+            width: width,
+            to: layer,
+            z: z + 0.08
+        )
+
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = max(hypot(dx, dy), 0.001)
+        let normal = CGVector(dx: -dy / length, dy: dx / length)
+        let highlightOffset = width * 0.20
+        addLine(
+            from: CGPoint(
+                x: start.x + normal.dx * highlightOffset,
+                y: start.y + normal.dy * highlightOffset
+            ),
+            to: CGPoint(
+                x: end.x + normal.dx * highlightOffset,
+                y: end.y + normal.dy * highlightOffset
+            ),
+            color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.28),
+            width: 0.75,
+            to: layer,
+            z: z + 0.14
+        )
+
+        let bandCount = max(Int(length / 82), 2)
+        for index in 1...bandCount {
+            let fraction = CGFloat(index) / CGFloat(bandCount + 1)
+            let center = point(between: start, and: end, fraction: fraction)
+            let halfBand = width * 0.88
+            addLine(
+                from: CGPoint(
+                    x: center.x - normal.dx * halfBand,
+                    y: center.y - normal.dy * halfBand
+                ),
+                to: CGPoint(
+                    x: center.x + normal.dx * halfBand,
+                    y: center.y + normal.dy * halfBand
+                ),
+                color: index.isMultiple(of: 2)
+                    ? ArenaVisualPalette.whiteMark.withAlphaComponent(0.64)
+                    : ArenaVisualPalette.gunmetal.withAlphaComponent(0.94),
+                width: 1.2,
+                to: layer,
+                z: z + 0.18
+            )
+        }
     }
 
     private func addApron(from start: CGPoint, to end: CGPoint, outward: CGVector) {

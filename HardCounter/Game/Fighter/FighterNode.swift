@@ -499,19 +499,6 @@ final class FighterNode: SKNode {
         damageEffectRoot.removeAllChildren()
         guard tier > 0 else { return }
 
-        let warning = SKShapeNode(circleOfRadius: tier == 2 ? 2.2 : 1.8)
-        warning.position = CGPoint(x: 11, y: 18)
-        warning.fillColor = ArenaVisualPalette.dangerSignal
-        warning.strokeColor = ArenaVisualPalette.amberSignal.withAlphaComponent(0.75)
-        warning.lineWidth = 1
-        warning.glowWidth = tier == 2 ? 4 : 2.5
-        damageEffectRoot.addChild(warning)
-        warning.run(.repeatForever(.sequence([
-            .fadeAlpha(to: 0.18, duration: tier == 2 ? 0.08 : 0.16),
-            .fadeAlpha(to: 1, duration: tier == 2 ? 0.06 : 0.12),
-            .wait(forDuration: tier == 2 ? 0.12 : 0.34)
-        ])))
-
         let sparkInterval = tier == 2 ? 0.42 : 0.92
         damageEffectRoot.run(.repeatForever(.sequence([
             .wait(forDuration: sparkInterval),
@@ -523,6 +510,8 @@ final class FighterNode: SKNode {
             .wait(forDuration: smokeInterval),
             .run { [weak self] in self?.spawnFaultSmoke(severity: tier) }
         ])), withKey: "faultSmoke")
+        spawnFaultSparks(severity: tier)
+        spawnFaultSmoke(severity: tier)
     }
 
     private func spawnFaultSparks(severity: Int) {
@@ -533,17 +522,18 @@ final class FighterNode: SKNode {
         for index in 0..<(severity == 2 ? 6 : 3) {
             let angle = CGFloat.random(in: 0.18...2.96)
             let distance = CGFloat.random(in: 11...27)
-            let spark = SKShapeNode(rectOf: CGSize(
-                width: index.isMultiple(of: 2) ? 5 : 3,
-                height: 1.25
-            ), cornerRadius: 0.55)
+            let sparkPath = CGMutablePath()
+            sparkPath.move(to: CGPoint(x: -CGFloat.random(in: 1.5...3.5), y: 0))
+            sparkPath.addLine(to: CGPoint(x: CGFloat.random(in: 2.5...6.5), y: 0))
+            let spark = SKShapeNode(path: sparkPath)
             spark.position = origin
             spark.zRotation = angle
-            spark.fillColor = index.isMultiple(of: 3)
+            spark.strokeColor = index.isMultiple(of: 3)
                 ? ArenaVisualPalette.whiteMark
                 : ArenaVisualPalette.amberSignal
-            spark.strokeColor = .clear
-            spark.glowWidth = 2.5
+            spark.lineWidth = index.isMultiple(of: 2) ? 1.25 : 0.8
+            spark.lineCap = .round
+            spark.glowWidth = 1.4
             damageEffectRoot.addChild(spark)
             spark.run(.sequence([
                 .group([
@@ -564,25 +554,56 @@ final class FighterNode: SKNode {
     }
 
     private func spawnFaultSmoke(severity: Int) {
-        let smoke = SKShapeNode(circleOfRadius: severity == 2 ? 6.5 : 4.5)
-        smoke.position = CGPoint(x: CGFloat.random(in: -8...11), y: 12)
-        smoke.fillColor = SKColor(white: 0.12, alpha: severity == 2 ? 0.48 : 0.30)
-        smoke.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.18)
-        smoke.lineWidth = 0.7
-        smoke.alpha = 0
-        damageEffectRoot.addChild(smoke)
-        smoke.run(.sequence([
-            .group([
-                .fadeAlpha(to: severity == 2 ? 0.52 : 0.32, duration: 0.14),
-                .scale(to: 1.25, duration: 0.14)
-            ]),
-            .group([
-                .moveBy(x: CGFloat.random(in: -7...7), y: 30, duration: 0.72),
-                .scale(to: 2.25, duration: 0.72),
-                .fadeOut(withDuration: 0.72)
-            ]),
-            .removeFromParent()
-        ]))
+        let cloud = SKNode()
+        cloud.position = CGPoint(x: CGFloat.random(in: -8...9), y: 12)
+        damageEffectRoot.addChild(cloud)
+        for index in 0..<3 {
+            let radius = CGFloat(severity == 2 ? 5.5 : 4.2) + CGFloat(index) * 0.8
+            let puff = SKShapeNode(path: smokePuffPath(radius: radius, phase: index))
+            puff.position = CGPoint(x: CGFloat(index - 1) * 3.5, y: CGFloat(index) * 2)
+            puff.fillColor = SKColor(
+                white: 0.20 + CGFloat(index) * 0.035,
+                alpha: severity == 2 ? 0.30 : 0.20
+            )
+            puff.strokeColor = SKColor(white: 0.38, alpha: 0.08)
+            puff.lineWidth = 0.6
+            puff.alpha = 0
+            puff.setScale(0.65)
+            cloud.addChild(puff)
+            puff.run(.sequence([
+                .wait(forDuration: Double(index) * 0.065),
+                .group([
+                    .fadeAlpha(to: severity == 2 ? 0.46 : 0.32, duration: 0.16),
+                    .scale(to: 1.12, duration: 0.16)
+                ]),
+                .group([
+                    .moveBy(
+                        x: CGFloat.random(in: -6...7),
+                        y: 28 + CGFloat(index) * 5,
+                        duration: 0.78
+                    ),
+                    .scale(to: 2.05 + CGFloat(index) * 0.14, duration: 0.78),
+                    .fadeOut(withDuration: 0.78)
+                ])
+            ]))
+        }
+        cloud.run(.sequence([.wait(forDuration: 1.18), .removeFromParent()]))
+    }
+
+    private func smokePuffPath(radius: CGFloat, phase: Int) -> CGPath {
+        let path = CGMutablePath()
+        let points = 12
+        for index in 0..<points {
+            let angle = CGFloat(index) / CGFloat(points) * .pi * 2
+            let modulation = 0.82 + CGFloat((index * 7 + phase * 5) % 5) * 0.075
+            let point = CGPoint(
+                x: cos(angle) * radius * modulation,
+                y: sin(angle) * radius * modulation
+            )
+            index == 0 ? path.move(to: point) : path.addLine(to: point)
+        }
+        path.closeSubpath()
+        return path
     }
 
     func resetPose() {
