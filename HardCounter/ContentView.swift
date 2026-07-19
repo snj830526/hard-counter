@@ -25,6 +25,7 @@ struct ContentView: View {
         }
         let shouldLaunchMotionShowcase = [
             "--footwork-showcase",
+            "--camera-showcase",
             "--motion-showcase",
             "--uppercut-showcase",
             "--motion-clip-showcase",

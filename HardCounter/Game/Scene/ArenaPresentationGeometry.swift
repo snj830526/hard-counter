@@ -42,4 +42,11 @@ struct ArenaPresentationGeometry {
         return hypot(projected.dx, projected.dy) * arenaZoom
     }
 
+    func sharedMinimumWorldSeparation(along direction: CGVector) -> CGFloat? {
+        sharedArena?.worldDistance(
+            forStageDistance: 1.0,
+            alongWorldDirection: direction
+        )
+    }
+
 }

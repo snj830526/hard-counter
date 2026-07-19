@@ -118,6 +118,7 @@ final class CombatScene: SKScene {
     private let impactShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--impact-showcase")
     private let motionClipShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--motion-clip-showcase")
     private let footworkShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--footwork-showcase")
+    private let cameraShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--camera-showcase")
     private let fatigueShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--fatigue-showcase")
     private let guardCloseupEnabled = ProcessInfo.processInfo.arguments.contains("--guard-closeup")
     private let damageShowcaseEnabled = ProcessInfo.processInfo.arguments.contains("--damage-showcase")
@@ -244,7 +245,7 @@ final class CombatScene: SKScene {
             updateNetworkCombat(at: currentTime)
         } else if motionClipShowcaseEnabled {
             updateMotionClipShowcase(at: currentTime)
-        } else if footworkShowcaseEnabled {
+        } else if footworkShowcaseEnabled || cameraShowcaseEnabled {
             updateFootworkShowcase(at: currentTime)
         } else if fatigueShowcaseEnabled {
             updateFatigueShowcase()
@@ -556,7 +557,7 @@ final class CombatScene: SKScene {
             if guardCloseupEnabled || damageShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -82, y: 0)
                 cpuArenaPosition = CGPoint(x: 82, y: 0)
-            } else if footworkShowcaseEnabled || fatigueShowcaseEnabled
+            } else if footworkShowcaseEnabled || cameraShowcaseEnabled || fatigueShowcaseEnabled
                 || fighterStyleShowcaseEnabled {
                 playerArenaPosition = CGPoint(x: -92, y: 0)
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
@@ -585,7 +586,7 @@ final class CombatScene: SKScene {
             )
 #endif
         }
-        clampAndRenderFighters()
+        clampAndRenderFighters(deltaTime: 0)
         updateFighterMotion(
             playerMovement: .zero,
             cpuMovement: .zero,
@@ -644,11 +645,21 @@ final class CombatScene: SKScene {
 
         let localMovement = localInputSource.movementCommand(at: gameTime).movementVector ?? .zero
         let targetMovement: CGVector
+#if DEBUG
+        if cameraShowcaseEnabled {
+            targetMovement = footworkShowcaseController.frame(at: gameTime).screenMovement
+        } else if let networkConfiguration {
+            targetMovement = networkConfiguration.localFighterID == .player ? localMovement : remoteMovement
+        } else {
+            targetMovement = localMovement
+        }
+#else
         if let networkConfiguration {
             targetMovement = networkConfiguration.localFighterID == .player ? localMovement : remoteMovement
         } else {
             targetMovement = localMovement
         }
+#endif
         let phaseMultiplier = footworkMultiplier(for: .player)
         let playerBodyFrame = playerBodyMotion.update(
             movementIntent: targetMovement,
@@ -738,7 +749,7 @@ final class CombatScene: SKScene {
             }
         }
 
-        clampAndRenderFighters()
+        clampAndRenderFighters(deltaTime: deltaTime)
         updateCamera(deltaTime: deltaTime)
         updateFighterMotion(
             playerMovement: CGVector(
@@ -876,6 +887,22 @@ final class CombatScene: SKScene {
             dy: cpuArenaPosition.y - playerArenaPosition.y
         )
         let distance = hypot(delta.dx, delta.dy)
+        let direction: CGVector
+        if distance > 0.001 {
+            direction = CGVector(dx: delta.dx / distance, dy: delta.dy / distance)
+        } else {
+            direction = CGVector(dx: 1, dy: 0)
+        }
+        if let minimumWorldSeparation = presentationGeometry
+            .sharedMinimumWorldSeparation(along: direction) {
+            separateSharedArenaFighters(
+                direction: direction,
+                currentDistance: distance,
+                minimumDistance: minimumWorldSeparation
+            )
+            return
+        }
+
         let projectedDelta = presentationScreenVector(forWorldVector: delta)
         let screenDistance = hypot(projectedDelta.dx, projectedDelta.dy)
         let averagePerspectiveScale = (
@@ -887,12 +914,6 @@ final class CombatScene: SKScene {
             * presentationGeometry.fighterSeparationScale
         guard screenDistance < minimumScreenSeparation else { return }
 
-        let direction: CGVector
-        if distance > 0.001 {
-            direction = CGVector(dx: delta.dx / distance, dy: delta.dy / distance)
-        } else {
-            direction = CGVector(dx: 1, dy: 0)
-        }
         let projectedUnit = presentationScreenVector(forWorldVector: direction)
         let screenPointsPerWorldPoint = hypot(projectedUnit.dx, projectedUnit.dy)
         guard screenPointsPerWorldPoint > 0.001 else { return }
@@ -941,7 +962,46 @@ final class CombatScene: SKScene {
         }
     }
 
-    private func clampAndRenderFighters() {
+    private func separateSharedArenaFighters(
+        direction: CGVector,
+        currentDistance: CGFloat,
+        minimumDistance: CGFloat
+    ) {
+        let correction = max(minimumDistance - currentDistance, 0)
+        guard correction > 0.001 else { return }
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * correction * 0.5,
+            y: playerArenaPosition.y - direction.dy * correction * 0.5
+        ))
+        cpuArenaPosition = clampedToRing(CGPoint(
+            x: cpuArenaPosition.x + direction.dx * correction * 0.5,
+            y: cpuArenaPosition.y + direction.dy * correction * 0.5
+        ))
+
+        let correctedDistance = hypot(
+            cpuArenaPosition.x - playerArenaPosition.x,
+            cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let remaining = max(minimumDistance - correctedDistance, 0)
+        guard remaining > 0.001 else { return }
+        playerArenaPosition = clampedToRing(CGPoint(
+            x: playerArenaPosition.x - direction.dx * remaining,
+            y: playerArenaPosition.y - direction.dy * remaining
+        ))
+        let finalDistance = hypot(
+            cpuArenaPosition.x - playerArenaPosition.x,
+            cpuArenaPosition.y - playerArenaPosition.y
+        )
+        let finalRemaining = max(minimumDistance - finalDistance, 0)
+        if finalRemaining > 0.001 {
+            cpuArenaPosition = clampedToRing(CGPoint(
+                x: cpuArenaPosition.x + direction.dx * finalRemaining,
+                y: cpuArenaPosition.y + direction.dy * finalRemaining
+            ))
+        }
+    }
+
+    private func clampAndRenderFighters(deltaTime: TimeInterval) {
         playerArenaPosition = clampedToRing(playerArenaPosition)
         cpuArenaPosition = clampedToRing(cpuArenaPosition)
         separateFighters()
@@ -950,7 +1010,8 @@ final class CombatScene: SKScene {
             player: player,
             opponent: cpu,
             playerWorldPosition: playerArenaPosition,
-            opponentWorldPosition: cpuArenaPosition
+            opponentWorldPosition: cpuArenaPosition,
+            deltaTime: deltaTime
         )
 
         let playerScreenPosition = presentationGeometry.screenPoint(
@@ -1394,7 +1455,7 @@ final class CombatScene: SKScene {
 #if DEBUG
         motionShowcaseEnabled || uppercutShowcaseEnabled || swayShowcaseEnabled || impactShowcaseEnabled
             || motionClipShowcaseEnabled || fatigueShowcaseEnabled || guardCloseupEnabled
-            || damageShowcaseEnabled
+            || damageShowcaseEnabled || cameraShowcaseEnabled
 #else
         false
 #endif
@@ -1402,7 +1463,7 @@ final class CombatScene: SKScene {
 
     private func footworkShowcaseMovement(at time: TimeInterval) -> CGVector? {
 #if DEBUG
-        guard footworkShowcaseEnabled else { return nil }
+        guard footworkShowcaseEnabled || cameraShowcaseEnabled else { return nil }
         return footworkShowcaseController.frame(at: time).screenMovement
 #else
         return nil

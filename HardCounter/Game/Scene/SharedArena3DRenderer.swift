@@ -12,8 +12,12 @@ final class SharedArena3DRenderer {
     private let cameraNode = SCNNode()
     private let ringHalfWidth: Float = 4.4
     private let ringHalfDepth: Float = 2.55
-    private let cameraOrthographicScale: CGFloat = 3.65
+    private let wideCameraScale: CGFloat = 1.72
+    private let closeCameraScale: CGFloat = 1.48
     private let floorDepthVerticalFactor: CGFloat = 0.884
+    private var currentCameraScale: CGFloat = 1.72
+    private var cameraFocus = SIMD2<Float>.zero
+    private var cameraZone = SIMD2<Float>.zero
 
     init(size: CGSize, player: FighterNode, opponent: FighterNode) {
         viewport = SK3DNode(viewportSize: size)
@@ -41,10 +45,18 @@ final class SharedArena3DRenderer {
         player: FighterNode,
         opponent: FighterNode,
         playerWorldPosition: CGPoint,
-        opponentWorldPosition: CGPoint
+        opponentWorldPosition: CGPoint,
+        deltaTime: TimeInterval
     ) {
-        player.setThreeDStageTransform(position: stagePosition(playerWorldPosition))
-        opponent.setThreeDStageTransform(position: stagePosition(opponentWorldPosition))
+        let playerStage = stagePosition(playerWorldPosition)
+        let opponentStage = stagePosition(opponentWorldPosition)
+        player.setThreeDStageTransform(position: playerStage)
+        opponent.setThreeDStageTransform(position: opponentStage)
+        updateCameraWork(
+            playerPosition: playerStage,
+            opponentPosition: opponentStage,
+            deltaTime: deltaTime
+        )
     }
 
     func screenPoint(forWorldPosition world: CGPoint) -> CGPoint {
@@ -59,6 +71,19 @@ final class SharedArena3DRenderer {
 
     func damageEffectPoint(for fighter: FighterNode) -> CGPoint {
         project(fighter.threeDDamageWorldPosition())
+    }
+
+    func worldDistance(
+        forStageDistance targetDistance: CGFloat,
+        alongWorldDirection direction: CGVector
+    ) -> CGFloat? {
+        let stageUnit = CGVector(
+            dx: direction.dx / QuarterViewProjection.halfWidth * CGFloat(ringHalfWidth),
+            dy: direction.dy / QuarterViewProjection.halfDepth * CGFloat(ringHalfDepth)
+        )
+        let stageLength = hypot(stageUnit.dx, stageUnit.dy)
+        guard stageLength > 0.001 else { return nil }
+        return targetDistance / stageLength
     }
 
     /// Resolves a punch in the same horizontal stage plane that renders both
@@ -144,12 +169,12 @@ final class SharedArena3DRenderer {
     }
 
     private var screenPointsPerWorldPointX: CGFloat {
-        viewport.viewportSize.height / cameraOrthographicScale
+        viewport.viewportSize.height / currentCameraScale
             * CGFloat(ringHalfWidth) / QuarterViewProjection.halfWidth
     }
 
     private var screenPointsPerWorldPointY: CGFloat {
-        viewport.viewportSize.height / cameraOrthographicScale
+        viewport.viewportSize.height / currentCameraScale
             * CGFloat(ringHalfDepth) / QuarterViewProjection.halfDepth
             * floorDepthVerticalFactor
     }
@@ -312,14 +337,89 @@ final class SharedArena3DRenderer {
     private func buildCamera() {
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
-        camera.orthographicScale = cameraOrthographicScale
+        camera.orthographicScale = currentCameraScale
         camera.zNear = 0.1
         camera.zFar = 100
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 5.4, 8.6)
-        cameraNode.look(at: SCNVector3(0, 0.85, 0))
+        cameraNode.position = SCNVector3(0, 5.95, 8.6)
+        cameraNode.look(at: SCNVector3(0, 1.40, 0))
         scene.rootNode.addChildNode(cameraNode)
         viewport.pointOfView = cameraNode
+    }
+
+    private func updateCameraWork(
+        playerPosition: SCNVector3,
+        opponentPosition: SCNVector3,
+        deltaTime: TimeInterval
+    ) {
+        let midpoint = SIMD2<Float>(
+            (playerPosition.x + opponentPosition.x) * 0.5,
+            (playerPosition.z + opponentPosition.z) * 0.5
+        )
+        // Broadcast-style fixed zones: the camera only changes its anchor
+        // after the exchange crosses a wide threshold. This keeps movement
+        // readable without continuously chasing every footstep.
+        cameraZone.x = cameraZoneValue(
+            midpoint.x,
+            current: cameraZone.x,
+            entryThreshold: 0.62,
+            exitThreshold: 0.30,
+            offset: 2.05
+        )
+        cameraZone.y = cameraZoneValue(
+            midpoint.y,
+            current: cameraZone.y,
+            entryThreshold: 0.50,
+            exitThreshold: 0.24,
+            offset: 0.96
+        )
+        let desiredFocus = cameraZone
+        let distance = hypot(
+            opponentPosition.x - playerPosition.x,
+            opponentPosition.z - playerPosition.z
+        )
+        let distanceProgress = min(max((CGFloat(distance) - 1.15) / 3.1, 0), 1)
+        let desiredScale = closeCameraScale
+            + (wideCameraScale - closeCameraScale) * distanceProgress
+
+        let focusBlend: Float
+        let zoomBlend: CGFloat
+        if deltaTime <= 0 {
+            focusBlend = 1
+            zoomBlend = 1
+        } else {
+            focusBlend = Float(1 - exp(-deltaTime * 5.2))
+            zoomBlend = CGFloat(1 - exp(-deltaTime * 4.2))
+        }
+        cameraFocus += (desiredFocus - cameraFocus) * focusBlend
+        currentCameraScale += (desiredScale - currentCameraScale) * zoomBlend
+        cameraNode.camera?.orthographicScale = currentCameraScale
+        cameraNode.position = SCNVector3(
+            cameraFocus.x,
+            5.95,
+            8.6 + cameraFocus.y
+        )
+        cameraNode.look(at: SCNVector3(cameraFocus.x, 1.40, cameraFocus.y))
+    }
+
+    private func cameraZoneValue(
+        _ midpoint: Float,
+        current: Float,
+        entryThreshold: Float,
+        exitThreshold: Float,
+        offset: Float
+    ) -> Float {
+        if current == 0 {
+            if midpoint > entryThreshold { return offset }
+            if midpoint < -entryThreshold { return -offset }
+            return 0
+        }
+        if current > 0 {
+            if midpoint < -entryThreshold { return -offset }
+            return midpoint < exitThreshold ? 0 : offset
+        }
+        if midpoint > entryThreshold { return offset }
+        return midpoint > -exitThreshold ? 0 : -offset
     }
 
     private func buildLights() {
