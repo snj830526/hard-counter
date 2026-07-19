@@ -35,8 +35,8 @@ private struct FighterFootworkPresentation {
         switch style {
         case .allRounder:
             return Self(
-                launchRange: 0.07...0.40,
-                followRange: 0.48...0.78,
+                launchRange: 0.08...0.34,
+                followRange: 0.54...0.80,
                 amplitudeBase: 0.70,
                 amplitudeGain: 1.02,
                 strideScale: 1.15,
@@ -48,8 +48,8 @@ private struct FighterFootworkPresentation {
             )
         case .pressure:
             return Self(
-                launchRange: 0.09...0.43,
-                followRange: 0.50...0.82,
+                launchRange: 0.10...0.37,
+                followRange: 0.56...0.84,
                 amplitudeBase: 0.76,
                 amplitudeGain: 1.08,
                 strideScale: 1.12,
@@ -61,8 +61,8 @@ private struct FighterFootworkPresentation {
             )
         case .outBoxer:
             return Self(
-                launchRange: 0.04...0.32,
-                followRange: 0.40...0.68,
+                launchRange: 0.06...0.30,
+                followRange: 0.48...0.72,
                 amplitudeBase: 0.64,
                 amplitudeGain: 1.10,
                 strideScale: 1.38,
@@ -74,8 +74,8 @@ private struct FighterFootworkPresentation {
             )
         case .rival:
             return Self(
-                launchRange: 0.07...0.40,
-                followRange: 0.48...0.79,
+                launchRange: 0.08...0.34,
+                followRange: 0.54...0.81,
                 amplitudeBase: 0.72,
                 amplitudeGain: 1.04,
                 strideScale: 1.18,
@@ -163,8 +163,10 @@ struct FighterLocomotionController {
             start: footwork.followRange.lowerBound,
             end: footwork.followRange.upperBound
         ), 1.42)
-        let landing = pulse(phase, start: 0.30, end: 0.88)
-        let preload = pulse(phase, start: 0, end: 0.30)
+        let firstPlant = pulse(phase, start: 0.28, end: 0.50)
+        let trailingPlant = pulse(phase, start: 0.64, end: 0.92)
+        let landing = max(firstPlant * 0.76, trailingPlant)
+        let preload = pulse(phase, start: 0, end: 0.26)
 
         let frontLift = frontFootInitiates ? launchLift : followLift
         let backLift = frontFootInitiates ? followLift : launchLift

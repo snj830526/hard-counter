@@ -107,10 +107,10 @@ struct FighterFullBodyMotionController {
             ))
         }
 
-        // Keep the two plants readable, but finish the shuffle decisively so
-        // the initiating and trailing feet do not dissolve into one long arc.
-        // Movement speed still comes from combat stats and the same envelope.
-        let stepDuration = (0.40 - Double(committedIntensity) * 0.04)
+        // One full boxing shuffle now has enough time for two distinct weighty
+        // footfalls: initiating foot, plant, then trailing foot. Root travel
+        // speed remains stat-driven; only the presentation cadence slows down.
+        let stepDuration = (0.86 - Double(committedIntensity) * 0.06)
             / Double(cadence)
         stepProgress = min(
             stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20)),
@@ -134,8 +134,10 @@ struct FighterFullBodyMotionController {
         let initialSupportFoot = supportFoot
         let displayedSupportFoot = supportFoot(at: stepProgress)
         let supportSign: CGFloat = initialSupportFoot == .lead ? -1 : 1
-        let loading = pulse(stepProgress, start: 0, end: 0.32)
-        let landing = pulse(stepProgress, start: 0.50, end: 0.90)
+        let loading = pulse(stepProgress, start: 0, end: 0.26)
+        let firstPlant = pulse(stepProgress, start: 0.28, end: 0.50)
+        let trailingPlant = pulse(stepProgress, start: 0.64, end: 0.92)
+        let landing = max(firstPlant * 0.76, trailingPlant)
         let weightTransfer = (loading - landing * 0.72) * supportSign
         let weightOnLead = min(max(0.5 + weightTransfer * 0.32, 0.14), 0.86)
         let center = CGPoint(
@@ -143,7 +145,10 @@ struct FighterFullBodyMotionController {
             y: local.forward * drive * 0.12
         )
         let plantedness = min(max(
-            1 - pulse(stepProgress, start: 0.10, end: 0.72) * 0.64,
+            1 - max(
+                pulse(stepProgress, start: 0.08, end: 0.40),
+                pulse(stepProgress, start: 0.54, end: 0.84)
+            ) * 0.64,
             0
         ), 1)
 
@@ -219,8 +224,8 @@ struct FighterFullBodyMotionController {
     /// for the entire cycle made the trailing leg slide while still "planted".
     private func supportFoot(at progress: CGFloat) -> FighterSupportFoot {
         guard supportFoot != .both else { return .both }
-        if progress < 0.48 { return supportFoot }
-        if progress < 0.86 {
+        if progress < 0.50 { return supportFoot }
+        if progress < 0.90 {
             return supportFoot == .lead ? .rear : .lead
         }
         return .both

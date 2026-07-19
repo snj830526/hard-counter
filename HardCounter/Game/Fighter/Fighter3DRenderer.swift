@@ -1348,36 +1348,36 @@ final class Fighter3DRenderer {
             let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
             switch bodyMotion.initiatingFoot {
             case .lead:
-                if frame.stepProgress <= 0.44 {
+                if frame.stepProgress <= 0.40 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: frame.stepProgress / 0.44,
+                        progress: frame.stepProgress / 0.40,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
-                if frame.stepProgress >= 0.48, frame.stepProgress <= 0.84 {
+                if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: (frame.stepProgress - 0.48) / 0.36,
+                        progress: (frame.stepProgress - 0.54) / 0.32,
                         lift: frame.backAnkleLift * scale
                     )
                 }
             case .rear:
-                if frame.stepProgress <= 0.44 {
+                if frame.stepProgress <= 0.40 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: frame.stepProgress / 0.44,
+                        progress: frame.stepProgress / 0.40,
                         lift: frame.backAnkleLift * scale
                     )
                 }
-                if frame.stepProgress >= 0.48, frame.stepProgress <= 0.84 {
+                if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: (frame.stepProgress - 0.48) / 0.36,
+                        progress: (frame.stepProgress - 0.54) / 0.32,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
