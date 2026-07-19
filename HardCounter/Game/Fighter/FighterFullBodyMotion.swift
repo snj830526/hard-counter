@@ -82,6 +82,26 @@ struct FighterFullBodyMotionController {
             return restingFrame(intent: movementIntent)
         }
 
+        // At 90% both feet are back under the chassis and supportFoot(at:)
+        // already reports `.both`. A new sharp direction can safely start a
+        // fresh step here instead of carrying the previous initiating foot
+        // into the next input segment. This is especially important for quick
+        // left/right and diagonal changes in the footwork showcase.
+        if stepProgress >= 0.90 {
+            if intentAmount <= 0.025 {
+                resetStep()
+                return restingFrame(intent: movementIntent)
+            }
+            if committedIntensity > 0,
+               dot(committedDirection, intentDirection) < 0.20 {
+                beginStep(
+                    direction: intentDirection,
+                    intensity: intentAmount,
+                    towardOpponent: towardOpponent
+                )
+            }
+        }
+
         if stepProgress >= 1 {
             guard intentAmount > 0.025 else {
                 resetStep()
@@ -112,8 +132,14 @@ struct FighterFullBodyMotionController {
         // speed remains stat-driven; only the presentation cadence slows down.
         let stepDuration = (1.24 - Double(committedIntensity) * 0.08)
             / Double(cadence)
+        // Releasing movement means "finish the plant", not "freeze the old
+        // foot choice". Speed up only the trailing landing portion so a short
+        // neutral beat reaches two-foot support before the next direction.
+        let landingCadence: CGFloat = intentAmount <= 0.025 && stepProgress >= 0.55
+            ? 1.65 : 1
         stepProgress = min(
-            stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20)),
+            stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20))
+                * landingCadence,
             1
         )
         let drive = movementEnvelope(at: stepProgress)

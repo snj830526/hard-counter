@@ -36,6 +36,7 @@ final class Fighter3DRenderer {
     private var rearFootStepStart: SCNVector3?
     private var previousStepProgress: CGFloat = 1
     private var previousInitiatingFoot: FighterSupportFoot = .both
+    private var recoveringActionFootPlants = false
     private var rigGroundingOffset: CGFloat = 0
     private var armActuators: [SCNNode] = []
     private var legActuators: [SCNNode] = []
@@ -98,8 +99,19 @@ final class Fighter3DRenderer {
     }
 
     func show(phase newPhase: FighterPhase) {
+        let previousPhase = phase
         phase = newPhase
         phaseElapsed = 0
+        if newPhase == .idle,
+           previousPhase == .swaying || previousPhase == .hit {
+            // Preserve the world-space contacts captured by the locked action
+            // and release them gradually as the neutral stance returns.
+            leadFootStepStart = leadFootPlantTarget
+            rearFootStepStart = rearFootPlantTarget
+            recoveringActionFootPlants = true
+        } else if newPhase != .idle {
+            recoveringActionFootPlants = false
+        }
         if newPhase == .knockedOut {
             knockoutStartPose = lastAppliedPose
             hitElapsed = nil
@@ -164,6 +176,7 @@ final class Fighter3DRenderer {
         rearFootStepStart = nil
         previousStepProgress = 1
         previousInitiatingFoot = .both
+        recoveringActionFootPlants = false
         mechanicalMotion.reset()
         mechanicalMotionResult = .neutral
         skeletonRoot.opacity = 1
@@ -1390,11 +1403,40 @@ final class Fighter3DRenderer {
             rearFootStepStart = rearFootPlantTarget ?? rearCurrent
         }
 
-        if bodyMotion.initiatingFoot == .both {
-            leadFootPlantTarget = desiredLead
-            rearFootPlantTarget = desiredRear
-            leadFootStepStart = desiredLead
-            rearFootStepStart = desiredRear
+        if phase == .swaying || phase == .hit {
+            // These actions lock locomotion. Keep the last planted world
+            // targets rather than snapping both boots below the displaced
+            // action root, which made the legs trail the torso.
+            leadFootPlantTarget = leadFootPlantTarget ?? leadCurrent
+            rearFootPlantTarget = rearFootPlantTarget ?? rearCurrent
+            leadFootStepStart = leadFootPlantTarget
+            rearFootStepStart = rearFootPlantTarget
+        } else if bodyMotion.initiatingFoot == .both {
+            if recoveringActionFootPlants {
+                let recovery = min(max(CGFloat(phaseElapsed / 0.22), 0), 1)
+                leadFootPlantTarget = steppingTarget(
+                    from: leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent,
+                    toward: desiredLead,
+                    progress: recovery,
+                    lift: 0
+                )
+                rearFootPlantTarget = steppingTarget(
+                    from: rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent,
+                    toward: desiredRear,
+                    progress: recovery,
+                    lift: 0
+                )
+                if recovery >= 1 {
+                    recoveringActionFootPlants = false
+                    leadFootStepStart = desiredLead
+                    rearFootStepStart = desiredRear
+                }
+            } else {
+                leadFootPlantTarget = desiredLead
+                rearFootPlantTarget = desiredRear
+                leadFootStepStart = desiredLead
+                rearFootStepStart = desiredRear
+            }
         } else {
             let leadStart = leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent
             let rearStart = rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent
