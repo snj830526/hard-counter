@@ -1030,7 +1030,7 @@ final class Fighter3DRenderer {
         let key = SCNNode()
         key.light = SCNLight()
         key.light?.type = .omni
-        key.light?.intensity = 680
+        key.light?.intensity = 760
         key.light?.color = ArenaVisualPalette.overheadLight
         key.light?.castsShadow = true
         key.light?.shadowRadius = 5
@@ -1041,7 +1041,7 @@ final class Fighter3DRenderer {
         let warmRim = SCNNode()
         warmRim.light = SCNLight()
         warmRim.light?.type = .omni
-        warmRim.light?.intensity = 190
+        warmRim.light?.intensity = 90
         warmRim.light?.color = ArenaVisualPalette.warmCanvasLight
         warmRim.position = SCNVector3(3.2, 2.7, 4.2)
         scene.rootNode.addChildNode(warmRim)
@@ -1049,16 +1049,17 @@ final class Fighter3DRenderer {
         let coolRim = SCNNode()
         coolRim.light = SCNLight()
         coolRim.light?.type = .omni
-        coolRim.light?.intensity = 140
+        coolRim.light?.intensity = 70
         coolRim.light?.color = ArenaVisualPalette.coolCanvasLight
         coolRim.position = SCNVector3(-3.4, 2.2, -2.8)
         scene.rootNode.addChildNode(coolRim)
 
         let fill = SCNNode()
         fill.light = SCNLight()
-        fill.light?.type = .ambient
-        fill.light?.intensity = 225
-        fill.light?.color = UIColor(red: 0.50, green: 0.61, blue: 0.78, alpha: 1)
+        fill.light?.type = .omni
+        fill.light?.intensity = 420
+        fill.light?.color = UIColor(white: 0.82, alpha: 1)
+        fill.position = SCNVector3(0, 2.5, 5.5)
         scene.rootNode.addChildNode(fill)
     }
 

@@ -29,86 +29,45 @@ struct Fighter3DMaterialPalette {
             with: UIColor(red: 0.82, green: 0.86, blue: 0.88, alpha: 1),
             amount: 0.68
         )
-        skin = Self.make(
-            frameMetal,
-            roughness: 0.82,
-            specular: 0.24,
-            metalness: 0.78
-        )
-        shadowSkin = Self.make(
-            insetMetal,
-            roughness: 0.92,
-            specular: 0.12,
-            metalness: 0.22
-        )
-        jointSkin = Self.make(
-            jointMetal,
-            roughness: 0.76,
-            specular: 0.28,
-            metalness: 0.86
-        )
-        kit = Self.make(
-            appearance.kitColor,
-            roughness: 0.78,
-            specular: 0.25,
-            metalness: 0.38
-        )
-        accent = Self.make(
-            appearance.accentColor,
-            roughness: 0.84,
-            specular: 0.20,
-            metalness: 0.46
-        )
-        hair = Self.make(
-            insetMetal,
-            roughness: 0.88,
-            specular: 0.18,
-            metalness: 0.82
-        )
-        eyeWhite = Self.make(
-            appearance.kitColor,
-            roughness: 0.42,
-            specular: 0.48,
-            metalness: 0.12,
-            clearCoat: 0.10,
-            clearCoatRoughness: 0.48,
-            emission: 0.82
-        )
-        secondaryArmor = Self.make(
-            pearlArmor,
-            roughness: 0.74,
-            specular: 0.28,
-            metalness: 0.44
-        )
-        marking = Self.make(
-            UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1),
-            roughness: 0.82,
-            specular: 0.16,
-            metalness: 0.08
+        skin = Self.makeMatte(frameMetal)
+        shadowSkin = Self.makeMatte(insetMetal)
+        jointSkin = Self.makeMatte(jointMetal)
+        kit = Self.makeMatte(appearance.kitColor)
+        accent = Self.makeMatte(appearance.accentColor)
+        hair = Self.makeMatte(insetMetal)
+        eyeWhite = Self.makeSignal(appearance.kitColor)
+        secondaryArmor = Self.makeMatte(pearlArmor)
+        marking = Self.makeMatte(
+            UIColor(red: 0.88, green: 0.90, blue: 0.86, alpha: 1)
         )
     }
 
-    private static func make(
-        _ color: UIColor,
-        roughness: CGFloat,
-        specular: CGFloat,
-        metalness: CGFloat,
-        clearCoat: CGFloat = 0,
-        clearCoatRoughness: CGFloat = 0.18,
-        emission: CGFloat = 0
-    ) -> SCNMaterial {
+    /// Powder-coated armour uses diffuse-only lighting. PBR metalness still
+    /// produces bright facets on the low-poly mesh even at high roughness, so
+    /// the non-luminous machine surfaces deliberately use Lambert shading.
+    private static func makeMatte(_ color: UIColor) -> SCNMaterial {
         let result = SCNMaterial()
         result.diffuse.contents = color
-        result.roughness.contents = roughness
-        result.metalness.contents = metalness
-        result.specular.contents = UIColor(white: specular, alpha: 1)
-        result.clearCoat.contents = clearCoat
-        result.clearCoatRoughness.contents = clearCoatRoughness
-        if emission > 0 {
-            result.emission.contents = color
-            result.emission.intensity = emission
-        }
-        result.lightingModel = .physicallyBased
+        result.ambient.contents = color.withAlphaComponent(0.42)
+        result.specular.contents = UIColor.black
+        result.reflective.contents = UIColor.black
+        result.metalness.contents = 0
+        result.roughness.contents = 1
+        result.clearCoat.contents = 0
+        result.lightingModel = .lambert
+        return result
+    }
+
+    /// Sensors are the only self-lit surfaces; they do not carry a glossy
+    /// highlight, keeping the armour/signal material boundary unambiguous.
+    private static func makeSignal(_ color: UIColor) -> SCNMaterial {
+        let result = SCNMaterial()
+        result.diffuse.contents = color
+        result.emission.contents = color
+        result.emission.intensity = 0.76
+        result.specular.contents = UIColor.black
+        result.reflective.contents = UIColor.black
+        result.lightingModel = .constant
         return result
     }
 
