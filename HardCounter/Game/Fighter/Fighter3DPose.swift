@@ -134,47 +134,48 @@ struct Fighter3DPose {
     static func hit(technique: PunchTechnique, strength: CGFloat) -> Fighter3DPose {
         var pose = guardPose
         let amount = min(max(strength, 0.65), 1.35)
+        let scaled = Float(amount)
         pose.leadShoulder.x = -0.34
         pose.rearShoulder.x = -0.38
         switch technique {
         case .straight:
             pose.rootZ = -0.28 * amount
             pose.rootY -= 0.035 * amount
-            pose.pelvis.x = 0.14
-            pose.spine.x = 0.34
-            pose.spine.z = -0.10
-            pose.head.x = 0.30
-            pose.head.z = -0.08
-            pose.leadHip.x += 0.12
-            pose.rearHip.x += 0.16
-            pose.leadKnee.x += 0.20
-            pose.rearKnee.x += 0.25
+            pose.pelvis.x = 0.14 * scaled
+            pose.spine.x = 0.34 * scaled
+            pose.spine.z = -0.10 * scaled
+            pose.head.x = 0.30 * scaled
+            pose.head.z = -0.08 * scaled
+            pose.leadHip.x += 0.12 * scaled
+            pose.rearHip.x += 0.16 * scaled
+            pose.leadKnee.x += 0.20 * scaled
+            pose.rearKnee.x += 0.25 * scaled
         case .smash:
             pose.rootX = -0.17 * amount
             pose.rootZ = -0.20 * amount
             pose.rootRoll = -0.16 * amount
-            pose.pelvis.y -= 0.18
-            pose.pelvis.z = -0.16
-            pose.spine.y -= 0.30
-            pose.spine.z = -0.36
-            pose.head.y = 0.18
-            pose.head.z = -0.28
-            pose.leadHip.x += 0.20
-            pose.rearHip.x += 0.08
-            pose.leadKnee.x += 0.26
-            pose.rearKnee.x += 0.16
+            pose.pelvis.y -= 0.18 * scaled
+            pose.pelvis.z = -0.16 * scaled
+            pose.spine.y -= 0.30 * scaled
+            pose.spine.z = -0.36 * scaled
+            pose.head.y = 0.18 * scaled
+            pose.head.z = -0.28 * scaled
+            pose.leadHip.x += 0.20 * scaled
+            pose.rearHip.x += 0.08 * scaled
+            pose.leadKnee.x += 0.26 * scaled
+            pose.rearKnee.x += 0.16 * scaled
         case .uppercut:
             pose.rootY = 0.12 * amount
             pose.rootZ = -0.15 * amount
-            pose.pelvis.x = -0.10
-            pose.spine.x = -0.31
-            pose.head.x = -0.46
-            pose.leadShoulder.x = -0.48
-            pose.rearShoulder.x = -0.46
-            pose.leadHip.x -= 0.10
-            pose.rearHip.x -= 0.08
-            pose.leadKnee.x = max(pose.leadKnee.x - 0.13, 0.12)
-            pose.rearKnee.x = max(pose.rearKnee.x - 0.10, 0.12)
+            pose.pelvis.x = -0.10 * scaled
+            pose.spine.x = -0.31 * scaled
+            pose.head.x = -0.46 * scaled
+            pose.leadShoulder.x = -0.48 * scaled
+            pose.rearShoulder.x = -0.46 * scaled
+            pose.leadHip.x -= 0.10 * scaled
+            pose.rearHip.x -= 0.08 * scaled
+            pose.leadKnee.x = max(pose.leadKnee.x - 0.13 * scaled, 0.12)
+            pose.rearKnee.x = max(pose.rearKnee.x - 0.10 * scaled, 0.12)
         }
         return pose
     }

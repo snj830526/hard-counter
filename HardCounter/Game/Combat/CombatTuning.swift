@@ -35,6 +35,12 @@ enum CombatTuning {
     static let hitReaction: TimeInterval = 0.24
     static let counterHitReaction: TimeInterval = 0.48
 
+    // Presentation-only action amplitudes. They enlarge the connected
+    // full-body silhouette without changing attack timing, reach, or damage.
+    static let punchMotionAmplitude: CGFloat = 1.16
+    static let swayMotionAmplitude: CGFloat = 1.13
+    static let hitReactionAmplitude: CGFloat = 1.14
+
     static let cpuInitialDelay: TimeInterval = 1.2
 
     static let hudTopPadding: CGFloat = 20

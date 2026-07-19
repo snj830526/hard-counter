@@ -35,7 +35,10 @@ enum FighterFullBodyActionPoseSolver {
         from guardPose: Fighter3DPose
     ) -> Fighter3DPose {
         var pose = guardPose
-        let amount = min(max(frame.intensity, 0), 1.35)
+        let amount = min(max(
+            frame.intensity * CombatTuning.swayMotionAmplitude,
+            0
+        ), 1.48)
         let lateral = frame.lateral * amount
         let forward = frame.forward * amount
         let sideLoad = frame.weightShift * amount
@@ -96,7 +99,10 @@ enum FighterFullBodyActionPoseSolver {
         to source: Fighter3DPose
     ) -> Fighter3DPose {
         var pose = source
-        let amount = min(max(frame.intensity, 0), 1.35)
+        let amount = min(max(
+            frame.intensity * CombatTuning.punchMotionAmplitude,
+            0
+        ), 1.48)
         let handSign: CGFloat = hand == .lead ? -1 : 1
         let transfer = frame.weightShift * amount
         let compression = frame.compression * amount

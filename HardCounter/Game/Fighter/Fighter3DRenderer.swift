@@ -220,7 +220,8 @@ final class Fighter3DRenderer {
             let t = CGFloat(min(hitElapsed / max(duration, 0.001), 1))
             let hitPose = Fighter3DPose.hit(
                 technique: hitProfile.technique,
-                strength: hitKind == .counter ? 1.25 : 1
+                strength: (hitKind == .counter ? 1.25 : 1)
+                    * CombatTuning.hitReactionAmplitude
             ).styled(with: motionProfile)
             let envelope = t < 0.22
                 ? smooth(t / 0.22)
@@ -253,7 +254,9 @@ final class Fighter3DRenderer {
     }
 
     private func applyHitConfirm(to pose: inout Fighter3DPose, amount: CGFloat) {
-        let drive = amount * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+        let drive = amount
+            * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+            * CombatTuning.punchMotionAmplitude
         let handSign: CGFloat = activeHand == .lead ? -1 : 1
         switch punchProfile.technique {
         case .straight:
@@ -275,7 +278,9 @@ final class Fighter3DRenderer {
     }
 
     private func applyWhiff(to pose: inout Fighter3DPose, amount: CGFloat) {
-        let overreach = amount * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+        let overreach = amount
+            * CGFloat(min(max(punchProfile.powerScale, 0.65), 1.30))
+            * CombatTuning.punchMotionAmplitude
         let handSign: CGFloat = activeHand == .lead ? -1 : 1
         switch punchProfile.technique {
         case .straight:
