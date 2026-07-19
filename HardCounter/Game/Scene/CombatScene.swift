@@ -51,6 +51,7 @@ final class CombatScene: SKScene {
     )
     private var cpuInputSource = CPUInputSource()
     private var gameTime: TimeInterval = 0
+    private var nextCPUAttackDeadline: TimeInterval = 0
     private var remoteMovement = CGVector.zero
     private var lastRemoteInputSequence: UInt64 = 0
     private var networkStateSequence: UInt64 = 0
@@ -181,6 +182,7 @@ final class CombatScene: SKScene {
         buildScene()
         attachNetworkHandlers()
         cpuInputSource.reset(at: gameTime)
+        nextCPUAttackDeadline = gameTime + CombatTuning.cpuInitialDelay
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
@@ -210,6 +212,7 @@ final class CombatScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == nil {
             cpuInputSource.reset(at: currentTime)
+            nextCPUAttackDeadline = currentTime + CombatTuning.cpuInitialDelay
 #if DEBUG
             motionShowcaseController.reset(at: currentTime)
             swayShowcaseController.reset(at: currentTime)
@@ -1360,10 +1363,33 @@ final class CombatScene: SKScene {
     }
 
     private func updateCPUCombat(at time: TimeInterval) {
-        guard let command = cpuInputSource.combatCommand(
-            for: cpuPerception(at: time)
-        ) else { return }
-        execute(command)
+        let perception = cpuPerception(at: time)
+        if let command = cpuInputSource.combatCommand(for: perception) {
+            execute(command)
+            if engine.state(for: .cpu).phase == .punchStartup {
+                nextCPUAttackDeadline = time + 1.05
+            }
+            return
+        }
+
+        // A scene-level watchdog guarantees offensive output even if a
+        // tactical decision keeps being invalidated at the edge of range.
+        // It still waits until the fighters are plausibly close, so this does
+        // not turn into repeated full-ring whiffs.
+        guard time >= nextCPUAttackDeadline,
+              perception.selfState.phase == .idle,
+              perception.selfState.stamina >= CombatTuning.straightStaminaCost,
+              perception.visibleDistance <= perception.preferredPunchRange * 2.0 else { return }
+        execute(FighterCommand(
+            fighter: .cpu,
+            payload: .action(.punch(PunchIntent(
+                forwardDrive: 0.68,
+                lateralDrive: 0,
+                movementIntensity: 0.80
+            ))),
+            issuedAt: time
+        ))
+        nextCPUAttackDeadline = time + 1.05
     }
 
     private func attachNetworkHandlers() {
@@ -2196,6 +2222,7 @@ final class CombatScene: SKScene {
         remoteRematchAccepted = false
         handle(engine.reset())
         cpuInputSource.reset(at: gameTime)
+        nextCPUAttackDeadline = gameTime + CombatTuning.cpuInitialDelay
 #if DEBUG
         motionShowcaseController.reset(at: gameTime)
         swayShowcaseController.reset(at: gameTime)
