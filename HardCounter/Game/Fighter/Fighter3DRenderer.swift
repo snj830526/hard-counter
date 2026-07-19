@@ -40,6 +40,8 @@ final class Fighter3DRenderer {
     private var armActuators: [SCNNode] = []
     private var legActuators: [SCNNode] = []
     private var powerCore: SCNNode?
+    private var mechanicalMotion: Fighter3DMechanicalMotionController
+    private var mechanicalMotionResult = Fighter3DMechanicalMotionResult.neutral
 
     private var phase: FighterPhase = .idle
     private var phaseElapsed: TimeInterval = 0
@@ -64,6 +66,7 @@ final class Fighter3DRenderer {
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         self.motionStyle = motionStyle
         motionProfile = motionStyle.profile
+        mechanicalMotion = Fighter3DMechanicalMotionController(style: motionStyle)
         let proportions = Fighter3DAppearanceProfile(appearance: appearance)
         hitBodyHalfWidth = max(proportions.torsoWidth, proportions.chestWidth) * 0.5
         hitBodyForwardRadius = proportions.torsoDepth * 0.5
@@ -161,6 +164,8 @@ final class Fighter3DRenderer {
         rearFootStepStart = nil
         previousStepProgress = 1
         previousInitiatingFoot = .both
+        mechanicalMotion.reset()
+        mechanicalMotionResult = .neutral
         skeletonRoot.opacity = 1
         apply(guardPose)
     }
@@ -276,6 +281,15 @@ final class Fighter3DRenderer {
         let fatigue = 1 - min(displayedStaminaFraction / 0.28, 1)
         let fatigueBreath = sin(CGFloat(phaseElapsed) * 5.2)
         pose = pose.fatigued(amount: fatigue, breath: fatigueBreath)
+        mechanicalMotionResult = mechanicalMotion.update(
+            pose: pose,
+            locomotion: locomotionFrame,
+            body: movement.bodyMotion,
+            phase: phase,
+            phaseElapsed: phaseElapsed,
+            deltaTime: deltaTime
+        )
+        pose = mechanicalMotionResult.pose
         pose = inertializedPose(
             toward: pose,
             movementAmount: movementAmount,
@@ -701,7 +715,11 @@ final class Fighter3DRenderer {
     ) -> Fighter3DMotionClip {
         let guardPose = guardPose
         let intensity = max(frame.movementIntensity, movementAmount * 0.35)
+        // Keep the authored thigh travel aligned with the mechanical foot
+        // target. Scaling only the boot offset would force IK to erase the
+        // chassis-specific stride at the hip and knee.
         let stride = motionProfile.strideLength
+            * mechanicalMotion.profile.strideScale
         let forward = frame.forwardDrive
         let lateral = frame.lateralDrive
         let movingLead = frame.frontFootInitiates
@@ -1110,7 +1128,7 @@ final class Fighter3DRenderer {
             minimum: -0.72,
             maximum: 0.72
         )
-        applyMechanicalSecondaryMotion(pose: pose)
+        applyMechanicalSecondaryMotion()
         applyKnockoutGrounding()
         applyFootPlanting(
             locomotionFrame: locomotionFrame,
@@ -1764,37 +1782,14 @@ final class Fighter3DRenderer {
         ankle.addChildNode(shoe)
     }
 
-    private func applyMechanicalSecondaryMotion(pose: Fighter3DPose) {
-        let armDrive: CGFloat
-        switch phase {
-        case .punchStartup:
-            armDrive = 0.88
-        case .punchActive:
-            armDrive = 1.18
-        case .punchRecovery:
-            armDrive = 1.05
-        case .swaying:
-            armDrive = 0.94
-        case .hit:
-            armDrive = 0.90
-        case .idle, .knockedOut:
-            armDrive = 1
-        }
+    private func applyMechanicalSecondaryMotion() {
         for actuator in armActuators {
-            actuator.scale.y = Float(armDrive)
+            actuator.scale.y = Float(mechanicalMotionResult.armActuatorScale)
         }
-
-        let kneeLoad = min(
-            (abs(CGFloat(pose.leadKnee.x)) + abs(CGFloat(pose.rearKnee.x))) * 0.10,
-            0.16
-        )
         for actuator in legActuators {
-            actuator.scale.y = Float(1 - kneeLoad)
+            actuator.scale.y = Float(mechanicalMotionResult.legActuatorScale)
         }
-
-        let idlePulse = sin(CGFloat(phaseElapsed) * 3.8) * 0.025
-        let actionPulse: CGFloat = phase == .punchActive ? 0.16 : (phase == .swaying ? 0.07 : 0)
-        let coreScale = 1 + idlePulse + actionPulse
+        let coreScale = mechanicalMotionResult.coreScale
         powerCore?.scale = SCNVector3(coreScale, coreScale, coreScale)
     }
 

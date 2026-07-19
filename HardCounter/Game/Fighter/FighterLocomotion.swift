@@ -32,6 +32,7 @@ private struct FighterFootworkPresentation {
     let upperBodyLag: CGFloat
 
     static func profile(for style: Fighter3DMotionStyle) -> Self {
+        let mechanical = Fighter3DMechanicalMotionProfile.profile(for: style)
         switch style {
         case .allRounder:
             return Self(
@@ -39,8 +40,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.54...0.80,
                 amplitudeBase: 0.70,
                 amplitudeGain: 1.02,
-                strideScale: 1.45,
-                liftScale: 1.18,
+                strideScale: 1.45 * mechanical.strideScale,
+                liftScale: 1.18 * mechanical.liftScale,
                 crouchScale: 1.00,
                 loadScale: 1.00,
                 catchScale: 1.00,
@@ -52,8 +53,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.56...0.84,
                 amplitudeBase: 0.76,
                 amplitudeGain: 1.08,
-                strideScale: 1.38,
-                liftScale: 0.95,
+                strideScale: 1.38 * mechanical.strideScale,
+                liftScale: 0.95 * mechanical.liftScale,
                 crouchScale: 1.22,
                 loadScale: 1.24,
                 catchScale: 1.18,
@@ -65,8 +66,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.48...0.72,
                 amplitudeBase: 0.64,
                 amplitudeGain: 1.10,
-                strideScale: 1.62,
-                liftScale: 1.44,
+                strideScale: 1.62 * mechanical.strideScale,
+                liftScale: 1.44 * mechanical.liftScale,
                 crouchScale: 0.72,
                 loadScale: 0.82,
                 catchScale: 0.76,
@@ -78,8 +79,8 @@ private struct FighterFootworkPresentation {
                 followRange: 0.54...0.81,
                 amplitudeBase: 0.72,
                 amplitudeGain: 1.04,
-                strideScale: 1.46,
-                liftScale: 1.08,
+                strideScale: 1.46 * mechanical.strideScale,
+                liftScale: 1.08 * mechanical.liftScale,
                 crouchScale: 1.08,
                 loadScale: 1.10,
                 catchScale: 1.12,
