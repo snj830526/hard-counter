@@ -21,13 +21,30 @@ final class CombatScene: SKScene {
     )
     private let playerShadow = FighterGroundShadowNode()
     private let cpuShadow = FighterGroundShadowNode()
-    private lazy var playerHealthBar = SKSpriteNode(color: fighterProfile.color, size: CGSize(width: 220, height: 14))
+    private lazy var playerHealthBar = SKSpriteNode(
+        color: fighterProfile.color,
+        size: CGSize(width: 216, height: 12)
+    )
     private lazy var cpuHealthBar = SKSpriteNode(
         color: opponentProfile?.color ?? .systemOrange,
-        size: CGSize(width: 220, height: 14)
+        size: CGSize(width: 216, height: 12)
     )
-    private let playerStaminaBar = SKSpriteNode(color: ArenaVisualPalette.greenSignal, size: CGSize(width: 220, height: 6))
-    private let cpuStaminaBar = SKSpriteNode(color: ArenaVisualPalette.greenSignal, size: CGSize(width: 220, height: 6))
+    private let playerHealthDamageBar = SKSpriteNode(
+        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        size: CGSize(width: 216, height: 12)
+    )
+    private let cpuHealthDamageBar = SKSpriteNode(
+        color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.58),
+        size: CGSize(width: 216, height: 12)
+    )
+    private let playerStaminaBar = SKSpriteNode(
+        color: ArenaVisualPalette.greenSignal,
+        size: CGSize(width: 216, height: 5)
+    )
+    private let cpuStaminaBar = SKSpriteNode(
+        color: ArenaVisualPalette.greenSignal,
+        size: CGSize(width: 216, height: 5)
+    )
     private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
     private let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
@@ -412,8 +429,14 @@ final class CombatScene: SKScene {
         addStaminaBarBackground(for: cpuStaminaBar, name: "cpuStaminaBackground")
         playerHealthBar.anchorPoint = CGPoint(x: 0, y: 0.5)
         cpuHealthBar.anchorPoint = CGPoint(x: 1, y: 0.5)
+        playerHealthDamageBar.anchorPoint = CGPoint(x: 0, y: 0.5)
+        cpuHealthDamageBar.anchorPoint = CGPoint(x: 1, y: 0.5)
         playerStaminaBar.anchorPoint = CGPoint(x: 0, y: 0.5)
         cpuStaminaBar.anchorPoint = CGPoint(x: 1, y: 0.5)
+        playerHealthDamageBar.zPosition = 9.7
+        cpuHealthDamageBar.zPosition = 9.7
+        addChild(playerHealthDamageBar)
+        addChild(cpuHealthDamageBar)
         addChild(playerHealthBar)
         addChild(cpuHealthBar)
         addChild(playerStaminaBar)
@@ -422,6 +445,8 @@ final class CombatScene: SKScene {
         decorateGaugeFill(cpuHealthBar)
         decorateGaugeFill(playerStaminaBar)
         decorateGaugeFill(cpuStaminaBar)
+        decorateDamageTrack(playerHealthDamageBar, facesRight: true)
+        decorateDamageTrack(cpuHealthDamageBar, facesRight: false)
 
         statusLabel.fontSize = 26
         statusLabel.fontColor = .white
@@ -471,18 +496,23 @@ final class CombatScene: SKScene {
     }
 
     private func addHealthBarBackground(for bar: SKSpriteNode) {
-        let background = SKSpriteNode(color: ArenaVisualPalette.carbon.withAlphaComponent(0.94), size: CGSize(width: 232, height: 22))
+        let background = SKSpriteNode(color: .clear, size: CGSize(width: 238, height: 24))
         background.name = bar === playerHealthBar ? "playerHealthBackground" : "cpuHealthBackground"
         background.zPosition = 9
-        addGaugeFrame(to: background, size: CGSize(width: 232, height: 22), signal: bar === playerHealthBar ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal)
+        addGaugeFrame(
+            to: background,
+            size: background.size,
+            signal: bar === playerHealthBar
+                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+        )
         addChild(background)
         bar.zPosition = 10
     }
 
     private func addStaminaBarBackground(for bar: SKSpriteNode, name: String) {
         let background = SKSpriteNode(
-            color: ArenaVisualPalette.carbon.withAlphaComponent(0.94),
-            size: CGSize(width: 232, height: 11)
+            color: .clear,
+            size: CGSize(width: 238, height: 12)
         )
         background.name = name
         background.zPosition = 9
@@ -498,31 +528,86 @@ final class CombatScene: SKScene {
         size: CGSize,
         signal: SKColor
     ) {
-        let frame = SKShapeNode(rectOf: size, cornerRadius: 2)
-        frame.strokeColor = signal.withAlphaComponent(0.50)
-        frame.fillColor = .clear
-        frame.lineWidth = 1.2
-        frame.zPosition = 1
-        background.addChild(frame)
+        let inset: CGFloat = size.height >= 20 ? 5 : 3
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: -size.width / 2 + inset, y: -size.height / 2))
+        path.addLine(to: CGPoint(x: size.width / 2 - inset, y: -size.height / 2))
+        path.addLine(to: CGPoint(x: size.width / 2, y: -size.height / 2 + inset))
+        path.addLine(to: CGPoint(x: size.width / 2, y: size.height / 2 - inset))
+        path.addLine(to: CGPoint(x: size.width / 2 - inset, y: size.height / 2))
+        path.addLine(to: CGPoint(x: -size.width / 2 + inset, y: size.height / 2))
+        path.addLine(to: CGPoint(x: -size.width / 2, y: size.height / 2 - inset))
+        path.addLine(to: CGPoint(x: -size.width / 2, y: -size.height / 2 + inset))
+        path.closeSubpath()
+
+        let panel = SKShapeNode(path: path)
+        panel.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.78)
+        panel.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.96)
+        panel.lineWidth = 1.2
+        panel.zPosition = 0.5
+        background.addChild(panel)
+
+        let signalRail = SKSpriteNode(
+            color: signal.withAlphaComponent(0.78),
+            size: CGSize(width: size.width - inset * 4, height: size.height >= 20 ? 1.6 : 1.0)
+        )
+        signalRail.position.y = -size.height / 2 + 2
+        signalRail.zPosition = 1.2
+        background.addChild(signalRail)
+
+        let tickHeight = max(size.height - 8, 2)
+        for index in 1..<10 {
+            let tick = SKSpriteNode(
+                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.10),
+                size: CGSize(width: 0.8, height: tickHeight)
+            )
+            tick.position.x = -size.width / 2 + CGFloat(index) * size.width / 10
+            tick.zPosition = 2.4
+            background.addChild(tick)
+        }
 
         for side: CGFloat in [-1, 1] {
-            let bolt = SKShapeNode(rectOf: CGSize(width: 3, height: 3), cornerRadius: 0.5)
-            bolt.position = CGPoint(x: side * (size.width / 2 - 5), y: 0)
-            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.34)
+            let bolt = SKShapeNode(circleOfRadius: size.height >= 20 ? 1.5 : 1.0)
+            bolt.position = CGPoint(
+                x: side * (size.width / 2 - inset - 2),
+                y: size.height / 2 - inset - 1
+            )
+            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.28)
             bolt.strokeColor = .clear
-            bolt.zPosition = 1.2
+            bolt.zPosition = 2.5
             background.addChild(bolt)
         }
     }
 
     private func decorateGaugeFill(_ bar: SKSpriteNode) {
         let highlight = SKSpriteNode(
-            color: SKColor.white.withAlphaComponent(0.20),
-            size: CGSize(width: bar.size.width, height: max(bar.size.height * 0.18, 1))
+            color: SKColor.white.withAlphaComponent(0.09),
+            size: CGSize(width: bar.size.width, height: 1)
         )
-        highlight.position.y = bar.size.height * 0.26
+        highlight.position.y = bar.size.height * 0.5 - 0.5
         highlight.zPosition = 1
         bar.addChild(highlight)
+    }
+
+    /// The full-width damage track sits behind the live health fill. Damage
+    /// exposes this red warning surface instead of disappearing into a black
+    /// panel, making both the lost amount and the depletion direction obvious.
+    private func decorateDamageTrack(
+        _ track: SKSpriteNode,
+        facesRight: Bool
+    ) {
+        track.colorBlendFactor = 1
+        for index in 0..<12 {
+            let slash = SKSpriteNode(
+                color: ArenaVisualPalette.dangerSignal.withAlphaComponent(0.46),
+                size: CGSize(width: 2, height: 16)
+            )
+            let offset = CGFloat(index) * 18 + 9
+            slash.position.x = facesRight ? offset : -offset
+            slash.zRotation = facesRight ? -0.58 : 0.58
+            slash.zPosition = 1
+            track.addChild(slash)
+        }
     }
 
     private func configureNameLabel(
@@ -600,12 +685,14 @@ final class CombatScene: SKScene {
 
         sharedArena3DRenderer?.layout(size: size)
 
-        childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 110, y: top)
-        childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 110, y: top)
-        childNode(withName: "playerStaminaBackground")?.position = CGPoint(x: left + 110, y: top - 18)
-        childNode(withName: "cpuStaminaBackground")?.position = CGPoint(x: right - 110, y: top - 18)
+        childNode(withName: "playerHealthBackground")?.position = CGPoint(x: left + 108, y: top)
+        childNode(withName: "cpuHealthBackground")?.position = CGPoint(x: right - 108, y: top)
+        childNode(withName: "playerStaminaBackground")?.position = CGPoint(x: left + 108, y: top - 18)
+        childNode(withName: "cpuStaminaBackground")?.position = CGPoint(x: right - 108, y: top - 18)
         playerHealthBar.position = CGPoint(x: left, y: top)
         cpuHealthBar.position = CGPoint(x: right, y: top)
+        playerHealthDamageBar.position = CGPoint(x: left, y: top)
+        cpuHealthDamageBar.position = CGPoint(x: right, y: top)
         playerStaminaBar.position = CGPoint(x: left, y: top - 18)
         cpuStaminaBar.position = CGPoint(x: right, y: top - 18)
         playerName.position = CGPoint(x: left, y: top - 34)

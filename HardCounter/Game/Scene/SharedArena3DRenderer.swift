@@ -242,9 +242,9 @@ final class SharedArena3DRenderer {
         scene.rootNode.addChildNode(apron)
 
         let matMaterial = material(
-            UIColor(red: 0.075, green: 0.098, blue: 0.115, alpha: 1),
-            roughness: 0.88,
-            metalness: 0.20
+            UIColor(red: 0.082, green: 0.094, blue: 0.104, alpha: 1),
+            roughness: 0.94,
+            metalness: 0.12
         )
         let mat = SCNNode(geometry: SCNBox(
             width: CGFloat(ringHalfWidth * 2),
@@ -256,37 +256,125 @@ final class SharedArena3DRenderer {
         mat.position.y = -0.08
         scene.rootNode.addChildNode(mat)
 
-        let markingMaterial = material(
-            ArenaVisualPalette.cyanSignal.withAlphaComponent(0.30),
-            roughness: 0.72,
-            metalness: 0.12,
-            emission: ArenaVisualPalette.cyanSignal.withAlphaComponent(0.035)
-        )
-        let centerMark = SCNNode(geometry: SCNTorus(ringRadius: 0.72, pipeRadius: 0.022))
-        centerMark.geometry?.materials = [markingMaterial]
-        centerMark.position.y = 0.001
-        scene.rootNode.addChildNode(centerMark)
-        for x in stride(from: -3.3 as Float, through: 3.3, by: 1.1) {
-            let line = SCNNode(geometry: SCNBox(
-                width: 0.012,
-                height: 0.008,
-                length: CGFloat(ringHalfDepth * 2 - 0.22),
-                chamferRadius: 0.003
+        let panelColors = [
+            UIColor(red: 0.072, green: 0.082, blue: 0.090, alpha: 1),
+            UIColor(red: 0.083, green: 0.094, blue: 0.101, alpha: 1)
+        ]
+        for index in 0..<4 {
+            let panel = SCNNode(geometry: SCNBox(
+                width: 2.15,
+                height: 0.010,
+                length: CGFloat(ringHalfDepth * 2 - 0.36),
+                chamferRadius: 0.018
             ))
-            line.geometry?.materials = [markingMaterial]
-            line.position = SCNVector3(x, 0.001, 0)
+            panel.geometry?.materials = [material(
+                panelColors[index % panelColors.count],
+                roughness: 0.96,
+                metalness: 0.10
+            )]
+            panel.position = SCNVector3(-3.3 + Float(index) * 2.2, -0.014, 0)
+            scene.rootNode.addChildNode(panel)
+        }
+
+        let seamMaterial = material(
+            UIColor(red: 0.14, green: 0.16, blue: 0.17, alpha: 1),
+            roughness: 0.92,
+            metalness: 0.18
+        )
+        // Wide matte deck panels replace the luminous debug grid. Their seams
+        // are visible under the fighters without competing with silhouettes.
+        for x in stride(from: -2.2 as Float, through: 2.2, by: 2.2) {
+            let line = SCNNode(geometry: SCNBox(
+                width: 0.018,
+                height: 0.009,
+                length: CGFloat(ringHalfDepth * 2 - 0.34),
+                chamferRadius: 0.004
+            ))
+            line.geometry?.materials = [seamMaterial]
+            line.position = SCNVector3(x, 0.002, 0)
             scene.rootNode.addChildNode(line)
         }
-        for z in stride(from: -1.8 as Float, through: 1.8, by: 0.9) {
+        for z in [-1.28 as Float, 1.28] {
             let line = SCNNode(geometry: SCNBox(
-                width: CGFloat(ringHalfWidth * 2 - 0.22),
-                height: 0.008,
-                length: 0.012,
-                chamferRadius: 0.003
+                width: CGFloat(ringHalfWidth * 2 - 0.34),
+                height: 0.009,
+                length: 0.018,
+                chamferRadius: 0.004
             ))
-            line.geometry?.materials = [markingMaterial]
-            line.position = SCNVector3(0, 0.001, z)
+            line.geometry?.materials = [seamMaterial]
+            line.position = SCNVector3(0, 0.002, z)
             scene.rootNode.addChildNode(line)
+        }
+
+        let markingMaterial = material(
+            UIColor(red: 0.018, green: 0.34, blue: 0.40, alpha: 1),
+            roughness: 0.76,
+            metalness: 0.10,
+            emission: UIColor(red: 0.001, green: 0.012, blue: 0.014, alpha: 1)
+        )
+        for radius in [0.42 as CGFloat, 0.76] {
+            let centerMark = SCNNode(geometry: SCNTorus(
+                ringRadius: radius,
+                pipeRadius: radius == 0.42 ? 0.012 : 0.018
+            ))
+            centerMark.geometry?.materials = [markingMaterial]
+            centerMark.position.y = 0.008
+            scene.rootNode.addChildNode(centerMark)
+        }
+
+        // A restrained inset safety boundary makes the playable surface read
+        // immediately without covering the mat with luminous graph paper.
+        let boundaryInset: Float = 0.30
+        for z in [-ringHalfDepth + boundaryInset, ringHalfDepth - boundaryInset] {
+            let edge = SCNNode(geometry: SCNBox(
+                width: CGFloat((ringHalfWidth - boundaryInset) * 2),
+                height: 0.010,
+                length: 0.020,
+                chamferRadius: 0.004
+            ))
+            edge.geometry?.materials = [markingMaterial]
+            edge.position = SCNVector3(0, 0.009, z)
+            scene.rootNode.addChildNode(edge)
+        }
+        for x in [-ringHalfWidth + boundaryInset, ringHalfWidth - boundaryInset] {
+            let edge = SCNNode(geometry: SCNBox(
+                width: 0.020,
+                height: 0.010,
+                length: CGFloat((ringHalfDepth - boundaryInset) * 2),
+                chamferRadius: 0.004
+            ))
+            edge.geometry?.materials = [markingMaterial]
+            edge.position = SCNVector3(x, 0.009, 0)
+            scene.rootNode.addChildNode(edge)
+        }
+
+        let rimMaterial = material(
+            ArenaVisualPalette.raisedMetal,
+            roughness: 0.80,
+            metalness: 0.62,
+            emission: .black
+        )
+        for z in [-ringHalfDepth - 0.13, ringHalfDepth + 0.13] {
+            let rim = SCNNode(geometry: SCNBox(
+                width: CGFloat(ringHalfWidth * 2 + 0.34),
+                height: 0.055,
+                length: 0.075,
+                chamferRadius: 0.018
+            ))
+            rim.geometry?.materials = [rimMaterial]
+            rim.position = SCNVector3(0, -0.015, z)
+            scene.rootNode.addChildNode(rim)
+        }
+        for x in [-ringHalfWidth - 0.13, ringHalfWidth + 0.13] {
+            let rim = SCNNode(geometry: SCNBox(
+                width: 0.075,
+                height: 0.055,
+                length: CGFloat(ringHalfDepth * 2 + 0.34),
+                chamferRadius: 0.018
+            ))
+            rim.geometry?.materials = [rimMaterial]
+            rim.position = SCNVector3(x, -0.015, 0)
+            scene.rootNode.addChildNode(rim)
         }
 
         let postMaterial = material(
@@ -300,7 +388,19 @@ final class SharedArena3DRenderer {
             SCNVector3(ringHalfWidth, 0, ringHalfDepth),
             SCNVector3(-ringHalfWidth, 0, ringHalfDepth)
         ]
-        for corner in corners {
+        for (cornerIndex, corner) in corners.enumerated() {
+            let cornerSignal = cornerIndex == 0 || cornerIndex == 3
+                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+            let base = SCNNode(geometry: SCNBox(
+                width: 0.42,
+                height: 0.18,
+                length: 0.42,
+                chamferRadius: 0.055
+            ))
+            base.geometry?.materials = [postMaterial]
+            base.position = SCNVector3(corner.x, 0.01, corner.z)
+            scene.rootNode.addChildNode(base)
+
             let post = SCNNode(geometry: SCNBox(
                 width: 0.18,
                 height: 2.15,
@@ -311,6 +411,23 @@ final class SharedArena3DRenderer {
             post.position = SCNVector3(corner.x, 1.02, corner.z)
             scene.rootNode.addChildNode(post)
 
+            let cap = SCNNode(geometry: SCNCylinder(radius: 0.145, height: 0.11))
+            cap.geometry?.materials = [postMaterial]
+            cap.position = SCNVector3(corner.x, 2.08, corner.z)
+            scene.rootNode.addChildNode(cap)
+
+            for height in [0.58 as Float, 1.04, 1.50] {
+                let collar = SCNNode(geometry: SCNCylinder(radius: 0.13, height: 0.07))
+                collar.geometry?.materials = [material(
+                    cornerSignal,
+                    roughness: 0.66,
+                    metalness: 0.50,
+                    emission: cornerSignal.withAlphaComponent(0.045)
+                )]
+                collar.position = SCNVector3(corner.x, height, corner.z)
+                scene.rootNode.addChildNode(collar)
+            }
+
             let pad = SCNNode(geometry: SCNBox(
                 width: 0.30,
                 height: 0.62,
@@ -318,27 +435,32 @@ final class SharedArena3DRenderer {
                 chamferRadius: 0.07
             ))
             pad.geometry?.materials = [material(
-                ArenaVisualPalette.cyanSignal,
-                roughness: 0.78,
-                metalness: 0.42,
-                emission: ArenaVisualPalette.cyanSignal.withAlphaComponent(0.06)
+                ArenaVisualPalette.carbon,
+                roughness: 0.90,
+                metalness: 0.30,
+                emission: cornerSignal.withAlphaComponent(0.018)
             )]
             pad.position = SCNVector3(corner.x, 1.06, corner.z)
             scene.rootNode.addChildNode(pad)
         }
 
         let ropeColors = [
-            ArenaVisualPalette.cyanSignal,
-            ArenaVisualPalette.magentaSignal,
-            ArenaVisualPalette.greenSignal
+            UIColor(red: 0.025, green: 0.48, blue: 0.56, alpha: 1),
+            UIColor(red: 0.28, green: 0.34, blue: 0.36, alpha: 1),
+            UIColor(red: 0.025, green: 0.48, blue: 0.56, alpha: 1)
+        ]
+        let ropeEmissions = [
+            UIColor(red: 0.002, green: 0.038, blue: 0.046, alpha: 1),
+            UIColor(red: 0.010, green: 0.013, blue: 0.014, alpha: 1),
+            UIColor(red: 0.002, green: 0.038, blue: 0.046, alpha: 1)
         ]
         let ropeHeights: [Float] = [0.58, 1.04, 1.50]
         for (index, height) in ropeHeights.enumerated() {
             let ropeMaterial = material(
                 ropeColors[index],
-                roughness: 0.48,
-                metalness: 0.35,
-                emission: ropeColors[index].withAlphaComponent(0.22)
+                roughness: 0.68,
+                metalness: 0.42,
+                emission: ropeEmissions[index]
             )
             for edge in 0..<corners.count {
                 let start = SCNVector3(corners[edge].x, height, corners[edge].z)
@@ -347,7 +469,7 @@ final class SharedArena3DRenderer {
                 scene.rootNode.addChildNode(cylinder(
                     from: start,
                     to: end,
-                    radius: 0.025,
+                    radius: 0.030,
                     material: ropeMaterial
                 ))
             }
