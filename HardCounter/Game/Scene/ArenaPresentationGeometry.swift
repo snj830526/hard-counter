@@ -43,10 +43,7 @@ struct ArenaPresentationGeometry {
     }
 
     func sharedMinimumWorldSeparation(along direction: CGVector) -> CGFloat? {
-        sharedArena?.worldDistance(
-            forStageDistance: 1.0,
-            alongWorldDirection: direction
-        )
+        sharedArena?.minimumWorldFighterSeparation(along: direction)
     }
 
 }

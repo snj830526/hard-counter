@@ -563,8 +563,8 @@ final class CombatScene: SKScene {
                 cpuArenaPosition = CGPoint(x: 92, y: 0)
             } else if impactShowcaseEnabled || motionShowcaseEnabled || uppercutShowcaseEnabled
                 || motionClipShowcaseEnabled || swayShowcaseEnabled {
-                playerArenaPosition = CGPoint(x: -22, y: 0)
-                cpuArenaPosition = CGPoint(x: 22, y: 0)
+                playerArenaPosition = CGPoint(x: -16, y: 0)
+                cpuArenaPosition = CGPoint(x: 16, y: 0)
             } else {
                 playerArenaPosition = CGPoint(
                     x: -ArenaViewTuning.startingHorizontalOffset,

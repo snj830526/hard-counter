@@ -14,6 +14,9 @@ final class SharedArena3DRenderer {
     private let ringHalfDepth: Float = 2.55
     private let wideCameraScale: CGFloat = 1.72
     private let closeCameraScale: CGFloat = 1.48
+    /// Keeps fighters at their pre-camera-work screen size while allowing the
+    /// ring itself to fill roughly twice as much of the display.
+    private let fighterPresentationScale: Float = 1.72 / 3.25
     private let floorDepthVerticalFactor: CGFloat = 0.884
     private var currentCameraScale: CGFloat = 1.72
     private var cameraFocus = SIMD2<Float>.zero
@@ -50,8 +53,14 @@ final class SharedArena3DRenderer {
     ) {
         let playerStage = stagePosition(playerWorldPosition)
         let opponentStage = stagePosition(opponentWorldPosition)
-        player.setThreeDStageTransform(position: playerStage)
-        opponent.setThreeDStageTransform(position: opponentStage)
+        player.setThreeDStageTransform(
+            position: playerStage,
+            scale: fighterPresentationScale
+        )
+        opponent.setThreeDStageTransform(
+            position: opponentStage,
+            scale: fighterPresentationScale
+        )
         updateCameraWork(
             playerPosition: playerStage,
             opponentPosition: opponentStage,
@@ -84,6 +93,13 @@ final class SharedArena3DRenderer {
         let stageLength = hypot(stageUnit.dx, stageUnit.dy)
         guard stageLength > 0.001 else { return nil }
         return targetDistance / stageLength
+    }
+
+    func minimumWorldFighterSeparation(along direction: CGVector) -> CGFloat? {
+        worldDistance(
+            forStageDistance: CGFloat(fighterPresentationScale),
+            alongWorldDirection: direction
+        )
     }
 
     /// Resolves a punch in the same horizontal stage plane that renders both
@@ -132,9 +148,10 @@ final class SharedArena3DRenderer {
             baseReach = 1.34
             targetHalfWidth = 0.42
         }
-        guard forward >= -0.04,
-              CGFloat(forward) <= baseReach * reachScale,
-              CGFloat(lateral) <= targetHalfWidth else { return nil }
+        let presentationScale = CGFloat(fighterPresentationScale)
+        guard CGFloat(forward) >= -0.04 * presentationScale,
+              CGFloat(forward) <= baseReach * presentationScale * reachScale,
+              CGFloat(lateral) <= targetHalfWidth * presentationScale else { return nil }
         return bodyContactPoint(for: defender, technique: profile.technique)
     }
 
@@ -341,8 +358,8 @@ final class SharedArena3DRenderer {
         camera.zNear = 0.1
         camera.zFar = 100
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 5.95, 8.6)
-        cameraNode.look(at: SCNVector3(0, 1.40, 0))
+        cameraNode.position = SCNVector3(0, 5.4, 8.6)
+        cameraNode.look(at: SCNVector3(0, 0.85, 0))
         scene.rootNode.addChildNode(cameraNode)
         viewport.pointOfView = cameraNode
     }
@@ -396,10 +413,10 @@ final class SharedArena3DRenderer {
         cameraNode.camera?.orthographicScale = currentCameraScale
         cameraNode.position = SCNVector3(
             cameraFocus.x,
-            5.95,
+            5.4,
             8.6 + cameraFocus.y
         )
-        cameraNode.look(at: SCNVector3(cameraFocus.x, 1.40, cameraFocus.y))
+        cameraNode.look(at: SCNVector3(cameraFocus.x, 0.85, cameraFocus.y))
     }
 
     private func cameraZoneValue(
