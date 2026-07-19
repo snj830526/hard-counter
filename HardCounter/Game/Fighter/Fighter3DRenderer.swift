@@ -7,6 +7,7 @@ final class Fighter3DRenderer {
     let spriteNode: SK3DNode
     private let motionStyle: Fighter3DMotionStyle
     private let motionProfile: Fighter3DMotionProfile
+    private let soleClearance: CGFloat
 
     private let presentationRoot = SCNNode()
     private let skeletonRoot = SCNNode()
@@ -33,6 +34,7 @@ final class Fighter3DRenderer {
     private var rearFootStepStart: SCNVector3?
     private var previousStepProgress: CGFloat = 1
     private var previousInitiatingFoot: FighterSupportFoot = .both
+    private var rigGroundingOffset: CGFloat = 0
     private var armActuators: [SCNNode] = []
     private var legActuators: [SCNNode] = []
     private var powerCore: SCNNode?
@@ -60,6 +62,12 @@ final class Fighter3DRenderer {
     init(appearance: FighterAppearance, motionStyle: Fighter3DMotionStyle) {
         self.motionStyle = motionStyle
         motionProfile = motionStyle.profile
+        let proportions = Fighter3DAppearanceProfile(appearance: appearance)
+        // The ankle target represents the center of the joint, while contact
+        // happens at the lowest of the boot cuff and shoe box.
+        // Leave a tiny presentation gap above raised seams/markings on the
+        // canvas; otherwise correct contact still reads as mesh intersection.
+        soleClearance = max(0.13, 0.06 + proportions.shoeHeight * 0.5) + 0.025
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
 
@@ -74,6 +82,8 @@ final class Fighter3DRenderer {
         buildCamera(in: scene)
         buildLights(in: scene)
         buildFighter(in: scene, appearance: appearance)
+        apply(guardPose)
+        calibrateRigGrounding()
         apply(guardPose)
         captureNeutralFootPositions()
     }
@@ -735,13 +745,13 @@ final class Fighter3DRenderer {
         )
         switch motionStyle {
         case .allRounder:
-            timing = (0.17, 0.36, 0.56, 0.78, 0.92)
+            timing = (0.13, 0.28, 0.43, 0.65, 0.83)
         case .pressure:
-            timing = (0.20, 0.40, 0.60, 0.82, 0.95)
+            timing = (0.15, 0.31, 0.46, 0.68, 0.86)
         case .outBoxer:
-            timing = (0.12, 0.28, 0.46, 0.68, 0.84)
+            timing = (0.09, 0.23, 0.38, 0.58, 0.76)
         case .rival:
-            timing = (0.18, 0.38, 0.58, 0.80, 0.93)
+            timing = (0.13, 0.29, 0.44, 0.66, 0.84)
         }
 
         return Fighter3DMotionClip(keyframes: [
@@ -1031,7 +1041,11 @@ final class Fighter3DRenderer {
     ) {
         lastAppliedPose = pose
         let pose = pose.sanitized()
-        skeletonRoot.position = SCNVector3(pose.rootX, pose.rootY, pose.rootZ)
+        skeletonRoot.position = SCNVector3(
+            pose.rootX,
+            pose.rootY + rigGroundingOffset,
+            pose.rootZ
+        )
         skeletonRoot.eulerAngles.x = Float(pose.rootPitch)
         skeletonRoot.eulerAngles.z = Float(pose.rootRoll)
         pelvis.eulerAngles = pose.pelvis
@@ -1303,36 +1317,36 @@ final class Fighter3DRenderer {
             let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
             switch bodyMotion.initiatingFoot {
             case .lead:
-                if frame.stepProgress <= 0.50 {
+                if frame.stepProgress <= 0.44 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: frame.stepProgress / 0.50,
+                        progress: frame.stepProgress / 0.44,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
-                if frame.stepProgress >= 0.52, frame.stepProgress <= 0.92 {
+                if frame.stepProgress >= 0.48, frame.stepProgress <= 0.84 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: (frame.stepProgress - 0.52) / 0.40,
+                        progress: (frame.stepProgress - 0.48) / 0.36,
                         lift: frame.backAnkleLift * scale
                     )
                 }
             case .rear:
-                if frame.stepProgress <= 0.50 {
+                if frame.stepProgress <= 0.44 {
                     rearFootPlantTarget = steppingTarget(
                         from: rearStart,
                         toward: desiredRear,
-                        progress: frame.stepProgress / 0.50,
+                        progress: frame.stepProgress / 0.44,
                         lift: frame.backAnkleLift * scale
                     )
                 }
-                if frame.stepProgress >= 0.52, frame.stepProgress <= 0.92 {
+                if frame.stepProgress >= 0.48, frame.stepProgress <= 0.84 {
                     leadFootPlantTarget = steppingTarget(
                         from: leadStart,
                         toward: desiredLead,
-                        progress: (frame.stepProgress - 0.52) / 0.40,
+                        progress: (frame.stepProgress - 0.48) / 0.36,
                         lift: frame.frontAnkleLift * scale
                     )
                 }
@@ -1343,11 +1357,13 @@ final class Fighter3DRenderer {
 
         leadFootPlantTarget = reachablePlantTarget(
             leadFootPlantTarget ?? leadCurrent,
-            from: leadCurrent
+            from: leadCurrent,
+            groundHeight: desiredLead.y
         )
         rearFootPlantTarget = reachablePlantTarget(
             rearFootPlantTarget ?? rearCurrent,
-            from: rearCurrent
+            from: rearCurrent,
+            groundHeight: desiredRear.y
         )
         leadFootIK.targetPosition = leadFootPlantTarget ?? leadCurrent
         rearFootIK.targetPosition = rearFootPlantTarget ?? rearCurrent
@@ -1359,14 +1375,33 @@ final class Fighter3DRenderer {
     }
 
     private func captureNeutralFootPositions() {
-        neutralLeadFootPosition = leadAnkle.convertPosition(
+        var leadPosition = leadAnkle.convertPosition(
             SCNVector3Zero,
             to: presentationRoot
         )
-        neutralRearFootPosition = rearAnkle.convertPosition(
+        var rearPosition = rearAnkle.convertPosition(
             SCNVector3Zero,
             to: presentationRoot
         )
+        // Both IK targets describe the ankle joint. Pinning their neutral Y to
+        // the sole thickness keeps the actual shoe bottom on the mat at zero.
+        leadPosition.y = Float(soleClearance)
+        rearPosition.y = Float(soleClearance)
+        neutralLeadFootPosition = leadPosition
+        neutralRearFootPosition = rearPosition
+    }
+
+    private func calibrateRigGrounding() {
+        let leadPosition = leadAnkle.convertPosition(
+            SCNVector3Zero,
+            to: presentationRoot
+        )
+        let rearPosition = rearAnkle.convertPosition(
+            SCNVector3Zero,
+            to: presentationRoot
+        )
+        let lowestAnkle = CGFloat(min(leadPosition.y, rearPosition.y))
+        rigGroundingOffset = max(soleClearance - lowestAnkle, 0)
     }
 
     private func steppingTarget(
@@ -1389,7 +1424,8 @@ final class Fighter3DRenderer {
     /// preserving contact without allowing the knee to fold unpredictably.
     private func reachablePlantTarget(
         _ target: SCNVector3,
-        from current: SCNVector3
+        from current: SCNVector3,
+        groundHeight: Float
     ) -> SCNVector3 {
         let scale = max(abs(presentationRoot.presentation.scale.x), 0.01)
         let maximumPlanarCorrection = 0.30 * scale
@@ -1402,11 +1438,12 @@ final class Fighter3DRenderer {
             result.x = current.x + dx * retained
             result.z = current.z + dz * retained
         }
-        let maximumVerticalCorrection = 0.10 * scale
-        result.y = min(max(
-            result.y,
-            current.y - maximumVerticalCorrection
-        ), current.y + maximumVerticalCorrection)
+        // Vertical placement is ground-relative, not current-foot-relative.
+        // Root compression can exceed the old per-frame correction cap; that
+        // cap allowed the whole shoe to follow the pelvis under the canvas.
+        // The authored target already contains swing lift, so preserving it
+        // while enforcing the neutral ground plane keeps both plants clean.
+        result.y = max(result.y, groundHeight)
         return result
     }
 

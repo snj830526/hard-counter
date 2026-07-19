@@ -35,8 +35,8 @@ private struct FighterFootworkPresentation {
         switch style {
         case .allRounder:
             return Self(
-                launchRange: 0.10...0.48,
-                followRange: 0.52...0.90,
+                launchRange: 0.07...0.40,
+                followRange: 0.48...0.78,
                 amplitudeBase: 0.70,
                 amplitudeGain: 1.02,
                 strideScale: 1.15,
@@ -48,8 +48,8 @@ private struct FighterFootworkPresentation {
             )
         case .pressure:
             return Self(
-                launchRange: 0.14...0.55,
-                followRange: 0.60...0.96,
+                launchRange: 0.09...0.43,
+                followRange: 0.50...0.82,
                 amplitudeBase: 0.76,
                 amplitudeGain: 1.08,
                 strideScale: 1.12,
@@ -61,8 +61,8 @@ private struct FighterFootworkPresentation {
             )
         case .outBoxer:
             return Self(
-                launchRange: 0.06...0.38,
-                followRange: 0.42...0.76,
+                launchRange: 0.04...0.32,
+                followRange: 0.40...0.68,
                 amplitudeBase: 0.64,
                 amplitudeGain: 1.10,
                 strideScale: 1.38,
@@ -74,8 +74,8 @@ private struct FighterFootworkPresentation {
             )
         case .rival:
             return Self(
-                launchRange: 0.11...0.50,
-                followRange: 0.55...0.92,
+                launchRange: 0.07...0.40,
+                followRange: 0.48...0.79,
                 amplitudeBase: 0.72,
                 amplitudeGain: 1.04,
                 strideScale: 1.18,
@@ -157,12 +157,12 @@ struct FighterLocomotionController {
             phase,
             start: footwork.launchRange.lowerBound,
             end: footwork.launchRange.upperBound
-        ), 1.22)
+        ), 1.36)
         let followLift = pow(pulse(
             phase,
             start: footwork.followRange.lowerBound,
             end: footwork.followRange.upperBound
-        ), 1.28)
+        ), 1.42)
         let landing = pulse(phase, start: 0.30, end: 0.88)
         let preload = pulse(phase, start: 0, end: 0.30)
 
@@ -196,13 +196,13 @@ struct FighterLocomotionController {
         frontFootPlantOffset = damp(
             frontFootPlantOffset,
             toward: .zero,
-            response: frontCatch * 28,
+            response: frontCatch * 42,
             deltaTime: deltaTime
         )
         backFootPlantOffset = damp(
             backFootPlantOffset,
             toward: .zero,
-            response: backCatch * 28,
+            response: backCatch * 42,
             deltaTime: deltaTime
         )
 
@@ -290,14 +290,14 @@ struct FighterLocomotionController {
             frontFootOffset: CGPoint(
                 x: frontFootPlantOffset.x
                     + localDirectionX * frontLift * motionAmplitude
-                        * 3.8 * footwork.strideScale,
+                        * 4.25 * footwork.strideScale,
                 y: frontFootPlantOffset.y + frontLift * motionAmplitude
                     * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
             ),
             backFootOffset: CGPoint(
                 x: backFootPlantOffset.x
                     + localDirectionX * backLift * motionAmplitude
-                        * 3.8 * footwork.strideScale,
+                        * 4.25 * footwork.strideScale,
                 y: backFootPlantOffset.y + backLift * motionAmplitude
                     * (6.1 + stepDirection.dy * 1.8) * footwork.liftScale
             ),
@@ -306,8 +306,8 @@ struct FighterLocomotionController {
             pelvisRotation: displayedPelvisRotation,
             upperBodyPosition: displayedUpperPosition,
             upperBodyRotation: displayedUpperRotation,
-            frontAnkleLift: frontLift * motionAmplitude * 0.090 * footwork.liftScale,
-            backAnkleLift: backLift * motionAmplitude * 0.090 * footwork.liftScale,
+            frontAnkleLift: frontLift * motionAmplitude * 0.105 * footwork.liftScale,
+            backAnkleLift: backLift * motionAmplitude * 0.105 * footwork.liftScale,
             movementIntensity: displayedIntensity,
             forwardDrive: forwardDrive,
             lateralDrive: lateralDrive,

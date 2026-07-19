@@ -107,10 +107,10 @@ struct FighterFullBodyMotionController {
             ))
         }
 
-        // Longer, readable steps replace the shared rapid shuffle. Character
-        // cadence changes how long the weight-transfer cycle takes, while the
-        // movement speed still comes from combat stats and the same envelope.
-        let stepDuration = (0.46 - Double(committedIntensity) * 0.05)
+        // Keep the two plants readable, but finish the shuffle decisively so
+        // the initiating and trailing feet do not dissolve into one long arc.
+        // Movement speed still comes from combat stats and the same envelope.
+        let stepDuration = (0.40 - Double(committedIntensity) * 0.04)
             / Double(cadence)
         stepProgress = min(
             stepProgress + CGFloat(deltaTime / max(stepDuration, 0.20)),
@@ -135,7 +135,7 @@ struct FighterFullBodyMotionController {
         let displayedSupportFoot = supportFoot(at: stepProgress)
         let supportSign: CGFloat = initialSupportFoot == .lead ? -1 : 1
         let loading = pulse(stepProgress, start: 0, end: 0.32)
-        let landing = pulse(stepProgress, start: 0.58, end: 1)
+        let landing = pulse(stepProgress, start: 0.50, end: 0.90)
         let weightTransfer = (loading - landing * 0.72) * supportSign
         let weightOnLead = min(max(0.5 + weightTransfer * 0.32, 0.14), 0.86)
         let center = CGPoint(
@@ -143,7 +143,7 @@ struct FighterFullBodyMotionController {
             y: local.forward * drive * 0.12
         )
         let plantedness = min(max(
-            1 - pulse(stepProgress, start: 0.14, end: 0.78) * 0.58,
+            1 - pulse(stepProgress, start: 0.10, end: 0.72) * 0.64,
             0
         ), 1)
 
@@ -219,8 +219,8 @@ struct FighterFullBodyMotionController {
     /// for the entire cycle made the trailing leg slide while still "planted".
     private func supportFoot(at progress: CGFloat) -> FighterSupportFoot {
         guard supportFoot != .both else { return .both }
-        if progress < 0.52 { return supportFoot }
-        if progress < 0.92 {
+        if progress < 0.48 { return supportFoot }
+        if progress < 0.86 {
             return supportFoot == .lead ? .rear : .lead
         }
         return .both
