@@ -12,10 +12,10 @@ final class CombatControlsNode: SKNode {
     private let movementFullSpeedRadius: CGFloat = 58
     private let dpad = SKShapeNode(circleOfRadius: 58)
     private let dpadCenterDot = SKShapeNode(circleOfRadius: 12)
-    private let punchButton = SKShapeNode(circleOfRadius: 39)
-    private let swayButton = SKShapeNode(circleOfRadius: 34)
-    private let punchLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let swayLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let punchButton = SKShapeNode(path: CombatControlsNode.octagonPath(radius: 39))
+    private let swayButton = SKShapeNode(path: CombatControlsNode.octagonPath(radius: 34))
+    private let punchLabel = CombatTypography.label(weight: .display)
+    private let swayLabel = CombatTypography.label(weight: .display)
     private var dpadCenter = CGPoint.zero
     private var punchCenter = CGPoint.zero
     private var swayCenter = CGPoint.zero
@@ -115,28 +115,29 @@ final class CombatControlsNode: SKNode {
     }
 
     private func buildControls() {
-        dpad.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.82)
-        dpad.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.42)
-        dpad.lineWidth = 2.5
+        dpad.fillColor = ArenaVisualPalette.void.withAlphaComponent(0.68)
+        dpad.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.24)
+        dpad.lineWidth = 1.5
         addChild(dpad)
 
         let dpadInner = SKShapeNode(circleOfRadius: 43)
         dpadInner.fillColor = .clear
-        dpadInner.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.15)
+        dpadInner.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.24)
         dpadInner.lineWidth = 1
         dpad.addChild(dpadInner)
 
         for angle in stride(from: CGFloat(0), to: 2 * .pi, by: .pi / 2) {
-            let arrow = SKShapeNode(path: arrowPath())
-            arrow.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.72)
-            arrow.strokeColor = .clear
-            arrow.zRotation = angle
-            dpad.addChild(arrow)
+            let notch = SKShapeNode(rectOf: CGSize(width: 14, height: 3), cornerRadius: 1.5)
+            notch.position = CGPoint(x: cos(angle) * 49, y: sin(angle) * 49)
+            notch.zRotation = angle
+            notch.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.58)
+            notch.strokeColor = .clear
+            dpad.addChild(notch)
         }
 
-        dpadCenterDot.fillColor = ArenaVisualPalette.gunmetal.withAlphaComponent(0.92)
-        dpadCenterDot.strokeColor = ArenaVisualPalette.cyanSignal.withAlphaComponent(0.62)
-        dpadCenterDot.lineWidth = 1
+        dpadCenterDot.fillColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.88)
+        dpadCenterDot.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.52)
+        dpadCenterDot.lineWidth = 1.5
         addChild(dpadCenterDot)
 
         configureButton(punchButton, color: ArenaVisualPalette.amberSignal, radius: 39)
@@ -155,21 +156,20 @@ final class CombatControlsNode: SKNode {
         color: SKColor,
         radius: CGFloat
     ) {
-        button.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.86)
-        button.strokeColor = color.withAlphaComponent(0.95)
-        button.lineWidth = 3
-        button.glowWidth = 2
+        button.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.92)
+        button.strokeColor = color.withAlphaComponent(0.82)
+        button.lineWidth = 2
 
-        let face = SKShapeNode(circleOfRadius: radius - 6)
-        face.fillColor = color.withAlphaComponent(0.58)
-        face.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.22)
+        let face = SKShapeNode(path: Self.octagonPath(radius: radius - 6))
+        face.fillColor = color.withAlphaComponent(0.42)
+        face.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.18)
         face.lineWidth = 1
         face.zPosition = 0.5
         button.addChild(face)
 
-        let sheen = SKShapeNode(rectOf: CGSize(width: radius * 0.95, height: 2), cornerRadius: 1)
-        sheen.position.y = radius * 0.42
-        sheen.fillColor = SKColor.white.withAlphaComponent(0.26)
+        let sheen = SKShapeNode(rectOf: CGSize(width: radius * 0.9, height: 2), cornerRadius: 1)
+        sheen.position.y = radius * 0.5
+        sheen.fillColor = SKColor.white.withAlphaComponent(0.22)
         sheen.strokeColor = .clear
         sheen.zPosition = 0.8
         button.addChild(sheen)
@@ -184,11 +184,17 @@ final class CombatControlsNode: SKNode {
         label.zPosition = 2
     }
 
-    private func arrowPath() -> CGPath {
+    private static func octagonPath(radius: CGFloat) -> CGPath {
         let path = CGMutablePath()
-        path.move(to: CGPoint(x: 28, y: 0))
-        path.addLine(to: CGPoint(x: 17, y: 8))
-        path.addLine(to: CGPoint(x: 17, y: -8))
+        let cut = radius * 0.42
+        path.move(to: CGPoint(x: -cut, y: -radius))
+        path.addLine(to: CGPoint(x: cut, y: -radius))
+        path.addLine(to: CGPoint(x: radius, y: -cut))
+        path.addLine(to: CGPoint(x: radius, y: cut))
+        path.addLine(to: CGPoint(x: cut, y: radius))
+        path.addLine(to: CGPoint(x: -cut, y: radius))
+        path.addLine(to: CGPoint(x: -radius, y: cut))
+        path.addLine(to: CGPoint(x: -radius, y: -cut))
         path.closeSubpath()
         return path
     }

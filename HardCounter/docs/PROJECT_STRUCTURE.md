@@ -29,6 +29,11 @@ HardCounter/
 ├── HardCounterApp.swift
 ├── ContentView.swift
 ├── Assets.xcassets/
+├── Resources/
+│   └── Fonts/
+│       ├── NEXON Football Gothic B.otf
+│       ├── NEXON Football Gothic L.otf
+│       └── NOTICE.md
 ├── Game/
 │   ├── CPU/
 │   │   └── CPUController.swift
@@ -123,6 +128,7 @@ HardCounter/
 - `Arena3DRingNode.swift`: 3D 매트, 에이프런, 포스트, 코너 패드와 로프의 SceneKit 노드 계층 및 재질을 소유한다.
 - `Arena3DCameraController.swift`: 두 선수의 가로·깊이 간격으로 직교 카메라 초점과 배율을 계산하고 부드럽게 추적한다. 링 생성과 타격 판정에는 관여하지 않는다.
 - `CombatHUDNode.swift`: 체력·스태미너 게이지, 선수 이름, 상태 문구와 라운드 종료 오버레이를 소유하고 안전 영역 기준으로 배치한다. 아레나 카메라 계층 밖에 있어 화면에 고정된다.
+- `CombatTypography.swift`: 앱에 포함된 넥슨 풋볼고딕의 Bold·Light 이름을 전투 HUD와 조작 UI가 공유하도록 제공한다.
 - `ArenaPresentationGeometry.swift`: 2D 쿼터 뷰와 공통 3D 아레나 사이의 화면/링 좌표 변환 경계를 제공한다.
 - `ArenaVisualPalette.swift`: 2D 링의 조명 표시와 3D 파이터의 키·림 라이트가 공유하는 색상 팔레트를 정의한다.
 - `ArenaViewTuning.swift`: 링의 실제 이동 면적, 시작 위치, 원·근거리 카메라 배율, 근접 줌이 시작되는 거리, 선수 화면 크기와 추적 데드존을 한곳에서 조정한다. 카메라는 발 앵커 사이 거리뿐 아니라 두 선수의 머리·어깨·발 실루엣 전체를 안전 영역에 맞추며, 가독성을 위한 선수 확대는 전투 판정 스케일과 분리한다.

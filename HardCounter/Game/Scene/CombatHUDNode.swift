@@ -22,10 +22,11 @@ final class CombatHUDNode: SKNode {
         color: ArenaVisualPalette.greenSignal,
         size: CGSize(width: 216, height: 5)
     )
-    let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
-    let playerName = SKLabelNode(fontNamed: "Menlo-Bold")
-    let cpuName = SKLabelNode(fontNamed: "Menlo-Bold")
-    let roundLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    let statusLabel = CombatTypography.label(weight: .display)
+    let playerName = CombatTypography.label(weight: .display)
+    let cpuName = CombatTypography.label(weight: .display)
+    let roundLabel = CombatTypography.label(weight: .supporting)
+    private let roundPlate = SKShapeNode()
     let roundEndOverlay = SKSpriteNode(
         color: SKColor.black.withAlphaComponent(0.58),
         size: .zero
@@ -34,7 +35,7 @@ final class CombatHUDNode: SKNode {
         rectOf: CGSize(width: 190, height: 52),
         cornerRadius: 12
     )
-    let restartLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    let restartLabel = CombatTypography.label(weight: .display)
 
     init(
         playerName: String,
@@ -96,20 +97,23 @@ final class CombatHUDNode: SKNode {
             alignment: .right,
             color: opponentColor
         )
-        roundLabel.text = isNetworkMatch ? "NEARBY · ROUND 1" : "ROUND 1"
-        roundLabel.fontSize = 11
-        roundLabel.fontColor = SKColor.white.withAlphaComponent(0.66)
+        configureRoundPlate()
+        roundLabel.text = isNetworkMatch ? "NEARBY  /  ROUND 01" : "ROUND  01"
+        roundLabel.fontSize = 12
+        roundLabel.fontColor = SKColor.white.withAlphaComponent(0.92)
         roundLabel.horizontalAlignmentMode = .center
+        roundLabel.verticalAlignmentMode = .center
         roundLabel.zPosition = 20
         addChild(self.playerName)
         addChild(cpuName)
+        addChild(roundPlate)
         addChild(roundLabel)
 
         roundEndOverlay.zPosition = 150
         roundEndOverlay.isHidden = true
         addChild(roundEndOverlay)
 
-        restartButton.fillColor = ArenaVisualPalette.gunmetal
+        restartButton.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.96)
         restartButton.strokeColor = ArenaVisualPalette.amberSignal.withAlphaComponent(0.92)
         restartButton.lineWidth = 2
         restartButton.zPosition = 160
@@ -142,8 +146,9 @@ final class CombatHUDNode: SKNode {
         cpuHealthDamageBar.position = CGPoint(x: right, y: top)
         playerStaminaBar.position = CGPoint(x: left, y: top - 18)
         cpuStaminaBar.position = CGPoint(x: right, y: top - 18)
-        playerName.position = CGPoint(x: left, y: top - 34)
-        cpuName.position = CGPoint(x: right, y: top - 34)
+        playerName.position = CGPoint(x: left, y: top - 37)
+        cpuName.position = CGPoint(x: right, y: top - 37)
+        roundPlate.position = CGPoint(x: size.width / 2, y: top)
         roundLabel.position = CGPoint(x: size.width / 2, y: top + 1)
         statusLabel.position = CGPoint(
             x: size.width / 2,
@@ -155,14 +160,15 @@ final class CombatHUDNode: SKNode {
     }
 
     private func addHealthBarBackground(for bar: SKSpriteNode) {
-        let background = SKSpriteNode(color: .clear, size: CGSize(width: 238, height: 24))
+        let background = SKSpriteNode(color: .clear, size: CGSize(width: 230, height: 20))
         background.name = bar === playerHealthBar ? "playerHealthBackground" : "cpuHealthBackground"
         background.zPosition = 9
         addGaugeFrame(
             to: background,
             size: background.size,
             signal: bar === playerHealthBar
-                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
+                ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal,
+            accentOnLeft: bar === playerHealthBar
         )
         addChild(background)
         bar.zPosition = 10
@@ -171,13 +177,18 @@ final class CombatHUDNode: SKNode {
     private func addStaminaBarBackground(for bar: SKSpriteNode, name: String) {
         let background = SKSpriteNode(
             color: .clear,
-            size: CGSize(width: 238, height: 12)
+            size: CGSize(width: 230, height: 9)
         )
         background.name = name
         background.zPosition = 9
         let signal = name.hasPrefix("player")
             ? ArenaVisualPalette.cyanSignal : ArenaVisualPalette.amberSignal
-        addGaugeFrame(to: background, size: CGSize(width: 232, height: 11), signal: signal)
+        addGaugeFrame(
+            to: background,
+            size: CGSize(width: 226, height: 8),
+            signal: signal,
+            accentOnLeft: name.hasPrefix("player")
+        )
         addChild(background)
         bar.zPosition = 10
     }
@@ -185,9 +196,10 @@ final class CombatHUDNode: SKNode {
     private func addGaugeFrame(
         to background: SKSpriteNode,
         size: CGSize,
-        signal: SKColor
+        signal: SKColor,
+        accentOnLeft: Bool
     ) {
-        let inset: CGFloat = size.height >= 20 ? 5 : 3
+        let inset: CGFloat = size.height >= 16 ? 5 : 2
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -size.width / 2 + inset, y: -size.height / 2))
         path.addLine(to: CGPoint(x: size.width / 2 - inset, y: -size.height / 2))
@@ -200,42 +212,24 @@ final class CombatHUDNode: SKNode {
         path.closeSubpath()
 
         let panel = SKShapeNode(path: path)
-        panel.strokeColor = ArenaVisualPalette.raisedMetal.withAlphaComponent(0.78)
-        panel.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.96)
-        panel.lineWidth = 1.2
+        panel.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.20)
+        panel.fillColor = ArenaVisualPalette.void.withAlphaComponent(0.88)
+        panel.lineWidth = 1
         panel.zPosition = 0.5
         background.addChild(panel)
 
         let signalRail = SKSpriteNode(
             color: signal.withAlphaComponent(0.78),
-            size: CGSize(width: size.width - inset * 4, height: size.height >= 20 ? 1.6 : 1.0)
+            size: CGSize(width: size.width - inset * 4, height: size.height >= 16 ? 2 : 1)
         )
-        signalRail.position.y = -size.height / 2 + 2
+        signalRail.position.y = -size.height / 2 + 1
         signalRail.zPosition = 1.2
         background.addChild(signalRail)
 
-        let tickHeight = max(size.height - 8, 2)
-        for index in 1..<10 {
-            let tick = SKSpriteNode(
-                color: ArenaVisualPalette.whiteMark.withAlphaComponent(0.10),
-                size: CGSize(width: 0.8, height: tickHeight)
-            )
-            tick.position.x = -size.width / 2 + CGFloat(index) * size.width / 10
-            tick.zPosition = 2.4
-            background.addChild(tick)
-        }
-
-        for side: CGFloat in [-1, 1] {
-            let bolt = SKShapeNode(circleOfRadius: size.height >= 20 ? 1.5 : 1.0)
-            bolt.position = CGPoint(
-                x: side * (size.width / 2 - inset - 2),
-                y: size.height / 2 - inset - 1
-            )
-            bolt.fillColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.28)
-            bolt.strokeColor = .clear
-            bolt.zPosition = 2.5
-            background.addChild(bolt)
-        }
+        let cap = SKSpriteNode(color: signal, size: CGSize(width: 3, height: max(size.height - 4, 2)))
+        cap.position.x = (accentOnLeft ? -1 : 1) * (size.width / 2 - inset - 1)
+        cap.zPosition = 2.4
+        background.addChild(cap)
     }
 
     private func decorateGaugeFill(_ bar: SKSpriteNode) {
@@ -276,11 +270,45 @@ final class CombatHUDNode: SKNode {
         color: SKColor
     ) {
         label.text = text
-        label.fontSize = 12
-        label.fontColor = color
+        label.fontSize = 15
+        label.fontColor = SKColor.white.withAlphaComponent(0.94)
         label.horizontalAlignmentMode = alignment
         label.verticalAlignmentMode = .bottom
         label.zPosition = 20
+
+        let marker = SKSpriteNode(color: color, size: CGSize(width: 18, height: 2))
+        marker.position = CGPoint(
+            x: alignment == .left ? 9 : -9,
+            y: -5
+        )
+        marker.zPosition = -1
+        label.addChild(marker)
+    }
+
+    private func configureRoundPlate() {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: -49, y: -13))
+        path.addLine(to: CGPoint(x: -42, y: -19))
+        path.addLine(to: CGPoint(x: 42, y: -19))
+        path.addLine(to: CGPoint(x: 49, y: -13))
+        path.addLine(to: CGPoint(x: 49, y: 13))
+        path.addLine(to: CGPoint(x: 42, y: 19))
+        path.addLine(to: CGPoint(x: -42, y: 19))
+        path.addLine(to: CGPoint(x: -49, y: 13))
+        path.closeSubpath()
+        roundPlate.path = path
+        roundPlate.fillColor = ArenaVisualPalette.carbon.withAlphaComponent(0.94)
+        roundPlate.strokeColor = ArenaVisualPalette.whiteMark.withAlphaComponent(0.28)
+        roundPlate.lineWidth = 1
+        roundPlate.zPosition = 18
+
+        let lowerRail = SKSpriteNode(
+            color: ArenaVisualPalette.amberSignal.withAlphaComponent(0.9),
+            size: CGSize(width: 52, height: 2)
+        )
+        lowerRail.position.y = -18
+        lowerRail.zPosition = 1
+        roundPlate.addChild(lowerRail)
     }
 
 }

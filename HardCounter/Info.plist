@@ -28,6 +28,11 @@
 	<string>Used to discover and connect to nearby iPhones for local matches.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>NEXON Football Gothic B.otf</string>
+		<string>NEXON Football Gothic L.otf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
