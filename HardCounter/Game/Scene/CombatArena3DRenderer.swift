@@ -127,13 +127,21 @@ final class CombatArena3DRenderer {
         node.opacity = 1
         node.scale = SCNVector3(0.48, 0.48, 0.48)
         scene.rootNode.addChildNode(node)
+        let impactDuration = CombatTuning.impactAnimationDuration
+            / (isCounter ? Double(CombatTuning.counterSlowMotionScale) : 1)
         node.runAction(.sequence([
             .group([
-                .scale(to: 1.42, duration: CombatTuning.impactAnimationDuration),
-                .fadeOut(duration: CombatTuning.impactAnimationDuration)
+                .scale(to: 1.42, duration: impactDuration),
+                .fadeOut(duration: impactDuration)
             ]),
             .removeFromParentNode()
         ]))
+    }
+
+    func playCounterCloseUp(on fighter: FighterNode, technique: PunchTechnique) {
+        cameraController.playCounterCloseUp(
+            at: fighter.threeDBodyWorldPosition(for: technique)
+        )
     }
 
     func worldDistance(

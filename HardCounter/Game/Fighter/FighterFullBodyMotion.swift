@@ -142,7 +142,14 @@ struct FighterFullBodyMotionController {
                 * landingCadence,
             1
         )
-        let drive = movementEnvelope(at: stepProgress)
+        let local = localComponents(
+            direction: committedDirection,
+            towardOpponent: towardOpponent
+        )
+        let drive = movementEnvelope(
+            at: stepProgress,
+            forwardAmount: max(local.forward, 0)
+        )
         let turnBrake: CGFloat = isSharpTurn
             ? 1 - 0.62 * smooth((stepProgress - 0.30) / 0.70) : 1
         let release: CGFloat = intentAmount > 0.025
@@ -153,10 +160,6 @@ struct FighterFullBodyMotionController {
             dy: committedDirection.dy * speed
         )
 
-        let local = localComponents(
-            direction: committedDirection,
-            towardOpponent: towardOpponent
-        )
         let initialSupportFoot = supportFoot
         let displayedSupportFoot = supportFoot(at: stepProgress)
         let supportSign: CGFloat = initialSupportFoot == .lead ? -1 : 1
@@ -267,23 +270,39 @@ struct FighterFullBodyMotionController {
         }
     }
 
-    private func movementEnvelope(at progress: CGFloat) -> CGFloat {
-        // Load the hip and support knee before translating the ring root.
-        // Starting root travel on the first step frame made a grounded boot
-        // slide and let the torso appear to pull the legs behind it.
+    private func movementEnvelope(
+        at progress: CGFloat,
+        forwardAmount: CGFloat
+    ) -> CGFloat {
+        let regular: CGFloat
         if progress < 0.055 {
-            return 0
+            regular = 0
+        } else if progress < 0.20 {
+            regular = smooth((progress - 0.055) / 0.145) * 0.82
+        } else if progress < 0.54 {
+            regular = 0.82 + smooth((progress - 0.20) / 0.34) * 0.23
+        } else if progress < 0.82 {
+            regular = 1.05 - smooth((progress - 0.54) / 0.28) * 0.19
+        } else {
+            regular = 0.86 - smooth((progress - 0.82) / 0.18) * 0.32
         }
-        if progress < 0.20 {
-            return smooth((progress - 0.055) / 0.145) * 0.82
+
+        // The lead boot reaches its authored plant near 0.27...0.30. Do not
+        // translate the root before then: an advance must read as foot plant,
+        // hips crossing the support leg, then trailing-foot recovery.
+        // The later peak preserves the original average move speed.
+        let advance: CGFloat
+        if progress < 0.26 {
+            advance = 0
+        } else if progress < 0.48 {
+            advance = smooth((progress - 0.26) / 0.22) * 1.38
+        } else if progress < 0.75 {
+            advance = 1.38 - smooth((progress - 0.48) / 0.27) * 0.08
+        } else {
+            advance = 1.30 - smooth((progress - 0.75) / 0.25) * 0.50
         }
-        if progress < 0.54 {
-            return 0.82 + smooth((progress - 0.20) / 0.34) * 0.23
-        }
-        if progress < 0.82 {
-            return 1.05 - smooth((progress - 0.54) / 0.28) * 0.19
-        }
-        return 0.86 - smooth((progress - 0.82) / 0.18) * 0.32
+        let blend = min(max(forwardAmount, 0), 1)
+        return regular + (advance - regular) * blend
     }
 
     private func localComponents(

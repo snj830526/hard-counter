@@ -271,7 +271,7 @@ enum FighterMotionLibrary {
         profile: PunchProfile
     ) -> FighterMotionClip {
         let duration = kind == .counter
-            ? CombatTuning.counterHitReaction
+            ? CombatTuning.counterHitReactionAnimationDuration
             : CombatTuning.hitReaction
         let distance = (kind == .counter
             ? CombatTuning.counterKnockback

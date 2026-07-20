@@ -33,7 +33,11 @@ enum CombatTuning {
     static let swayPunchCancelDelay: TimeInterval = 0.12
     static let swayDirectionInputGrace: TimeInterval = 0.22
     static let hitReaction: TimeInterval = 0.24
-    static let counterHitReaction: TimeInterval = 0.48
+    // Counter reaction stays authoritative for the extra real time consumed by
+    // the presentation-only slow motion. The animation itself still uses the
+    // shorter duration below and is advanced with the cinematic time scale.
+    static let counterHitReaction: TimeInterval = 0.91
+    static let counterHitReactionAnimationDuration: TimeInterval = 0.48
 
     // Presentation-only action amplitudes. They enlarge the connected
     // full-body silhouette without changing attack timing, reach, or damage.
@@ -55,6 +59,11 @@ enum CombatTuning {
     static let normalCameraShakeDistance: CGFloat = 2.8
     static let cameraShakeDuration: TimeInterval = 0.20
     static let counterHitStop: TimeInterval = 0.075
+    static let counterSlowMotionDuration: TimeInterval = 0.52
+    static let counterSlowMotionScale: CGFloat = 0.18
+    static let counterCloseUpDuration: TimeInterval = 0.64
+    static let counterCloseUpZoomAmount: CGFloat = 0.38
+    static let counterFlashDuration: TimeInterval = 0.16
 
     static let idleMotionHalfCycle: TimeInterval = 0.62
     static let idleReturnDuration: TimeInterval = 0.16

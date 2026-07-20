@@ -411,7 +411,7 @@ final class FighterNode: SKNode {
             ? CombatTuning.counterKnockback
             : CombatTuning.normalKnockback
         let duration = kind == .counter
-            ? CombatTuning.counterHitReaction
+            ? CombatTuning.counterHitReactionAnimationDuration
             : CombatTuning.hitReaction
         let techniqueTravel: CGFloat
         let lift: CGFloat

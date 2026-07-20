@@ -39,6 +39,7 @@ final class CombatScene: SKScene {
     private var restartLabel: SKLabelNode { hud.restartLabel }
     private let controls = CombatControlsNode()
     private let haptics = HapticController()
+    private let sounds = CombatSoundController()
 
     private lazy var engine = CombatEngine(
         playerStats: fighterProfile.stats,
@@ -94,6 +95,9 @@ final class CombatScene: SKScene {
     )
     private var arenaZoom = ArenaViewTuning.baseZoom
     private var combatArena3DRenderer: CombatArena3DRenderer?
+    private var legacyCounterCloseUpStartedAt: TimeInterval?
+    private var legacyCounterCloseUpFocus = CGPoint.zero
+    private var counterSlowMotionEndsAt: TimeInterval?
 
     private var cpuMotionStyle: Fighter3DMotionStyle {
 #if DEBUG
@@ -190,6 +194,7 @@ final class CombatScene: SKScene {
         footworkShowcaseController.reset(at: gameTime)
 #endif
         haptics.prepare()
+        sounds.prepare()
         layoutScene()
 #if DEBUG
         if damageShowcaseEnabled {
@@ -223,6 +228,7 @@ final class CombatScene: SKScene {
         let deltaTime = min(max(currentTime - (lastUpdateTime ?? currentTime), 0), 0.05)
         lastUpdateTime = currentTime
         gameTime = currentTime
+        updateCounterSlowMotion()
         if networkConfiguration != nil {
             if !hasCompletedCountdown, countdownEndsAt == nil { countdownEndsAt = currentTime + 3 }
             if let countdownEndsAt, currentTime < countdownEndsAt {
@@ -642,7 +648,7 @@ final class CombatScene: SKScene {
     ) {
         // Hit stop freezes the presentation timeline only. The combat engine
         // continues to advance so solo and nearby matches keep identical rules.
-        let motionDeltaTime = arenaNode.speed == 0 ? 0 : deltaTime
+        let motionDeltaTime = deltaTime * Double(arenaNode.speed)
         player.updateMotion(
             FighterMovementState(
                 screenMovement: playerMovement,
@@ -1013,6 +1019,32 @@ final class CombatScene: SKScene {
             smoothedPosition,
             zoom: arenaZoom
         )
+
+        applyLegacyCounterCloseUp()
+    }
+
+    private func applyLegacyCounterCloseUp() {
+        guard combatArena3DRenderer == nil,
+              let startedAt = legacyCounterCloseUpStartedAt else { return }
+        let progress = min(
+            max((gameTime - startedAt) / CombatTuning.counterCloseUpDuration, 0),
+            1
+        )
+        let amount: CGFloat
+        if progress < 0.20 {
+            amount = CGFloat(progress / 0.20)
+        } else {
+            let release = CGFloat((progress - 0.20) / 0.80)
+            amount = 1 - release * release
+        }
+        let closeUpZoom = arenaZoom * (1 + CombatTuning.counterCloseUpZoomAmount * amount)
+        let screenTarget = CGPoint(x: size.width * 0.5, y: size.height * 0.45)
+        cameraRig.setScale(closeUpZoom)
+        cameraRig.position = CGPoint(
+            x: cameraRig.position.x * (1 - amount) + (screenTarget.x - legacyCounterCloseUpFocus.x * closeUpZoom) * amount,
+            y: cameraRig.position.y * (1 - amount) + (screenTarget.y - legacyCounterCloseUpFocus.y * closeUpZoom) * amount
+        )
+        if progress >= 1 { legacyCounterCloseUpStartedAt = nil }
     }
 
     private func desiredArenaZoom() -> CGFloat {
@@ -1952,6 +1984,7 @@ final class CombatScene: SKScene {
         root.position = contactPoint
         root.zPosition = 130
         root.setScale(0.72 * impactPresentationScale)
+        if kind == .counter { root.speed = CombatTuning.counterSlowMotionScale }
 
         let radius: CGFloat
         switch (kind, profile.technique) {
@@ -2093,6 +2126,7 @@ final class CombatScene: SKScene {
         root.position = contactPoint
         root.zPosition = 132
         root.setScale(impactPresentationScale)
+        if isCounter { root.speed = CombatTuning.counterSlowMotionScale }
         impactPresentationLayer.addChild(root)
 
         let baseAngle = atan2(direction.dy, direction.dx)
@@ -2147,7 +2181,12 @@ final class CombatScene: SKScene {
         attacker: FighterID,
         defender: FighterID
     ) {
-        if kind == .counter { showCounterTitle() }
+        sounds.playHit(kind, technique: profile.technique)
+        if kind == .counter {
+            showCounterTitle()
+            counterSlowMotionEndsAt = gameTime + CombatTuning.counterSlowMotionDuration
+            playCounterCloseUp(profile: profile, defender: defender)
+        }
 
         let hitStopDuration: TimeInterval
         if kind == .counter {
@@ -2162,7 +2201,7 @@ final class CombatScene: SKScene {
         arenaNode.speed = 0
         run(.sequence([
             .wait(forDuration: hitStopDuration),
-            .run { [weak self] in self?.arenaNode.speed = 1 }
+            .run { [weak self] in self?.updateCounterSlowMotion() }
         ]), withKey: "hitStop")
 
         let attackerPosition = node(for: attacker).position
@@ -2193,6 +2232,40 @@ final class CombatScene: SKScene {
             .moveBy(x: dx * 1.20, y: dy * 1.20, duration: CombatTuning.cameraShakeDuration * 0.21),
             .move(to: restingPosition, duration: CombatTuning.cameraShakeDuration * 0.40)
         ]), withKey: "shake")
+    }
+
+    private func updateCounterSlowMotion() {
+        guard action(forKey: "hitStop") == nil else { return }
+        if let endsAt = counterSlowMotionEndsAt, gameTime < endsAt {
+            arenaNode.speed = CombatTuning.counterSlowMotionScale
+        } else {
+            counterSlowMotionEndsAt = nil
+            arenaNode.speed = 1
+        }
+    }
+
+    private func playCounterCloseUp(profile: PunchProfile, defender: FighterID) {
+        let defenderNode = node(for: defender)
+        if let combatArena3DRenderer {
+            combatArena3DRenderer.playCounterCloseUp(
+                on: defenderNode,
+                technique: profile.technique
+            )
+        } else {
+            legacyCounterCloseUpStartedAt = gameTime
+            legacyCounterCloseUpFocus = defenderNode.position
+        }
+
+        let flash = SKSpriteNode(color: .white, size: size)
+        flash.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+        flash.zPosition = 500
+        flash.alpha = 0.24
+        flash.blendMode = .add
+        addChild(flash)
+        flash.run(.sequence([
+            .fadeOut(withDuration: CombatTuning.counterFlashDuration),
+            .removeFromParent()
+        ]))
     }
 
     private var impactPresentationLayer: SKNode {
@@ -2241,6 +2314,7 @@ final class CombatScene: SKScene {
 
     private func resetRound() {
         removeAction(forKey: "hitStop")
+        counterSlowMotionEndsAt = nil
         arenaNode.speed = 1
         arenaNode.position = .zero
         player.resetPose()

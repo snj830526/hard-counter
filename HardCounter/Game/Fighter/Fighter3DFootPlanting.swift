@@ -246,6 +246,27 @@ final class Fighter3DFootPlantController {
         let leadStart = leadFootStepStart ?? leadFootPlantTarget ?? leadCurrent
         let rearStart = rearFootStepStart ?? rearFootPlantTarget ?? rearCurrent
         let scale = CGFloat(max(abs(presentationRoot.presentation.scale.x), 0.01))
+        let advance = max(frame.forwardDrive, 0) * bodyMotion.stepIntensity
+        // Predict the next support point in rig-local forward space. Waiting
+        // for `desiredLead/Rear` alone means waiting for the arena root to move,
+        // so the torso necessarily leads the boot. The initiating leg now gets
+        // a real forward plant target before any root translation occurs.
+        let leadLongDestination = advancedPlantDestination(
+            desiredLead,
+            distance: advance * 0.74
+        )
+        let leadCatchDestination = advancedPlantDestination(
+            desiredLead,
+            distance: advance * 0.36
+        )
+        let rearLongDestination = advancedPlantDestination(
+            desiredRear,
+            distance: advance * 0.74
+        )
+        let rearCatchDestination = advancedPlantDestination(
+            desiredRear,
+            distance: advance * 0.36
+        )
         let initiatingSwing = min(max(
             (frame.stepProgress - 0.055) / 0.305,
             0
@@ -255,7 +276,7 @@ final class Fighter3DFootPlantController {
             if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
                 leadFootPlantTarget = steppingTarget(
                     from: leadStart,
-                    toward: desiredLead,
+                    toward: leadLongDestination,
                     progress: initiatingSwing,
                     lift: frame.frontAnkleLift * scale
                 )
@@ -263,7 +284,7 @@ final class Fighter3DFootPlantController {
             if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
                 rearFootPlantTarget = steppingTarget(
                     from: rearStart,
-                    toward: desiredRear,
+                    toward: rearCatchDestination,
                     progress: (frame.stepProgress - 0.54) / 0.32,
                     lift: frame.backAnkleLift * scale
                 )
@@ -272,7 +293,7 @@ final class Fighter3DFootPlantController {
             if frame.stepProgress >= 0.055, frame.stepProgress <= 0.36 {
                 rearFootPlantTarget = steppingTarget(
                     from: rearStart,
-                    toward: desiredRear,
+                    toward: rearLongDestination,
                     progress: initiatingSwing,
                     lift: frame.backAnkleLift * scale
                 )
@@ -280,7 +301,7 @@ final class Fighter3DFootPlantController {
             if frame.stepProgress >= 0.54, frame.stepProgress <= 0.86 {
                 leadFootPlantTarget = steppingTarget(
                     from: leadStart,
-                    toward: desiredLead,
+                    toward: leadCatchDestination,
                     progress: (frame.stepProgress - 0.54) / 0.32,
                     lift: frame.frontAnkleLift * scale
                 )
@@ -288,6 +309,19 @@ final class Fighter3DFootPlantController {
         case .both:
             break
         }
+    }
+
+    private func advancedPlantDestination(
+        _ neutralWorldPosition: SCNVector3,
+        distance: CGFloat
+    ) -> SCNVector3 {
+        guard distance > 0.001 else { return neutralWorldPosition }
+        var local = skeletonRoot.convertPosition(
+            neutralWorldPosition,
+            from: nil
+        )
+        local.z += Float(distance)
+        return skeletonRoot.convertPosition(local, to: nil)
     }
 
     private func solveAnatomicalLeg(
@@ -376,7 +410,10 @@ final class Fighter3DFootPlantController {
         groundHeight: Float
     ) -> SCNVector3 {
         let scale = max(abs(presentationRoot.presentation.scale.x), 0.01)
-        let maximumPlanarCorrection = 0.42 * scale
+        // Forward plants intentionally need more room than neutral recovery.
+        // Regular lateral/retreat targets stay inside the old range, while the
+        // explicit advance target can now use the rig's available leg reach.
+        let maximumPlanarCorrection = 0.65 * scale
         let dx = target.x - current.x
         let dz = target.z - current.z
         let distance = hypot(dx, dz)

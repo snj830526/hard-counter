@@ -10,7 +10,14 @@ final class Arena3DCameraController {
     private let floorDepthVerticalFactor: CGFloat
 
     private(set) var currentScale: CGFloat
+    private var baseScale: CGFloat
     private var focus = SIMD2<Float>.zero
+    private var counterCloseUp: CounterCloseUp?
+
+    private struct CounterCloseUp {
+        let focus: SIMD2<Float>
+        var elapsed: TimeInterval = 0
+    }
 
     init(
         initialScale: CGFloat,
@@ -20,10 +27,19 @@ final class Arena3DCameraController {
         floorDepthVerticalFactor: CGFloat
     ) {
         currentScale = initialScale
+        baseScale = initialScale
         self.closeScale = closeScale
         self.wideScale = wideScale
         self.distanceZoomCompression = distanceZoomCompression
         self.floorDepthVerticalFactor = floorDepthVerticalFactor
+    }
+
+    /// Briefly favors the point of impact and tightens the lens. Gameplay and
+    /// the regular two-fighter framing remain untouched underneath the effect.
+    func playCounterCloseUp(at position: SCNVector3) {
+        counterCloseUp = CounterCloseUp(
+            focus: SIMD2<Float>(position.x, position.z)
+        )
     }
 
     func attach(to scene: SCNScene, viewport: SK3DNode) {
@@ -73,9 +89,33 @@ final class Arena3DCameraController {
             zoomBlend = CGFloat(1 - exp(-deltaTime * 2.8))
         }
         focus += (desiredFocus - focus) * focusBlend
-        currentScale += (desiredScale - currentScale) * zoomBlend
-        cameraNode.camera?.orthographicScale = currentScale
-        cameraNode.position = SCNVector3(focus.x, 5.4, 8.6 + focus.y)
-        cameraNode.look(at: SCNVector3(focus.x, 0.85, focus.y))
+        baseScale += (desiredScale - baseScale) * zoomBlend
+
+        var presentedFocus = focus
+        var closeUpAmount: CGFloat = 0
+        if var closeUp = counterCloseUp {
+            closeUp.elapsed += max(deltaTime, 0)
+            let progress = min(closeUp.elapsed / CombatTuning.counterCloseUpDuration, 1)
+            // A sharp six-frame punch-in followed by a longer ease-out avoids
+            // making the camera feel detached from the actual strike.
+            if progress < 0.20 {
+                closeUpAmount = CGFloat(progress / 0.20)
+            } else {
+                let release = CGFloat((progress - 0.20) / 0.80)
+                closeUpAmount = 1 - release * release
+            }
+            let focusAmount = Float(closeUpAmount * 0.78)
+            presentedFocus += (closeUp.focus - presentedFocus) * focusAmount
+            counterCloseUp = progress < 1 ? closeUp : nil
+        }
+
+        // Keep the reported scale on the underlying gameplay framing so input
+        // velocity and contact conversions do not change during the close-up.
+        currentScale = baseScale
+        let presentedScale = baseScale
+            * (1 - CombatTuning.counterCloseUpZoomAmount * closeUpAmount)
+        cameraNode.camera?.orthographicScale = presentedScale
+        cameraNode.position = SCNVector3(presentedFocus.x, 5.4, 8.6 + presentedFocus.y)
+        cameraNode.look(at: SCNVector3(presentedFocus.x, 0.85, presentedFocus.y))
     }
 }

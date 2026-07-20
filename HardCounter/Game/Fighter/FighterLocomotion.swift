@@ -164,6 +164,21 @@ struct FighterLocomotionController {
             start: footwork.followRange.lowerBound,
             end: footwork.followRange.upperBound
         ), 1.42)
+        // Horizontal travel must reach the new plant and stay there while the
+        // hips pass over it. Reusing the vertical lift pulse here made the boot
+        // return under the body before root translation even began.
+        let launchTravel = stepTravel(
+            phase,
+            start: footwork.launchRange.lowerBound,
+            plant: footwork.launchRange.upperBound,
+            recover: min(footwork.launchRange.upperBound + 0.25, 0.60)
+        )
+        let followTravel = stepTravel(
+            phase,
+            start: footwork.followRange.lowerBound,
+            plant: footwork.followRange.upperBound,
+            recover: 1
+        )
         let firstPlant = pulse(phase, start: 0.28, end: 0.50)
         let trailingPlant = pulse(phase, start: 0.64, end: 0.92)
         let landing = max(firstPlant * 0.76, trailingPlant)
@@ -171,6 +186,8 @@ struct FighterLocomotionController {
 
         let frontLift = frontFootInitiates ? launchLift : followLift
         let backLift = frontFootInitiates ? followLift : launchLift
+        let frontTravel = frontFootInitiates ? launchTravel : followTravel
+        let backTravel = frontFootInitiates ? followTravel : launchTravel
 
         // Even with the closer quarter-view framing, a linear one-to-one foot
         // offset reads as a slide. Decisive stick input gets a stronger step
@@ -241,6 +258,11 @@ struct FighterLocomotionController {
         let directionalLean = localDirectionX * displayedIntensity
         let guardedForwardLoad = forwardDrive * displayedIntensity
         let guardedLateralLoad = lateralDrive * facing * displayedIntensity
+        // Advancing needs a visibly longer lead step than a lateral shuffle.
+        // Without this bias the arena root covers ground faster than the boot,
+        // which reads as the torso towing short, passive legs.
+        let advanceStrideScale = 1 + max(forwardDrive, 0) * 0.68
+        let advanceLiftScale = 1 + max(forwardDrive, 0) * 0.12
 
         let idleAmount = isNeutralPose ? max(1 - displayedIntensity * 1.8, 0) : 0
         let breath = sin(CGFloat(clock) * 2.55)
@@ -293,17 +315,19 @@ struct FighterLocomotionController {
         return FighterLocomotionFrame(
             frontFootOffset: CGPoint(
                 x: frontFootPlantOffset.x
-                    + localDirectionX * frontLift * motionAmplitude
-                        * 5.40 * footwork.strideScale,
+                    + localDirectionX * frontTravel * motionAmplitude
+                        * 5.40 * footwork.strideScale * advanceStrideScale,
                 y: frontFootPlantOffset.y + frontLift * motionAmplitude
                     * (7.4 + stepDirection.dy * 2.0) * footwork.liftScale
+                    * advanceLiftScale
             ),
             backFootOffset: CGPoint(
                 x: backFootPlantOffset.x
-                    + localDirectionX * backLift * motionAmplitude
-                        * 5.40 * footwork.strideScale,
+                    + localDirectionX * backTravel * motionAmplitude
+                        * 5.40 * footwork.strideScale * advanceStrideScale,
                 y: backFootPlantOffset.y + backLift * motionAmplitude
                     * (7.4 + stepDirection.dy * 2.0) * footwork.liftScale
+                    * advanceLiftScale
             ),
             pelvisCompression: compression,
             pelvisPosition: displayedPelvisPosition,
@@ -364,6 +388,18 @@ struct FighterLocomotionController {
         guard value > start, value < end else { return 0 }
         let amount = (value - start) / (end - start)
         return sin(amount * .pi)
+    }
+
+    private func stepTravel(
+        _ value: CGFloat,
+        start: CGFloat,
+        plant: CGFloat,
+        recover: CGFloat
+    ) -> CGFloat {
+        if value <= start { return 0 }
+        if value < plant { return smoothstep(start, plant, value) }
+        guard recover > plant else { return 0 }
+        return 1 - smoothstep(plant, recover, value)
     }
 
     private func clampedFootOffset(_ offset: CGPoint) -> CGPoint {

@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var destination: GameDestination
     @StateObject private var nearbyService = NearbyLobbyService()
+    @StateObject private var menuMusic = MenuMusicController()
 
     init() {
 #if DEBUG
@@ -84,7 +86,16 @@ struct ContentView: View {
         .background(Color(red: 0.025, green: 0.032, blue: 0.055))
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
-        .onAppear(perform: requestLandscapeOrientation)
+        .onAppear {
+            requestLandscapeOrientation()
+            menuMusic.setMenuVisible(destination.showsMenuMusic, animated: false)
+        }
+        .onChange(of: destination) { _, destination in
+            menuMusic.setMenuVisible(destination.showsMenuMusic)
+        }
+        .onChange(of: scenePhase) { _, scenePhase in
+            menuMusic.setAppActive(scenePhase == .active)
+        }
     }
 
     private func requestLandscapeOrientation() {
@@ -105,6 +116,15 @@ private enum GameDestination: Equatable {
     case nearbyLobby
     case nearbyCombat(NearbyMatchConfiguration)
     case combat(FighterProfile)
+
+    var showsMenuMusic: Bool {
+        switch self {
+        case .modeSelection, .fighterSelection, .nearbyLobby:
+            true
+        case .nearbyCombat, .combat:
+            false
+        }
+    }
 }
 
 #Preview {
