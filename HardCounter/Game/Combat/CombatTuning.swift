@@ -48,6 +48,12 @@ enum CombatTuning {
     static let cpuInitialDelay: TimeInterval = 0.35
     static let cpuAttackWatchdogInterval: TimeInterval = 4.80
 
+    /// The host owns nearby-match hit resolution, so its local combat actions
+    /// otherwise skip the transport time paid by guest actions. Holding host
+    /// punches and sways for two scene updates narrows that advantage without
+    /// adding latency to movement or solo play.
+    static let nearbyHostActionDelayTicks = 2
+
     static let hudTopPadding: CGFloat = 20
     static let hudHorizontalPadding: CGFloat = 24
 

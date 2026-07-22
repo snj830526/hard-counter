@@ -55,6 +55,7 @@ final class CombatScene: SKScene {
     private var nextCPUAttackDeadline: TimeInterval = 0
     private var remoteMovement = CGVector.zero
     private var lastRemoteInputSequence: UInt64 = 0
+    private var delayedHostActions: [(command: FighterCommand, ticksRemaining: Int)] = []
     private var networkStateSequence: UInt64 = 0
     private var lastNetworkMovementSentAt: TimeInterval = -.infinity
     private var lastNetworkStateSentAt: TimeInterval = -.infinity
@@ -245,6 +246,7 @@ final class CombatScene: SKScene {
             }
         }
         updateMovement(deltaTime: deltaTime)
+        advanceDelayedHostActions()
 
         let canResolveDamage = networkConfiguration?.role != .guest
         let playerCanHit = canResolveDamage && isWithinPunchRange(for: .player)
@@ -1823,9 +1825,42 @@ final class CombatScene: SKScene {
     }
 
     private func executeLocal(_ command: FighterCommand) {
-        execute(command)
-        guard networkConfiguration != nil, case let .action(action) = command.payload else { return }
-        nearbyService?.sendCombatInput(networkInput(for: action))
+        guard networkConfiguration != nil, case let .action(action) = command.payload else {
+            execute(command)
+            return
+        }
+        if networkConfiguration?.role == .host {
+            nearbyService?.sendCombatInput(networkInput(for: action))
+            delayedHostActions.append((
+                command: command,
+                ticksRemaining: CombatTuning.nearbyHostActionDelayTicks
+            ))
+        } else {
+            execute(command)
+            nearbyService?.sendCombatInput(networkInput(for: action))
+        }
+    }
+
+    private func advanceDelayedHostActions() {
+        guard !delayedHostActions.isEmpty else { return }
+
+        for index in delayedHostActions.indices {
+            delayedHostActions[index].ticksRemaining -= 1
+        }
+
+        let readyActionCount = delayedHostActions.prefix {
+            $0.ticksRemaining <= 0
+        }.count
+        let readyActions = Array(delayedHostActions.prefix(readyActionCount))
+        delayedHostActions.removeFirst(readyActionCount)
+
+        for delayedAction in readyActions {
+            execute(FighterCommand(
+                fighter: delayedAction.command.fighter,
+                payload: delayedAction.command.payload,
+                issuedAt: gameTime
+            ))
+        }
     }
 
     private func handle(_ events: [CombatEvent]) {
@@ -2322,6 +2357,7 @@ final class CombatScene: SKScene {
         playerArenaPosition = .zero
         cpuArenaPosition = .zero
         localInputSource.reset(at: gameTime)
+        delayedHostActions.removeAll(keepingCapacity: true)
         controls.endMovement()
         playerMovementSmoother.reset()
         cpuMovementSmoother.reset()
